@@ -7,9 +7,7 @@ export const getTabsStyles = (t: AppColors) => StyleSheet.create({
     backgroundColor: colors.neutral.lightest,
     borderTopWidth: 1,
     borderTopColor: colors.neutral.light,
-    height: 20,
-    paddingBottom: 50,
-    paddingTop: 8,
+
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-around',

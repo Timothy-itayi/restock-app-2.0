@@ -7,12 +7,13 @@ import {
   ScrollView,
   Alert
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useThemedStyles } from '@styles/useThemedStyles';
 import { getSettingsStyles } from '@styles/components/settings';
-import { useSenderProfileStore, useSenderProfileHydrated } from '../../../store/useSenderProfileStore';
-import type { SenderProfile } from '../../../lib/helpers/storage/sender';
+import { useSenderProfileStore, useSenderProfileHydrated } from '../../store/useSenderProfileStore';
+import type { SenderProfile } from '../../lib/helpers/storage/sender';
 
 export default function SettingsScreen() {
   const styles = useThemedStyles(getSettingsStyles);
@@ -95,7 +96,7 @@ export default function SettingsScreen() {
         <Text style={styles.headerSubtitle}>No sender details found.</Text>
         <TouchableOpacity
           style={{ marginTop: 12 }}
-          onPress={() => router.replace('/sender-setup')}
+          onPress={() => router.replace('/auth/sender-setup')}
         >
           <Text style={styles.headerTitle}>Set Up Profile</Text>
         </TouchableOpacity>
@@ -105,10 +106,11 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Settings</Text>
-        </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, paddingBottom: 8 }}>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 16 }}>
+          <Ionicons name="chevron-back" size={24} color="#333" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Settings</Text>
       </View>
 
       <View style={styles.settingsSection}>

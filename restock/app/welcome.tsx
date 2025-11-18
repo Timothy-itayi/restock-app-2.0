@@ -67,7 +67,7 @@ export default function WelcomeScreen() {
   // Redirect if profile exists after hydration
   useEffect(() => {
     if (isHydrated && senderProfile) {
-      router.replace('/(tabs)/sessions');
+      router.replace('/');
     }
   }, [isHydrated, senderProfile]);
 

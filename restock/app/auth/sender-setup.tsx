@@ -46,7 +46,7 @@ export default function SenderSetupScreen() {
 
     try {
       setSenderProfile(senderProfile);
-      router.replace('/(tabs)/sessions');
+      router.replace('/');
     } catch (err) {
       Alert.alert('Error', 'Failed to save your information. Please try again.');
     }

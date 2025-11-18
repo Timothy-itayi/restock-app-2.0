@@ -7,6 +7,7 @@ export const getSettingsStyles = (t: AppColors) => StyleSheet.create({
     flex: 1,
     backgroundColor: t.neutral.lighter,
     paddingHorizontal: 20,
+    paddingVertical: 50,
   },
   
   // Header
