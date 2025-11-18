@@ -10,15 +10,18 @@ import { router, Redirect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemedStyles } from '@styles/useThemedStyles';
 import { getDashboardStyles } from '@styles/components/dashboard';
+
 import {
   useSenderProfile,
   useSenderProfileHydrated,
   useSenderProfileStore
 } from '../store/useSenderProfileStore';
+
 import {
   useActiveSession,
   useSessionStore
 } from '../store/useSessionStore';
+
 import { safeRead } from '../lib/helpers/errorHandling';
 
 export default function DashboardScreen() {
@@ -76,7 +79,7 @@ export default function DashboardScreen() {
             createSession();
             router.push('/sessions');
           },
-      primary: true,
+      secondary: true,
     },
     {
       id: 'view-sessions',
@@ -115,21 +118,22 @@ export default function DashboardScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
+  contentContainerStyle={styles.contentContainer}
+  showsVerticalScrollIndicator={false}
+  bounces={true}
+
       >
-     <View style={styles.welcomeSection}>
-  <Text style={styles.welcomeTitle}>
-    Welcome, <Text style={styles.userName}>{userName}</Text>
-  </Text>
+        <View style={styles.welcomeSection}>
+          <Text style={styles.welcomeTitle}>
+            Welcome, <Text style={styles.userName}>{userName}</Text>
+          </Text>
 
-  <Text style={styles.welcomeEmail}>{userEmail}</Text>
+          <Text style={styles.welcomeEmail}>{userEmail}</Text>
 
-  {senderProfile?.storeName && (
-    <Text style={styles.welcomeSubtitle}>{senderProfile.storeName}</Text>
-  )}
-</View>
-
+          {senderProfile?.storeName && (
+            <Text style={styles.welcomeSubtitle}>{senderProfile.storeName}</Text>
+          )}
+        </View>
 
         {/* MENU BUTTONS */}
         <View style={styles.menuList}>
@@ -139,20 +143,22 @@ export default function DashboardScreen() {
               onPress={() => handleNavigation(item)}
               style={[
                 styles.menuCard,
-                item.primary && styles.menuCardPrimary
+                item.secondary && styles.menuCardPrimary
               ]}
             >
               <Ionicons
                 name={item.icon as any}
                 size={24}
-                color={item.primary ? styles.menuIconPrimary.color : styles.menuIcon.color}
-                style={styles.menuIcon}
+                style={[
+                  styles.menuIcon,
+                  item.secondary && styles.menuIconPrimary
+                ]}
               />
 
               <Text
                 style={[
                   styles.menuCardText,
-                  item.primary && styles.menuCardTextPrimary
+                  item.secondary && styles.menuCardTextPrimary
                 ]}
               >
                 {item.title}
@@ -161,7 +167,10 @@ export default function DashboardScreen() {
               <Ionicons
                 name="chevron-forward"
                 size={20}
-                color={item.primary ? styles.menuIconPrimary.color : styles.menuChevron.color}
+                style={[
+                  styles.menuChevron,
+                  item.secondary && styles.menuIconPrimary
+                ]}
               />
             </TouchableOpacity>
           ))}

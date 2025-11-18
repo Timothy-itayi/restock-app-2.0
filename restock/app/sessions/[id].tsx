@@ -32,10 +32,7 @@ export default function SessionDetailScreen() {
   if (!session) {
     return (
       <SafeAreaView style={styles.container}>
-        <TouchableOpacity
-          style={{ padding: 16 }}
-          onPress={() => router.back()}
-        >
+        <TouchableOpacity style={{ padding: 16 }} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={styles.emptyStateText}>Session not found.</Text>
@@ -48,7 +45,6 @@ export default function SessionDetailScreen() {
       ? styles.statusActive.color
       : styles.statusInactive.color;
 
-  // ACTIONS
   const handleComplete = () => {
     completeSession(session.id);
     router.back();
@@ -85,8 +81,9 @@ export default function SessionDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+
       {/* HEADER */}
-      <View style={styles.header}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, paddingBottom: 8 }}>
         <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 16 }}>
           <Ionicons name="chevron-back" size={24} color="#333" />
         </TouchableOpacity>
@@ -115,7 +112,17 @@ export default function SessionDetailScreen() {
           />
         )}
 
-        {/* ACTION BUTTONS */}
+        {/* ADD PRODUCT BUTTON */}
+        {session.status === 'active' && (
+          <TouchableOpacity
+            style={[styles.primaryButton, { marginTop: 14 }]}
+            onPress={() => router.push(`/add-product?id=${session.id}`)}
+          >
+            <Text style={styles.primaryButtonText}>Add Product</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* SESSION ACTIONS */}
         {session.status === 'active' && (
           <TouchableOpacity style={styles.primaryButton} onPress={handleComplete}>
             <Text style={styles.primaryButtonText}>Finish Session</Text>
@@ -136,6 +143,7 @@ export default function SessionDetailScreen() {
             Delete Session
           </Text>
         </TouchableOpacity>
+
       </View>
     </SafeAreaView>
   );
