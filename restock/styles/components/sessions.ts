@@ -325,7 +325,7 @@ export const getSessionsStyles = (t: AppColors) => StyleSheet.create({
   // Legacy styles (keeping for compatibility)
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+   paddingHorizontal: 20,
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
@@ -339,6 +339,7 @@ export const getSessionsStyles = (t: AppColors) => StyleSheet.create({
     color: colors.neutral.darkest,
     marginBottom: 8,
     lineHeight: 34,
+   
   },
   subtitle: {
     fontFamily: fontFamily.satoshi,

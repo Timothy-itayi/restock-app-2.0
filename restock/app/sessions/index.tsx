@@ -42,7 +42,7 @@ export default function SessionsScreen() {
         [
           {
             text: 'View Active Session',
-            onPress: () => router.push(`/session/${activeSession.id}`)
+            onPress: () => router.push(`/sessions/${activeSession.id}`)
           },
           { text: 'OK', style: 'cancel' }
         ]
@@ -51,7 +51,7 @@ export default function SessionsScreen() {
     }
 
     const newSession = createSession();
-    router.push(`/session/${newSession.id}`);
+    router.push(`/add-product/${newSession.id}`);
   };
 
   const renderSessionItem = ({ item }: { item: Session }) => {
