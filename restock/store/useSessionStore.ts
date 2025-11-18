@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { create } from 'zustand';
 import {
   getSessions,
@@ -21,9 +22,8 @@ type SessionStore = {
   updateItemInSession: (sessionId: string, itemId: string, updates: Partial<SessionItem>) => void;
   removeItemFromSession: (sessionId: string, itemId: string) => void;
 
-  // Active session helpers
-  getActiveSession: () => Session | undefined;
-  completeSession: (id: string) => void;
+  // Session helpers
+  getActiveSessions: () => Session[];
 
   // Persistence
   loadSessionsFromStorage: () => Promise<void>;
@@ -35,15 +35,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   isHydrated: false,
 
   //----------------------------------------------------------------------
-  // CREATE SESSION — always creates a NEW active session, completes others
+  // CREATE SESSION — NOW allows multiple active sessions
   //----------------------------------------------------------------------
   createSession: () => {
     const state = get();
-
-    // Mark all existing active sessions as completed
-    const updatedSessions = state.sessions.map((s) =>
-      s.status === 'active' ? { ...s, status: 'completed' as const } : s
-    );
 
     const newSession: Session = {
       id: Date.now().toString(),
@@ -52,9 +47,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       items: []
     };
 
-    const allSessions = [...updatedSessions, newSession];
-    set({ sessions: allSessions });
-    setSessions(allSessions).catch(console.warn);
+    const updated = [...state.sessions, newSession];
+
+    set({ sessions: updated });
+    setSessions(updated).catch(console.warn);
 
     return newSession;
   },
@@ -62,118 +58,88 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   //----------------------------------------------------------------------
   // GET SESSION BY ID
   //----------------------------------------------------------------------
-  getSession: (id) => {
-    return get().sessions.find((s) => s.id === id);
-  },
+  getSession: (id) => get().sessions.find((s) => s.id === id),
 
   //----------------------------------------------------------------------
-  // UPDATE SESSION — fixed version (only one active session allowed)
+  // UPDATE SESSION
   //----------------------------------------------------------------------
   updateSession: (id, updates) => {
-    const state = get();
-
-    // Special case: activating a session
-    if (updates.status === 'active') {
-      const finalSessions = state.sessions.map((session) => {
-        if (session.id === id) {
-          return { ...session, ...updates, status: 'active' as const };
-        }
-        if (session.status === 'active') {
-          return { ...session, status: 'completed' as const };
-        }
-        return session;
-      });
-
-      set({ sessions: finalSessions });
-      setSessions(finalSessions).catch(console.warn);
-      return;
-    }
-
-    // Standard updates
-    const updatedSessions = state.sessions.map((session) =>
-      session.id === id ? { ...session, ...updates } : session
+    const updated = get().sessions.map((s) =>
+      s.id === id ? { ...s, ...updates } : s
     );
 
-    set({ sessions: updatedSessions });
-    setSessions(updatedSessions).catch(console.warn);
+    set({ sessions: updated });
+    setSessions(updated).catch(console.warn);
   },
 
   //----------------------------------------------------------------------
   // DELETE SESSION
   //----------------------------------------------------------------------
   deleteSession: (id) => {
-    const updatedSessions = get().sessions.filter((s) => s.id !== id);
-    set({ sessions: updatedSessions });
-    setSessions(updatedSessions).catch(console.warn);
+    const updated = get().sessions.filter((s) => s.id !== id);
+    set({ sessions: updated });
+    setSessions(updated).catch(console.warn);
   },
 
   //----------------------------------------------------------------------
-  // ITEMS: ADD TO SESSION
+  // ITEMS: ADD
   //----------------------------------------------------------------------
   addItemToSession: (sessionId, item) => {
-    const updatedSessions = get().sessions.map((session) =>
+    const updated = get().sessions.map((session) =>
       session.id === sessionId
         ? { ...session, items: [...session.items, item] }
         : session
     );
 
-    set({ sessions: updatedSessions });
-    setSessions(updatedSessions).catch(console.warn);
+    set({ sessions: updated });
+    setSessions(updated).catch(console.warn);
   },
 
   //----------------------------------------------------------------------
-  // ITEMS: UPDATE ITEM IN SESSION
+  // ITEMS: UPDATE
   //----------------------------------------------------------------------
   updateItemInSession: (sessionId, itemId, updates) => {
-    const updatedSessions = get().sessions.map((session) =>
+    const updated = get().sessions.map((session) =>
       session.id === sessionId
         ? {
             ...session,
-            items: session.items.map((item) =>
-              item.id === itemId ? { ...item, ...updates } : item
+            items: session.items.map((i) =>
+              i.id === itemId ? { ...i, ...updates } : i
             )
           }
         : session
     );
 
-    set({ sessions: updatedSessions });
-    setSessions(updatedSessions).catch(console.warn);
+    set({ sessions: updated });
+    setSessions(updated).catch(console.warn);
   },
 
   //----------------------------------------------------------------------
-  // ITEMS: REMOVE ITEM FROM SESSION
+  // ITEMS: REMOVE
   //----------------------------------------------------------------------
   removeItemFromSession: (sessionId, itemId) => {
-    const updatedSessions = get().sessions.map((session) =>
+    const updated = get().sessions.map((session) =>
       session.id === sessionId
         ? {
             ...session,
-            items: session.items.filter((item) => item.id !== itemId)
+            items: session.items.filter((i) => i.id !== itemId)
           }
         : session
     );
 
-    set({ sessions: updatedSessions });
-    setSessions(updatedSessions).catch(console.warn);
+    set({ sessions: updated });
+    setSessions(updated).catch(console.warn);
   },
 
   //----------------------------------------------------------------------
-  // GET ACTIVE SESSION — safe and deterministic
+  // ACTIVE SESSIONS — *Stable selector*
   //----------------------------------------------------------------------
-  getActiveSession: () => {
-    const sessions = get().sessions;
-    return sessions.find((s) => s.status === 'active');
+  getActiveSessions: () => {
+    return get().sessions.filter((s) => s.status === 'active');
   },
 
   //----------------------------------------------------------------------
-  // COMPLETE SESSION
-  //----------------------------------------------------------------------
-  completeSession: (id) => {
-    get().updateSession(id, { status: 'completed' });
-  },
-
-  //----------------------------------------------------------------------
-  // LOAD FROM PERSISTENCE
+  // LOAD
   //----------------------------------------------------------------------
   loadSessionsFromStorage: async () => {
     const sessions = await getSessions();
@@ -181,14 +147,27 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   //----------------------------------------------------------------------
-  // SAVE TO PERSISTENCE
+  // SAVE
   //----------------------------------------------------------------------
   saveSessionsToStorage: async () => {
     await setSessions(get().sessions);
   }
 }));
 
-// Export hooks
+// Stable hooks
 export const useSessions = () => useSessionStore((s) => s.sessions);
-export const useActiveSession = () => useSessionStore((s) => s.getActiveSession());
+
+export const useActiveSessions = () => {
+  const sessions = useSessions();
+  return useMemo(
+    () => sessions.filter((x) => x.status === 'active'),
+    [sessions]
+  );
+};
+
+export const useActiveSession = () => {
+  const activeSessions = useActiveSessions();
+  return activeSessions.length > 0 ? activeSessions[0] : null;
+};
+
 export const useSessionHydrated = () => useSessionStore((s) => s.isHydrated);

@@ -1,65 +1,77 @@
 import { create } from 'zustand';
-import { getSenderProfile, setSenderProfile as saveSenderProfileToStorage, type SenderProfile } from '../lib/helpers/storage/sender';
+import {
+  getSenderProfile,
+  setSenderProfile as saveSenderProfileToStorage,
+  type SenderProfile
+} from '../lib/helpers/storage/sender';
 
 type SenderProfileStore = {
   senderProfile: SenderProfile | null;
   isHydrated: boolean;
-  setSenderProfile: (senderProfile: SenderProfile) => void;
+
+  // CRUD actions
+  setSenderProfile: (profile: SenderProfile) => void;
   updateProfile: (updates: Partial<SenderProfile>) => void;
+
+  // Persistence
   loadProfileFromStorage: () => Promise<void>;
   saveProfileToStorage: () => Promise<void>;
+
   clearProfile: () => void;
 };
 
 export const useSenderProfileStore = create<SenderProfileStore>((set, get) => ({
   senderProfile: null,
   isHydrated: false,
-  
-  setSenderProfile: (senderProfile) => {
-    set({ senderProfile });
-    // Auto-save to storage when profile is set
-    saveSenderProfileToStorage(senderProfile).catch(console.warn);
+
+  //----------------------------------------------------------------------
+  // SET PROFILE — does NOT auto-save (prevents render/write loops)
+  //----------------------------------------------------------------------
+  setSenderProfile: (profile) => {
+    set({ senderProfile: profile });
   },
-  
+
+  //----------------------------------------------------------------------
+  // UPDATE PROFILE — updates in memory only. Save explicitly later.
+  //----------------------------------------------------------------------
   updateProfile: (updates) => {
     const current = get().senderProfile;
-    if (!current) {
-      // If no profile exists, create one with updates
-      const newProfile: SenderProfile = {
-        name: updates.name || '',
-        email: updates.email || '',
-        storeName: updates.storeName || null,
-      };
-      get().setSenderProfile(newProfile);
-    } else {
-      const updated = { ...current, ...updates };
-      get().setSenderProfile(updated);
-    }
+    const updated: SenderProfile = {
+      name: updates.name ?? current?.name ?? '',
+      email: updates.email ?? current?.email ?? '',
+      storeName: updates.storeName ?? current?.storeName ?? null,
+    };
+    set({ senderProfile: updated });
   },
-  
+
+  //----------------------------------------------------------------------
+  // LOAD PROFILE FROM STORAGE
+  //----------------------------------------------------------------------
   loadProfileFromStorage: async () => {
     const profile = await getSenderProfile();
     set({ senderProfile: profile, isHydrated: true });
   },
-  
+
+  //----------------------------------------------------------------------
+  // SAVE PROFILE EXPLICITLY
+  //----------------------------------------------------------------------
   saveProfileToStorage: async () => {
     const profile = get().senderProfile;
     if (profile) {
       await saveSenderProfileToStorage(profile);
     }
   },
-  
+
+  //----------------------------------------------------------------------
+  // RESET
+  //----------------------------------------------------------------------
   clearProfile: () => {
     set({ senderProfile: null });
   },
 }));
 
-// Convenience hook for accessing sender profile
-export const useSenderProfile = () => {
-  return useSenderProfileStore((state) => state.senderProfile);
-};
+export const useSenderProfile = () =>
+  useSenderProfileStore((s) => s.senderProfile);
 
-// Hook to check if profile is loaded
-export const useSenderProfileHydrated = () => {
-  return useSenderProfileStore((state) => state.isHydrated);
-};
+export const useSenderProfileHydrated = () =>
+  useSenderProfileStore((s) => s.isHydrated);

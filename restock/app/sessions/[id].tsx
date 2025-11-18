@@ -21,7 +21,6 @@ export default function SessionDetailScreen() {
     s.sessions.find((sess) => sess.id === id)
   );
 
-  const completeSession = useSessionStore((s) => s.completeSession);
   const deleteSession = useSessionStore((s) => s.deleteSession);
   const updateSession = useSessionStore((s) => s.updateSession);
 
@@ -40,13 +39,15 @@ export default function SessionDetailScreen() {
     );
   }
 
+  const isLocked = session.status !== 'active'; // <-- KEY LOGIC
+
   const statusColor =
     session.status === 'active'
       ? styles.statusActive.color
       : styles.statusInactive.color;
 
   const handleComplete = () => {
-    completeSession(session.id);
+    updateSession(session.id, { status: 'completed' });
     router.back();
   };
 
@@ -69,19 +70,33 @@ export default function SessionDetailScreen() {
     ]);
   };
 
+  // Disable edit if locked
   const renderItem = ({ item }: any) => (
-    <View style={styles.itemRow}>
+    <TouchableOpacity
+      style={[
+        styles.itemRow,
+        isLocked && { opacity: 0.5 } // visual cue that it's disabled
+      ]}
+      disabled={isLocked} // <-- BLOCK EDIT TAP
+      onPress={() =>
+        router.push(`/sessions/${session.id}/edit-product/${item.id}`)
+      }
+    >
       <View style={{ flex: 1 }}>
         <Text style={styles.itemName}>{item.productName}</Text>
         <Text style={styles.itemSupplier}>{item.supplierName}</Text>
       </View>
+
       <Text style={styles.itemQty}>x{item.quantity}</Text>
-    </View>
+
+      {!isLocked && (
+        <Ionicons name="create-outline" size={20} color="#333" />
+      )}
+    </TouchableOpacity>
   );
 
   return (
     <SafeAreaView style={styles.container}>
-
       {/* HEADER */}
       <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, paddingBottom: 8 }}>
         <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 16 }}>
@@ -112,29 +127,32 @@ export default function SessionDetailScreen() {
           />
         )}
 
-        {/* ADD PRODUCT BUTTON */}
-        {session.status === 'active' && (
-          <TouchableOpacity
-            style={[styles.primaryButton, { marginTop: 14 }]}
-            onPress={() => router.push(`/add-product?id=${session.id}`)}
-          >
-            <Text style={styles.primaryButtonText}>Add Product</Text>
-          </TouchableOpacity>
+        {/* ADD PRODUCT BUTTON - ONLY IF ACTIVE */}
+        {!isLocked && (
+          <View style={{ marginTop: 14 }}>
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={() => router.push(`/sessions/${session.id}/add-product`)}
+            >
+              <Text style={styles.primaryButtonText}>Add Product</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* SESSION ACTIONS */}
-        {session.status === 'active' && (
+        {!isLocked && (
           <TouchableOpacity style={styles.primaryButton} onPress={handleComplete}>
             <Text style={styles.primaryButtonText}>Finish Session</Text>
           </TouchableOpacity>
         )}
 
-        {session.status === 'active' && (
+        {!isLocked && (
           <TouchableOpacity style={styles.secondaryButton} onPress={handleCancel}>
             <Text style={styles.secondaryButtonText}>Cancel Session</Text>
           </TouchableOpacity>
         )}
 
+        {/* DELETE ALWAYS AVAILABLE */}
         <TouchableOpacity
           style={[styles.secondaryButton, { borderColor: '#CC0000', marginTop: 20 }]}
           onPress={handleDelete}
