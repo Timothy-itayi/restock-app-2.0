@@ -13,8 +13,8 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import { useThemedStyles } from '@styles/useThemedStyles';
 import { getUploadStyles } from '@styles/components/upload';
-import { useSessionStore } from '../store/useSessionStore';
-import type { SessionItem } from '../lib/helpers/storage/sessions';
+import { useSessionStore } from '../../../store/useSessionStore';
+import type { SessionItem } from '../../../lib/helpers/storage/sessions';
 
 export default function AddProductScreen() {
   const styles = useThemedStyles(getUploadStyles);

@@ -51,7 +51,8 @@ export default function SessionsScreen() {
     }
 
     const newSession = createSession();
-    router.push(`/add-product/${newSession.id}`);
+    router.push(`/sessions/${newSession.id}/add-product`);
+;
   };
 
   const renderSessionItem = ({ item }: { item: Session }) => {
