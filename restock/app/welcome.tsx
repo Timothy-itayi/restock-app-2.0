@@ -86,7 +86,7 @@ export default function WelcomeScreen() {
   };
 
   const handleContinue = () => {
-    router.push('/sender-setup'); // change to actual screen path later
+    router.push('/auth/sender-setup');
   };
 
   return (

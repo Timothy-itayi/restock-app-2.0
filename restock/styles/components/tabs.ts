@@ -7,7 +7,7 @@ export const getTabsStyles = (t: AppColors) => StyleSheet.create({
     backgroundColor: colors.neutral.lightest,
     borderTopWidth: 1,
     borderTopColor: colors.neutral.light,
-    height: 80,
+    height: 20,
     paddingBottom: 50,
     paddingTop: 8,
     width: '100%',
@@ -79,33 +79,33 @@ export const tabBarOptions = {
 
 
 
-// Individual tab screen options (for customization per tab)
+// Individual tab screen options (mirrored from tabs directory structure)
 export const tabScreenOptions = {
-  dashboard: {
-    title: "Dashboard",
+  sessions: {
+    title: "Sessions",
     tabBarIcon: {
-      name: "home",
+      name: "list-outline",
     },
   },
-  
-  restockSessions: {
-    title: "Restock Sessions",
+
+  upload: {
+    title: "Upload",
+    tabBarIcon: {
+      name: "cloud-upload-outline",
+    },
+  },
+
+  suppliers: {
+    title: "Suppliers",
     tabBarIcon: {
       name: "cube-outline",
     },
   },
-  
-  emails: {
-    title: "Emails",
+
+  settings: {
+    title: "Settings",
     tabBarIcon: {
-      name: "mail",
-    },
-  },
-  
-  profile: {
-    title: "Profile",
-    tabBarIcon: {
-      name: "person",
+      name: "settings-outline",
     },
   },
 };
