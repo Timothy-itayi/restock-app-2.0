@@ -12,7 +12,7 @@ export type SessionItem = {
 export type Session = {
   id: string;
   createdAt: number;
-  status: 'active' | 'completed';
+  status: 'active' | 'completed' | 'cancelled';
   items: SessionItem[];
 };
 

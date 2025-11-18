@@ -13,6 +13,8 @@ import { useThemedStyles } from '@styles/useThemedStyles';
 import { getSessionsStyles } from '@styles/components/sessions';
 import { useSessions, useSessionHydrated, useSessionStore, useActiveSession } from '../../store/useSessionStore';
 import type { Session } from '../../lib/helpers/storage/sessions';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+AsyncStorage.removeItem('sessions');
 
 export default function SessionsScreen() {
   const styles = useThemedStyles(getSessionsStyles);
@@ -60,7 +62,7 @@ export default function SessionsScreen() {
           styles.sessionCard,
           isActive && { borderWidth: 2, borderColor: '#6B7F6B' } // Highlight active session
         ]}
-        onPress={() => router.push(`/session/${item.id}`)}
+        onPress={() => router.push(`/sessions/${item.id}`)}
       >
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={{ flex: 1 }}>
