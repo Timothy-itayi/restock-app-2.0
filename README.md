@@ -4,6 +4,8 @@ scaled down version of restock app
 
 A Clean Rebuild of the Restock Application (╯°□°）╯︵ ┻━┻
 
+<img src="restock2.0.png" alt="Restock App Icon" width="20"/> 
+
 This document introduces the new, simplified Restock architecture and explains why the previous project was retired. The original repository had grown into a large, complex system far beyond the needs of the real workflow. This MVP rebuild focuses on the core value: helping small retailers restock efficiently through a simple **Walk → Log → Send** workflow.
 
 The original ReadMe outlined an ambitious multi-layer hexagonal architecture with Clerk authentication, Supabase persistence, dependency injection, RLS, OAuth flows, DI-driven React hooks, domain-driven entities, and a full stack of backend services.
