@@ -1,446 +1,124 @@
-
-
 import { StyleSheet } from "react-native";
 import typography, { fontFamily } from "../typography";
-import colors, { type AppColors } from '../../lib/theme/colors';
+import colors, { AppColors } from '../../lib/theme/colors';
 
-export const getDashboardStyles = (t: AppColors) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.neutral.lightest,
-    maxWidth:  '100%',
-   
-    alignSelf: 'center',
-    width: '100%',
-  },
-  contentContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 32,
-    maxWidth: '100%',
-    alignSelf: 'center',
-    width: '100%',
-  },
-  // Welcome section
-  welcomeSection: {
-    marginBottom: 32,
-    paddingTop: 8,
-  },
-  welcomeTitle: {
-    fontFamily: fontFamily.satoshi,
-    fontSize: typography.appTitle.fontSize,
-    fontWeight: '400',
-    color: colors.neutral.darkest,
-    lineHeight: typography.appTitle.lineHeight * 1.3,
-    marginBottom: 4,
-  },
-  userName: {
-    fontFamily: fontFamily.satoshiBold,
-    fontWeight: '700',
-  },
-  welcomeSubtitle: {
-    fontFamily: fontFamily.satoshi,
-    fontSize: 16,
-    color: colors.neutral.medium,
-    lineHeight: 22,
-  },
-  section: {
-    marginBottom: 32,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontFamily: fontFamily.satoshiBold,
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.neutral.darkest,
-  },
-  viewAllButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: colors.neutral.lighter,
-    borderRadius: 6,
-  },
-  viewAllText: {
-    fontFamily: fontFamily.satoshiMedium,
-    fontSize: 14,
-    color: colors.neutral.medium,
-    fontWeight: '500',
-  },
-  // Quick Actions grid
-  actionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 16,
-    paddingTop: 16,
-  },
-  actionCard: {
-    backgroundColor: colors.neutral.lighter,
-    padding: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.neutral.light,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    flex: 1,
-    minWidth: '48%',
-    minHeight: 80,
-  },
-  actionText: {
-    marginTop: 8,
-    fontFamily: fontFamily.satoshiMedium,
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '500',
-    color: colors.neutral.darkest,
-    textAlign: 'center',
-  },
-  actionIcon: {
-    width: 24,
-    height: 24,
-  },
-  actionIconContainer: {
-    width: 36,
-    height: 36,
-    backgroundColor: colors.neutral.lightest,
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  // Session Cards
-  sessionCard: {
-    backgroundColor: colors.neutral.lightest,
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.neutral.light,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  sessionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sessionInfo: {
-    flex: 1,
-  },
-  sessionTitle: {
-    fontFamily: fontFamily.satoshiBold,
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.neutral.darkest,
-    marginBottom: 4,
-  },
-  sessionSubtitle: {
-    fontFamily: fontFamily.satoshi,
-    fontSize: 14,
-    color: colors.neutral.medium,
-  },
-  continueButton: {
-    backgroundColor: colors.brand.primary,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-  },
-  continueButtonText: {
-    fontFamily: fontFamily.satoshiBold,
-    color: colors.neutral.lightest,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  breakdownContainer: {
-    marginTop: 16,
-  },
-  breakdownHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  breakdownTitle: {
-    fontFamily: fontFamily.satoshiBold,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#000000',
-    letterSpacing: 0.5,
-  },
-  breakdownTotal: {
-    fontFamily: fontFamily.satoshi,
-    fontSize: 14,
-    color: '#6C757D',
-  },
-  chartContainer: {
-    marginBottom: 16,
-  },
-  chart: {
-    flexDirection: 'row',
-    height: 8,
-    backgroundColor: colors.neutral.lighter,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  chartSegment: {
-    borderRadius: 4,
-  },
-  chartLabel: {
-    fontFamily: fontFamily.satoshiLight,
-    fontSize: 12,
-    color: colors.neutral.medium,
-    textAlign: 'center',
-    marginTop: 6,
-  },
-  breakdownList: {
-    marginTop: 12,
-  },
-  breakdownItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral.lighter,
-  },
-  breakdownItemHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  breakdownItemIcon: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  breakdownItemName: {
-    fontFamily: fontFamily.satoshiMedium,
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.neutral.darkest,
-  },
-  breakdownItemStats: {
-    alignItems: 'flex-end',
-  },
-  breakdownItemPercentage: {
-    fontFamily: fontFamily.satoshiLight,
-    fontSize: 12,
-    color: colors.neutral.medium,
-    marginBottom: 2,
-  },
-  breakdownItemCount: {
-    fontFamily: fontFamily.satoshiBold,
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.neutral.medium,
-  },
-  // Stats Grid
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 16,
-    paddingTop: 16,
-  },
-  statCard: {
-    backgroundColor: colors.neutral.lightest,
+export const getDashboardStyles = (t: AppColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: t.neutral.lightest,
+      
+    },
+
+    contentContainer: {
+      padding: 20,
+      flexGrow: 1,
+    
+      
+    },
+
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    loadingText: {
+      color: t.neutral.dark,
+      fontFamily: fontFamily.satoshi,
+    },
+
+    welcomeSection: {
+      marginBottom: 32,
+    },
+    welcomeTitle: {
+      fontFamily: fontFamily.satoshi,
+      fontSize: 28,
+      color: t.neutral.darkest,
+    },
+    userName: {
+      fontFamily: fontFamily.satoshiBold,
+      color: t.neutral.darkest,
+    },
+    welcomeSubtitle: {
+      fontFamily: fontFamily.satoshi,
+      fontSize: 16,
+      color: t.neutral.medium,
+      marginTop: 4,
+    },
+    welcomeEmail: {
+      fontFamily: fontFamily.satoshi,
+      fontSize: 16,
+      color: t.neutral.medium,
+      marginTop: 4,
+    },
+
+    /* MENU LIST */
+    menuList: {
+      gap: 12,
+      paddingVertical: 50,
+
+    },
+
+    menuCard: {
+      backgroundColor: t.neutral.lightest,
+      borderRadius: 12,
+      padding: 20,
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: t.neutral.light,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 1,
+    },
+
+    menuCardPrimary: {
+      backgroundColor: t.brand.primary,
+      borderColor: t.brand.primary,
+    },
+
+    menuCardText: {
+      fontSize: 16,
+      fontWeight: '600',
+      flex: 1,
+      color: t.neutral.darkest,
+      fontFamily: fontFamily.satoshiMedium,
+    },
+    menuCardTextPrimary: {
+      color: t.neutral.lightest,
+    },
+
+    menuIcon: {
+      marginRight: 16,
+      color: t.brand.primary,
+    },
+    menuIconPrimary: {
+      color: t.neutral.lightest,
+    },
+    menuChevron: {
+      color: t.neutral.medium,
+    },
+
+    /* ACTIVE SESSION CARD */
+    activeSessionCard: {
+      marginTop: 32,
       padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.neutral.light,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
-    flex: 1,
-    minHeight: 80,
-  },
-  statNumber: {
-    fontFamily: fontFamily.satoshiBlack,
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.neutral.medium,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontFamily: fontFamily.satoshiMedium,
-    fontSize: typography.caption.fontSize,
-    color: colors.neutral.medium,
-    textAlign: 'center',
-    fontWeight: '500',
-    lineHeight: typography.caption.lineHeight * 1.4,
-  },
-  // Empty State
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 48,
-    backgroundColor: colors.neutral.lightest,
-    borderRadius: 12,
-    marginTop: 24,
-    borderWidth: 1,
-    borderColor: colors.neutral.light,
-  },
-  emptyStateTitle: {
-    fontFamily: fontFamily.satoshiBold,
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.neutral.darkest,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyStateText: {
-    fontFamily: fontFamily.satoshi,
-    fontSize: 16,
-    color: colors.neutral.medium,
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 22,
-  },
-  startNewButton: {
-    backgroundColor: colors.brand.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
-  startNewButtonText: {
-    fontFamily: fontFamily.satoshiBold,
-    color: colors.neutral.lightest,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  // Legacy styles (keeping for compatibility)
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral.light,
-    marginBottom: 24,
-  },
-  title: {
-    fontFamily: fontFamily.satoshiBlack,
-    fontSize: 28,
-    fontWeight: "700",
-    color: colors.neutral.darkest,
-    marginBottom: 8,
-    lineHeight: 34,
-  },
-  subtitle: {
-    fontFamily: fontFamily.satoshi,
-    fontSize: 16,
-    color: colors.neutral.medium,
-    textAlign: "center",
-    lineHeight: 22,
-  },
-  card: {
-    backgroundColor: colors.neutral.lightest,
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.neutral.light,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cardTitle: {
-    fontFamily: fontFamily.satoshiBold,
-    fontSize: 18,
-    fontWeight: "600",
-    color: colors.neutral.darkest,
-    marginBottom: 12,
-  },
-  statRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  legacyStatLabel: {
-    fontFamily: fontFamily.satoshiMedium,
-    fontSize: 14,
-    color: colors.neutral.medium,
-    fontWeight: "500",
-  },
-  statValue: {
-    fontFamily: fontFamily.satoshiBold,
-    fontSize: 14,
-    color: colors.neutral.darkest,
-    fontWeight: "600",
-  },
-  primaryButton: {
-    backgroundColor: colors.brand.primary,
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  primaryButtonText: {
-    fontFamily: fontFamily.satoshiBold,
-    color: colors.neutral.lightest,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  secondaryButton: {
-    backgroundColor: "transparent",
-    borderWidth: 1.5,
-    borderColor: colors.brand.primary,
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  secondaryButtonText: {
-    fontFamily: fontFamily.satoshiBold,
-    color: colors.brand.primary,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  floatingButton: {
-    position: 'absolute',
-    bottom: 100,
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.brand.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  statusBadge: {
-    backgroundColor: colors.neutral.lighter,
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-    marginTop: 8,
-  },
-  statusBadgeText: {
-    color: colors.brand.primary,
-    fontSize: 12,
-    fontWeight: "600",
-  },
-});
+      backgroundColor: t.neutral.lighter,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: t.brand.primary,
+    },
+    activeSessionTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: t.brand.primary,
+      fontFamily: fontFamily.satoshiBold,
+    },
+    activeSessionText: {
+      fontSize: 14,
+      color: t.neutral.dark,
+      fontFamily: fontFamily.satoshi,
+    },
+  });

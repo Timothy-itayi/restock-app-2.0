@@ -2,12 +2,10 @@ import { StyleSheet } from "react-native";
 import colors, { type AppColors } from '../../lib/theme/colors';
 import { fontFamily, typography } from "../typography";
 
-export const getRestockSessionsStyles = (t: AppColors) => StyleSheet.create({
+export const getSuppliersStyles = (t: AppColors) => StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 60,
     backgroundColor: colors.neutral.lighter,
-    overflow: "scroll",
     maxWidth: '100%',
     alignSelf: 'center',
     width: '100%',
@@ -59,11 +57,10 @@ export const getRestockSessionsStyles = (t: AppColors) => StyleSheet.create({
   },
   sectionTitle: {
     fontFamily: fontFamily.satoshiBold,
-    fontSize: 20,
-    fontWeight: "600",
+    fontSize: 24,
+    fontWeight: "700",
     color: colors.neutral.darkest,
-    marginBottom: 8,
-    textAlign: "center",
+    flex: 1,
   },
   sectionSubtitle: {
     fontFamily: fontFamily.satoshi,
@@ -574,12 +571,20 @@ export const getRestockSessionsStyles = (t: AppColors) => StyleSheet.create({
     opacity: 0.3,
   },
   
-  // Form card - Simplified for consistency
+  // Form card - Modern design with proper spacing
   formCard: {
-  
-    borderRadius: 8,
-    padding: 30,
-    
+    backgroundColor: colors.neutral.lightest,
+    borderRadius: 12,
+    padding: 20,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.neutral.light,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   
   // Form title - More compact
@@ -609,18 +614,19 @@ export const getRestockSessionsStyles = (t: AppColors) => StyleSheet.create({
   
   },
   
-  // Text input - Consistent with sign-up form
+  // Text input - Modern design with visible placeholder
   textInput: {
     ...typography.bodyMedium,
     backgroundColor: colors.neutral.lightest,
     borderWidth: 1,
     borderColor: colors.neutral.light,
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 16,
-  
-    
+    paddingVertical: 14,
     color: colors.neutral.darkest,
-    minHeight: 60,
+    minHeight: 52,
+    fontSize: 16,
+    // Placeholder text color will be set via placeholderTextColor prop in component
   },
   
   // Text input focus state - Consistent with sign-up form
@@ -729,25 +735,36 @@ export const getRestockSessionsStyles = (t: AppColors) => StyleSheet.create({
     gap: 16,
   },
   
-  // Cancel button
+  // Cancel button - Modern design with proper spacing
   cancelButton: {
-    flex: 1,
-    backgroundColor: colors.neutral.lighter, // Very light grey
+    backgroundColor: colors.neutral.lightest,
     borderWidth: 1,
-    borderColor: colors.neutral.light, // Light grey border
-    borderRadius: 8,
-    paddingVertical: 16,
+    borderColor: colors.neutral.light,
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
     alignItems: "center",
+    justifyContent: "center",
+    marginTop: 12,
+    minHeight: 50,
   },
   
-  // Save button - Consistent with sign-up form
+  // Save button - Modern design with proper spacing
   saveButton: {
-    flex: 1,
     backgroundColor: colors.brand.primary,
-    borderRadius: 8,
-    padding: 16,
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
     alignItems: "center",
-    marginBottom: 16,
+    justifyContent: "center",
+    marginTop: 16,
+    marginBottom: 0,
+    minHeight: 50,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   
   buttonText: {
@@ -757,10 +774,14 @@ export const getRestockSessionsStyles = (t: AppColors) => StyleSheet.create({
   
   cancelButtonText: {
     color: colors.neutral.darkest,
+    fontSize: 16,
+    fontWeight: '600',
   },
   
   saveButtonText: {
     color: colors.neutral.lightest,
+    fontSize: 16,
+    fontWeight: '600',
   },
   
   // Empty state

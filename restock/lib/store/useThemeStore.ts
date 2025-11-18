@@ -1,6 +1,6 @@
 import React from 'react';
 import { create } from 'zustand';
-import colors, { light, dark } from '../lib/theme/colors';
+import colors, { light, dark } from '../theme/colors';
 import { Dimensions } from 'react-native';
 
 export type ThemeMode = 'light' | 'dark';
@@ -111,4 +111,3 @@ export const useScreenDimensions = () => {
 };
 
 export default useThemeStore;
-

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { welcomeStyles } from '../styles/components/welcome';
+import { useSenderProfileStore, useSenderProfileHydrated } from '../store/useSenderProfileStore';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -48,6 +49,27 @@ export default function WelcomeScreen() {
   const paginationAnimations = useRef(
     walkthroughSlides.map(() => new Animated.Value(0))
   ).current;
+  
+  const senderProfile = useSenderProfileStore((state) => state.senderProfile);
+  const isHydrated = useSenderProfileHydrated();
+  const loadProfileFromStorage = useSenderProfileStore((state) => state.loadProfileFromStorage);
+
+  // Check if profile exists on mount - if so, redirect to tabs
+  useEffect(() => {
+    const checkProfile = async () => {
+      if (!isHydrated) {
+        await loadProfileFromStorage();
+      }
+    };
+    checkProfile();
+  }, [isHydrated, loadProfileFromStorage]);
+
+  // Redirect if profile exists after hydration
+  useEffect(() => {
+    if (isHydrated && senderProfile) {
+      router.replace('/');
+    }
+  }, [isHydrated, senderProfile]);
 
   const handleGestureEvent = Animated.event(
     [{ nativeEvent: { contentOffset: { x: scrollX } } }],
@@ -86,7 +108,7 @@ export default function WelcomeScreen() {
   };
 
   const handleContinue = () => {
-    router.push('/sender-setup'); // change to actual screen path later
+    router.push('/auth/sender-setup');
   };
 
   return (

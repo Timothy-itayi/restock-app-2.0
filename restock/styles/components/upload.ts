@@ -5,7 +5,7 @@ import { fontFamily, typography } from "../typography";
 // Minimal, focused styles for the Upload Catalog screen only.
 // Trimmed to what the screen actually uses and aligned with the
 // previous inline styles for readability.
-export const getUploadCatalogStyles = (t: AppColors) => StyleSheet.create({
+export const getUploadStyles = (t: AppColors) => StyleSheet.create({
   // Screen container background
   sessionContainer: {
     flex: 1,

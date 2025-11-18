@@ -2,11 +2,12 @@ import { StyleSheet } from 'react-native';
 import { fontFamily } from '../typography';
 import colors, { type AppColors } from '../../lib/theme/colors';
 
-export const getProfileStyles = (t: AppColors) => StyleSheet.create({
+export const getSettingsStyles = (t: AppColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: t.neutral.lighter,
     paddingHorizontal: 20,
+    paddingVertical: 50,
   },
   
   // Header
@@ -298,5 +299,37 @@ export const getProfileStyles = (t: AppColors) => StyleSheet.create({
   // Sign Out Section
   signOutSection: {
     paddingBottom: 40,
+  },
+  
+  // Action Buttons
+  saveButton: {
+    marginTop: 25,
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: t.brand.primary,
+    alignItems: 'center',
+    marginHorizontal: 20,
+  },
+  saveButtonText: {
+    color: t.neutral.lightest,
+    fontWeight: '600',
+    fontSize: 15,
+    fontFamily: fontFamily.satoshiMedium,
+  },
+  resetButton: {
+    marginTop: 12,
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: t.neutral.lightest,
+    borderWidth: 1,
+    borderColor: t.neutral.light,
+    alignItems: 'center',
+    marginHorizontal: 20,
+  },
+  resetButtonText: {
+    color: '#B20000',
+    fontWeight: '600',
+    fontSize: 15,
+    fontFamily: fontFamily.satoshiMedium,
   },
 });
