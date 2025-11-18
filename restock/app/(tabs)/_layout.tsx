@@ -1,11 +1,32 @@
-import { Tabs } from 'expo-router';
+import { useEffect } from 'react';
+import { Tabs, Redirect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import {  tabScreenOptions, tabBarOptions } from '../../styles/components/tabs';
+import { tabScreenOptions, tabBarOptions } from '../../styles/components/tabs';
+import { useSenderProfileStore, useSenderProfileHydrated } from '../../store/useSenderProfileStore';
 
 export default function TabLayout() {
-  return (
+  const senderProfile = useSenderProfileStore((state) => state.senderProfile);
+  const isHydrated = useSenderProfileHydrated();
+  const loadProfileFromStorage = useSenderProfileStore((state) => state.loadProfileFromStorage);
 
- <Tabs screenOptions={tabBarOptions}>
+  useEffect(() => {
+    if (!isHydrated) {
+      loadProfileFromStorage();
+    }
+  }, [isHydrated, loadProfileFromStorage]);
+
+  // If not hydrated yet, show nothing (will redirect once hydrated)
+  if (!isHydrated) {
+    return null;
+  }
+
+  // If no profile exists, redirect to setup
+  if (!senderProfile) {
+    return <Redirect href="/auth/sender-setup" />;
+  }
+
+  return (
+    <Tabs screenOptions={tabBarOptions}>
       <Tabs.Screen
         name="sessions"
         options={{

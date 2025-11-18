@@ -9,22 +9,32 @@ import {
   Platform,
   Alert
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { signUpStyles } from '../../styles/components/sign-up';
+import { useSenderProfileStore } from '../../store/useSenderProfileStore';
 
 export default function SenderSetupScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [storeName, setStoreName] = useState('');
+  const setSenderProfile = useSenderProfileStore((state) => state.setSenderProfile);
+
+  const validateEmail = (email: string): boolean => {
+    return email.includes('@') && email.trim().length > 0;
+  };
 
   const handleContinue = async () => {
+    // Input validation
     if (!name.trim()) {
       Alert.alert('Missing information', 'Please enter your name.');
       return;
     }
     if (!email.trim()) {
       Alert.alert('Missing information', 'Please enter your email address.');
+      return;
+    }
+    if (!validateEmail(email)) {
+      Alert.alert('Invalid email', 'Please enter a valid email address.');
       return;
     }
 
@@ -35,7 +45,7 @@ export default function SenderSetupScreen() {
     };
 
     try {
-      await AsyncStorage.setItem('senderProfile', JSON.stringify(senderProfile));
+      setSenderProfile(senderProfile);
       router.replace('/(tabs)/sessions');
     } catch (err) {
       Alert.alert('Error', 'Failed to save your information. Please try again.');

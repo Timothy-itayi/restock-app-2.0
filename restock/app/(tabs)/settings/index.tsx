@@ -11,32 +11,36 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useThemedStyles } from '@styles/useThemedStyles';
 import { getSettingsStyles } from '@styles/components/settings';
-
-type SenderProfile = {
-  name: string;
-  email: string;
-  storeName?: string | null;
-};
+import { useSenderProfileStore, useSenderProfileHydrated } from '../../../store/useSenderProfileStore';
+import type { SenderProfile } from '../../../lib/helpers/storage/sender';
 
 export default function SettingsScreen() {
   const styles = useThemedStyles(getSettingsStyles);
+  const senderProfile = useSenderProfileStore((state) => state.senderProfile);
+  const isHydrated = useSenderProfileHydrated();
+  const updateProfile = useSenderProfileStore((state) => state.updateProfile);
+  const loadProfileFromStorage = useSenderProfileStore((state) => state.loadProfileFromStorage);
   const [profile, setProfile] = useState<SenderProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadProfile();
-  }, []);
-
-  const loadProfile = async () => {
-    setLoading(true);
-    try {
-      const raw = await AsyncStorage.getItem('senderProfile');
-      if (raw) setProfile(JSON.parse(raw));
-    } catch (err) {
-      console.warn('Failed to load sender profile', err);
-    } finally {
+    if (!isHydrated) {
+      loadProfileFromStorage().finally(() => setLoading(false));
+    } else {
+      setProfile(senderProfile);
       setLoading(false);
     }
+  }, [isHydrated, senderProfile, loadProfileFromStorage]);
+
+  // Sync local state when store updates
+  useEffect(() => {
+    if (isHydrated) {
+      setProfile(senderProfile);
+    }
+  }, [senderProfile, isHydrated]);
+
+  const validateEmail = (email: string): boolean => {
+    return email.includes('@') && email.trim().length > 0;
   };
 
   const saveProfile = async () => {
@@ -45,8 +49,13 @@ export default function SettingsScreen() {
       return;
     }
 
+    if (!validateEmail(profile.email)) {
+      Alert.alert('Invalid email', 'Please enter a valid email address.');
+      return;
+    }
+
     try {
-      await AsyncStorage.setItem('senderProfile', JSON.stringify(profile));
+      updateProfile(profile);
       Alert.alert('Saved', 'Your details have been updated.');
     } catch {
       Alert.alert('Error', 'Unable to save profile.');
@@ -64,7 +73,8 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             await AsyncStorage.clear();
-            router.replace('/sender-setup');
+            useSenderProfileStore.getState().clearProfile();
+            router.replace('/auth/sender-setup');
           }
         }
       ]
@@ -157,3 +167,4 @@ export default function SettingsScreen() {
     </ScrollView>
   );
 }
+
