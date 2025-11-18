@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useSafeTheme } from '../lib/stores/useThemeStore';
+import { useSafeTheme } from '../lib/store/useThemeStore';
 import type { AppColors } from '../lib/theme/colors';
 
 export function useThemedStyles<T>(factory: (theme: AppColors) => T): T {

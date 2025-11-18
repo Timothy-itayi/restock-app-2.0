@@ -2,7 +2,7 @@ import { StyleSheet } from "react-native";
 import colors, { type AppColors } from '../../lib/theme/colors';
 import { fontFamily, typography } from "../typography";
 
-export const getRestockSessionsStyles = (t: AppColors) => StyleSheet.create({
+export const getSuppliersStyles = (t: AppColors) => StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: 60,

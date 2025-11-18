@@ -4,7 +4,7 @@ import { StyleSheet } from "react-native";
 import typography, { fontFamily } from "../typography";
 import colors, { type AppColors } from '../../lib/theme/colors';
 
-export const getDashboardStyles = (t: AppColors) => StyleSheet.create({
+export const getSessionsStyles = (t: AppColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.neutral.lightest,

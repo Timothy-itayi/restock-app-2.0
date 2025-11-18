@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import pickDocuments from '../../../lib/utils/pickDocuments';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useThemedStyles } from '@styles/useThemedStyles';
+import { getUploadStyles } from '@styles/components/upload';
 
 type ParsedItem = {
   id: string;
@@ -19,6 +21,7 @@ type ParsedItem = {
 };
 
 export default function UploadScreen() {
+  const styles = useThemedStyles(getUploadStyles);
   const [file, setFile] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [parsed, setParsed] = useState<ParsedItem[]>([]);
@@ -117,99 +120,78 @@ export default function UploadScreen() {
 
   // UI
   return (
-    <SafeAreaView style={{ flex: 1, padding: 16 }}>
-      <Text style={{ fontSize: 22, fontWeight: '700', marginBottom: 12 }}>
-        Upload Catalog
-      </Text>
+    <SafeAreaView style={styles.sessionContainer}>
+      <View style={{ padding: 16 }}>
+        <Text style={styles.sessionSelectionTitle}>
+          Upload Catalog
+        </Text>
 
-      {!file && (
-        <TouchableOpacity
-          onPress={pickFile}
-          style={{
-            backgroundColor: '#6B7F6B',
-            padding: 14,
-            borderRadius: 10,
-            alignItems: 'center'
-          }}
-        >
-          <Text style={{ color: '#fff', fontWeight: '600' }}>Choose File</Text>
-        </TouchableOpacity>
-      )}
-
-      {file && !parsed.length && (
-        <View style={{ marginTop: 20 }}>
-          <Text style={{ marginBottom: 8 }}>Selected: {file.name}</Text>
-
+        {!file && (
           <TouchableOpacity
-            onPress={sendForParsing}
-            disabled={loading}
-            style={{
-              backgroundColor: '#111',
-              padding: 14,
-              borderRadius: 10,
-              alignItems: 'center',
-              opacity: loading ? 0.6 : 1
-            }}
+            onPress={pickFile}
+            style={styles.saveButton}
           >
-            {loading ?
-              <ActivityIndicator color="#fff" /> :
-              <Text style={{ color: '#fff', fontWeight: '600' }}>Parse Document</Text>
-            }
+            <Text style={styles.saveButtonText}>Choose File</Text>
           </TouchableOpacity>
+        )}
 
-          <TouchableOpacity
-            onPress={() => setFile(null)}
-            style={{ marginTop: 12, alignItems: 'center' }}
-          >
-            <Text style={{ color: '#6B7F6B' }}>Remove File</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+        {file && !parsed.length && (
+          <View style={{ marginTop: 20 }}>
+            <Text style={styles.sectionSubtitle}>Selected: {file.name}</Text>
 
-      {/* Parsed results */}
-      {parsed.length > 0 && (
-        <View style={{ flex: 1, marginTop: 16 }}>
-          <Text style={{ marginBottom: 6, fontWeight: '700' }}>Suppliers</Text>
+            <TouchableOpacity
+              onPress={sendForParsing}
+              disabled={loading}
+              style={[styles.saveButton, { opacity: loading ? 0.6 : 1, marginTop: 12 }]}
+            >
+              {loading ?
+                <ActivityIndicator color="#fff" /> :
+                <Text style={styles.saveButtonText}>Parse Document</Text>
+              }
+            </TouchableOpacity>
 
-          {Array.from(new Set(parsed.map(p => p.supplier))).map(s => (
-            <View key={s} style={{ marginBottom: 16 }}>
-              <Text style={{ fontWeight: '600', marginBottom: 6 }}>{s}</Text>
+            <TouchableOpacity
+              onPress={() => setFile(null)}
+              style={styles.cancelButton}
+            >
+              <Text style={styles.cancelButtonText}>Remove File</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
-              <TextInput
-                placeholder="Supplier email"
-                value={supplierMap[s] || ''}
-                onChangeText={v => setSupplierMap(prev => ({ ...prev, [s]: v }))}
-                style={{
-                  backgroundColor: '#fff',
-                  borderColor: '#ccc',
-                  borderWidth: 1,
-                  borderRadius: 8,
-                  padding: 10
-                }}
-              />
+        {/* Parsed results */}
+        {parsed.length > 0 && (
+          <View style={{ flex: 1, marginTop: 16 }}>
+            <Text style={styles.productListTitle}>Suppliers</Text>
 
-              {parsed.filter(p => p.supplier === s).map((p, i) => (
-                <Text key={p.id + i} style={{ marginTop: 4 }}>
-                  • {p.product}
-                </Text>
-              ))}
-            </View>
-          ))}
+            {Array.from(new Set(parsed.map(p => p.supplier))).map(s => (
+              <View key={s} style={styles.formCard}>
+                <Text style={[styles.productListTitle, { marginBottom: 6 }]}>{s}</Text>
 
-          <TouchableOpacity
-            onPress={saveToSession}
-            style={{
-              marginTop: 20,
-              backgroundColor: '#6B7F6B',
-              padding: 14,
-              borderRadius: 10,
-              alignItems: 'center'
-            }}
-          >
-            <Text style={{ color: '#fff', fontWeight: '600' }}>Add to Session</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+                <TextInput
+                  placeholder="Supplier email"
+                  value={supplierMap[s] || ''}
+                  onChangeText={v => setSupplierMap(prev => ({ ...prev, [s]: v }))}
+                  style={styles.textInput}
+                />
+
+                {parsed.filter(p => p.supplier === s).map((p, i) => (
+                  <Text key={p.id + i} style={styles.sectionSubtitle}>
+                    • {p.product}
+                  </Text>
+                ))}
+              </View>
+            ))}
+
+            <TouchableOpacity
+              onPress={saveToSession}
+              style={[styles.saveButton, { marginTop: 20 }]}
+            >
+              <Text style={styles.saveButtonText}>Add to Session</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
     </SafeAreaView>
   );
 }

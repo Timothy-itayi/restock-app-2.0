@@ -5,11 +5,12 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
-  StyleSheet
+  Alert
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
+import { useThemedStyles } from '@styles/useThemedStyles';
+import { getSettingsStyles } from '@styles/components/settings';
 
 type SenderProfile = {
   name: string;
@@ -18,6 +19,7 @@ type SenderProfile = {
 };
 
 export default function SettingsScreen() {
+  const styles = useThemedStyles(getSettingsStyles);
   const [profile, setProfile] = useState<SenderProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -71,21 +73,21 @@ export default function SettingsScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <Text style={{ color: '#666' }}>Loading...</Text>
+      <View style={styles.container}>
+        <Text style={styles.headerSubtitle}>Loading...</Text>
       </View>
     );
   }
 
   if (!profile) {
     return (
-      <View style={styles.loadingContainer}>
-        <Text style={{ marginBottom: 12 }}>No sender details found.</Text>
+      <View style={styles.container}>
+        <Text style={styles.headerSubtitle}>No sender details found.</Text>
         <TouchableOpacity
-          style={styles.button}
+          style={{ marginTop: 12 }}
           onPress={() => router.replace('/sender-setup')}
         >
-          <Text style={styles.buttonText}>Set Up Profile</Text>
+          <Text style={styles.headerTitle}>Set Up Profile</Text>
         </TouchableOpacity>
       </View>
     );
@@ -93,94 +95,65 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
-      <Text style={styles.header}>Settings</Text>
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Settings</Text>
+        </View>
+      </View>
 
-      <Text style={styles.label}>Name</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Your Name"
-        value={profile.name}
-        onChangeText={(v) => setProfile({ ...profile, name: v })}
-      />
+      <View style={styles.settingsSection}>
+        <View style={styles.settingItem}>
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingTitle}>Name</Text>
+            <TextInput
+              placeholder="Your Name"
+              value={profile.name}
+              onChangeText={(v) => setProfile({ ...profile, name: v })}
+              style={styles.settingDescription}
+            />
+          </View>
+        </View>
 
-      <Text style={styles.label}>Email</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Email Address"
-        value={profile.email}
-        onChangeText={(v) => setProfile({ ...profile, email: v })}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
+        <View style={styles.settingItem}>
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingTitle}>Email</Text>
+            <TextInput
+              placeholder="Email Address"
+              value={profile.email}
+              onChangeText={(v) => setProfile({ ...profile, email: v })}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              style={styles.settingDescription}
+            />
+          </View>
+        </View>
 
-      <Text style={styles.label}>Store Name (optional)</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Store Name"
-        value={profile.storeName || ''}
-        onChangeText={(v) => setProfile({ ...profile, storeName: v })}
-      />
+        <View style={styles.settingItem}>
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingTitle}>Store Name (optional)</Text>
+            <TextInput
+              placeholder="Store Name"
+              value={profile.storeName || ''}
+              onChangeText={(v) => setProfile({ ...profile, storeName: v })}
+              style={styles.settingDescription}
+            />
+          </View>
+        </View>
+      </View>
 
-      <TouchableOpacity style={styles.button} onPress={saveProfile}>
-        <Text style={styles.buttonText}>Save Changes</Text>
+      <TouchableOpacity
+        style={styles.saveButton}
+        onPress={saveProfile}
+      >
+        <Text style={styles.saveButtonText}>Save Changes</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={[styles.button, styles.resetButton]} onPress={handleClearAll}>
-        <Text style={styles.resetText}>Reset All Data</Text>
+      <TouchableOpacity
+        style={styles.resetButton}
+        onPress={handleClearAll}
+      >
+        <Text style={styles.resetButtonText}>Reset All Data</Text>
       </TouchableOpacity>
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    backgroundColor: 'white',
-    flex: 1
-  },
-  header: {
-    fontSize: 26,
-    fontWeight: '600',
-    marginBottom: 30
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginTop: 15,
-    marginBottom: 6
-  },
-  input: {
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#DDD',
-    borderRadius: 8,
-    backgroundColor: '#F8F8F8',
-    fontSize: 15
-  },
-  button: {
-    marginTop: 25,
-    paddingVertical: 14,
-    borderRadius: 10,
-    backgroundColor: '#6B7F6B',
-    alignItems: 'center'
-  },
-  buttonText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 15
-  },
-  resetButton: {
-    backgroundColor: '#F2F2F2',
-    borderWidth: 1,
-    borderColor: '#DDD'
-  },
-  resetText: {
-    color: '#B20000',
-    fontWeight: '600'
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center'
-  }
-});

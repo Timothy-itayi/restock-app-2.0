@@ -3,11 +3,12 @@ import {
   View,
   Text,
   TouchableOpacity,
-  FlatList,
-  StyleSheet
+  FlatList
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
+import { useThemedStyles } from '@styles/useThemedStyles';
+import { getSessionsStyles } from '@styles/components/sessions';
 
 type Session = {
   id: string;
@@ -17,6 +18,7 @@ type Session = {
 };
 
 export default function SessionsScreen() {
+  const styles = useThemedStyles(getSessionsStyles);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -54,13 +56,13 @@ export default function SessionsScreen() {
 
   const renderSessionItem = ({ item }: { item: Session }) => (
     <TouchableOpacity
-      style={styles.sessionItem}
+      style={styles.sessionCard}
       onPress={() => router.push(`/session/${item.id}`)}
     >
       <Text style={styles.sessionTitle}>
         Session {new Date(item.createdAt).toLocaleDateString()}
       </Text>
-      <Text style={styles.sessionMeta}>
+      <Text style={styles.sessionSubtitle}>
         {item.items.length} items • {item.status}
       </Text>
     </TouchableOpacity>
@@ -68,74 +70,27 @@ export default function SessionsScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Restock Sessions</Text>
+      <View style={styles.contentContainer}>
+        <Text style={styles.title}>Restock Sessions</Text>
 
-      <TouchableOpacity style={styles.button} onPress={startSession}>
-        <Text style={styles.buttonText}>Start New Session</Text>
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.primaryButton} onPress={startSession}>
+          <Text style={styles.primaryButtonText}>Start New Session</Text>
+        </TouchableOpacity>
 
-      {loading ? (
-        <Text style={styles.loading}>Loading...</Text>
-      ) : sessions.length === 0 ? (
-        <Text style={styles.empty}>No sessions yet. Start one!</Text>
-      ) : (
-        <FlatList
-          data={sessions.sort((a, b) => b.createdAt - a.createdAt)}
-          keyExtractor={(item) => item.id}
-          renderItem={renderSessionItem}
-          contentContainerStyle={{ paddingTop: 12 }}
-        />
-      )}
+        {loading ? (
+          <Text style={styles.emptyStateText}>Loading...</Text>
+        ) : sessions.length === 0 ? (
+          <Text style={styles.emptyStateText}>No sessions yet. Start one!</Text>
+        ) : (
+          <FlatList
+            data={sessions.sort((a, b) => b.createdAt - a.createdAt)}
+            keyExtractor={(item) => item.id}
+            renderItem={renderSessionItem}
+            contentContainerStyle={{ paddingTop: 12 }}
+          />
+        )}
+      </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: 'white'
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '600',
-    marginBottom: 20
-  },
-  button: {
-    backgroundColor: '#6B7F6B',
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginBottom: 20
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600'
-  },
-  sessionItem: {
-    padding: 16,
-    borderRadius: 10,
-    backgroundColor: '#F8F8F8',
-    marginBottom: 12
-  },
-  sessionTitle: {
-    fontSize: 16,
-    fontWeight: '600'
-  },
-  sessionMeta: {
-    marginTop: 4,
-    fontSize: 14,
-    color: '#555'
-  },
-  loading: {
-    marginTop: 40,
-    textAlign: 'center',
-    color: '#777'
-  },
-  empty: {
-    marginTop: 40,
-    textAlign: 'center',
-    color: '#777'
-  }
-});
