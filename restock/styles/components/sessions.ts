@@ -477,5 +477,16 @@ export const getSessionsStyles = (t: AppColors) => StyleSheet.create({
     fontSize: 15,
     color: t.neutral.darkest,
   },
-  
+  input: {
+    ...typography.bodyMedium,
+    backgroundColor: colors.neutral.lightest,
+    borderWidth: 1,
+    borderColor: colors.neutral.light,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    marginBottom: 16,
+    color: colors.neutral.darkest,
+    minHeight: 56,
+  },
 });
