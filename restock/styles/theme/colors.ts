@@ -28,6 +28,14 @@ const light = {
     active: '#6d9f72',
     inactive: '#DEE2E6',
   },
+    // NEW: Analytics palette
+    analytics: {
+      mint: '#8BBF9F',
+      sage: '#BAC8A5',
+      olive: '#9A8F54',
+      clay: '#D8C4A1',
+      moss: '#5E745E',
+    },
 } as const;
 
 const dark = {
@@ -36,6 +44,8 @@ const dark = {
     secondary: '#b6c2a1',
     accent: '#f2c46d',
   },
+
+  
   neutral: {
     lightest: '#1a1a1a',
     lighter: '#222522',
@@ -58,6 +68,14 @@ const dark = {
     active: '#8fcca0',
     inactive: '#555a52',
   },
+    // NEW: Analytics palette
+    analytics: {
+      mint: '#A9E3C1',
+      sage: '#D4E2BF',
+      olive: '#C7B878',
+      clay: '#E8D8BA',
+      moss: '#7FA486',
+    },
 } as const;
 
 // Backward-compatible default export that exposes light at the top-level
