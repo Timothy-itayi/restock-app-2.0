@@ -443,4 +443,38 @@ export const getSessionsStyles = (t: AppColors) => StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
+  statusActive: {
+    color: t.brand.primary
+  },
+  statusInactive: {
+    color: t.neutral.medium
+  },
+  
+  itemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: t.neutral.lighter,
+  },
+  
+  itemName: {
+    fontFamily: fontFamily.satoshiMedium,
+    fontSize: 15,
+    color: t.neutral.darkest,
+  },
+  
+  itemSupplier: {
+    fontFamily: fontFamily.satoshi,
+    fontSize: 13,
+    color: t.neutral.medium,
+  },
+  
+  itemQty: {
+    fontFamily: fontFamily.satoshiBold,
+    fontSize: 15,
+    color: t.neutral.darkest,
+  },
+  
 });
