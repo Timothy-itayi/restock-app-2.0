@@ -46,11 +46,22 @@ export default function SessionDetailScreen() {
       ? styles.statusActive.color
       : styles.statusInactive.color;
 
-  const handleComplete = () => {
-    updateSession(session.id, { status: 'completed' });
-    router.back();
-  };
-
+      const handleComplete = () => {
+        try {
+          // Move session to pending-email state
+          updateSession(session.id, { status: 'pendingEmails' });
+      
+          // Navigate to email preview
+          router.push({
+            pathname: '/email-preview',
+            params: { id: session.id }
+          });
+        } catch (err) {
+          console.error('Failed finishing session', err);
+          Alert.alert('Error', 'Could not proceed to email preview.');
+        }
+      };
+      
   const handleCancel = () => {
     updateSession(session.id, { status: 'cancelled' });
     router.back();
