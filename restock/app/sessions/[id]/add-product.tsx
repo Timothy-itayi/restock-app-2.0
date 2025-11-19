@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,14 +8,17 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  SafeAreaView
+  SafeAreaView,
+  FlatList
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useThemedStyles } from '@styles/useThemedStyles';
 import { getUploadStyles } from '@styles/components/upload';
 import { addProductScreenStyles } from '@styles/components/add-product';
 import { useSessionStore } from '../../../store/useSessionStore';
+import { useSupplierStore } from '../../../store/useSupplierStore';
 import type { SessionItem } from '../../../lib/helpers/storage/sessions';
+import colors from '../../../lib/theme/colors';
 
 export default function AddProductScreen() {
   const styles = useThemedStyles(getUploadStyles);
@@ -28,10 +31,35 @@ export default function AddProductScreen() {
   );
 
   const addItemToSession = useSessionStore((state) => state.addItemToSession);
+  const suppliers = useSupplierStore((state) => state.suppliers);
+  const getSupplierByName = useSupplierStore((state) => state.getSupplierByName);
+  const addSupplier = useSupplierStore((state) => state.addSupplier);
+  const loadSuppliers = useSupplierStore((state) => state.loadSuppliers);
 
   const [productName, setProductName] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [supplier, setSupplier] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [filteredSuppliers, setFilteredSuppliers] = useState<typeof suppliers>([]);
+
+  // Load suppliers on mount
+  useEffect(() => {
+    loadSuppliers();
+  }, [loadSuppliers]);
+
+  // Filter suppliers based on input
+  useEffect(() => {
+    if (supplier.trim()) {
+      const filtered = suppliers.filter(s =>
+        s.name.toLowerCase().includes(supplier.toLowerCase())
+      );
+      setFilteredSuppliers(filtered);
+      setShowSuggestions(filtered.length > 0);
+    } else {
+      setShowSuggestions(false);
+      setFilteredSuppliers([]);
+    }
+  }, [supplier, suppliers]);
 
   if (!session) {
     return (
@@ -55,11 +83,27 @@ export default function AddProductScreen() {
       return;
     }
 
+    const supplierNameTrimmed = supplier.trim();
+    let supplierId: string | undefined;
+
+    // If supplier name provided, create or get supplier
+    if (supplierNameTrimmed) {
+      try {
+        const existing = getSupplierByName(supplierNameTrimmed);
+        const supplierObj = existing ?? addSupplier(supplierNameTrimmed);
+        supplierId = supplierObj.id;
+      } catch (error) {
+        console.warn('Error accessing supplier store:', error);
+        // Continue without supplierId if there's an error
+      }
+    }
+
     const newItem: SessionItem = {
       id: `${Date.now()}-${Math.random()}`,
       productName: productName.trim(),
       quantity,
-      supplierName: supplier.trim() || undefined,
+      supplierName: supplierNameTrimmed || undefined,
+      supplierId,
     };
 
     addItemToSession(session.id, newItem);
@@ -67,8 +111,14 @@ export default function AddProductScreen() {
     setProductName('');
     setQuantity(1);
     setSupplier('');
+    setShowSuggestions(false);
 
     router.replace(`/sessions/${session.id}`);
+  };
+
+  const selectSupplier = (supplierName: string) => {
+    setSupplier(supplierName);
+    setShowSuggestions(false);
   };
 
   const incrementQty = () => setQuantity(q => q + 1);
@@ -111,12 +161,63 @@ export default function AddProductScreen() {
 
             {/* SUPPLIER */}
             <Text style={qtyStyles.label}>Supplier (optional)</Text>
-            <TextInput
-              placeholder="Enter supplier name"
-              value={supplier}
-              onChangeText={setSupplier}
-              style={styles.textInput}
-            />
+            <View style={{ position: 'relative' }}>
+              <TextInput
+                placeholder="Enter supplier name"
+                value={supplier}
+                onChangeText={setSupplier}
+                onFocus={() => {
+                  if (supplier.trim() && filteredSuppliers.length > 0) {
+                    setShowSuggestions(true);
+                  }
+                }}
+                style={styles.textInput}
+              />
+              {showSuggestions && filteredSuppliers.length > 0 && (
+                <View style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  backgroundColor: colors.neutral.lightest,
+                  borderWidth: 1,
+                  borderColor: colors.neutral.light,
+                  borderRadius: 8,
+                  marginTop: 4,
+                  maxHeight: 200,
+                  zIndex: 1000,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 4,
+                  elevation: 5,
+                }}>
+                  <FlatList
+                    data={filteredSuppliers}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        onPress={() => selectSupplier(item.name)}
+                        style={{
+                          padding: 12,
+                          borderBottomWidth: 1,
+                          borderBottomColor: colors.neutral.light,
+                        }}
+                      >
+                        <Text style={{ fontSize: 16, color: colors.neutral.darkest }}>
+                          {item.name}
+                        </Text>
+                        {item.email && (
+                          <Text style={{ fontSize: 12, color: colors.neutral.medium, marginTop: 2 }}>
+                            {item.email}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    )}
+                  />
+                </View>
+              )}
+            </View>
 
             {/* ACTION BUTTONS */}
             <TouchableOpacity
