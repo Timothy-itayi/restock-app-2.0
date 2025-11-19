@@ -9,6 +9,7 @@ import { getSessionsStyles } from '../../../styles/components/sessions';
 
 import { useSessionStore } from '../../../store/useSessionStore';
 import { useSupplierStore } from '../../../store/useSupplierStore';
+import { useSenderProfile } from '../../../store/useSenderProfileStore';
 
 import { EmailsSummary } from '../../../components/emails/EmailsSummary';
 import { EmailCard } from '../../../components/emails/EmailCard';
@@ -25,6 +26,7 @@ export default function EmailPreviewScreen() {
   
   const session = useSessionStore((s) => s.getSession(id));
   const suppliers = useSupplierStore((s) => s.suppliers);
+  const senderProfile = useSenderProfile();
 
   const [selectedDraft, setSelectedDraft] = useState<any | null>(null);
   const [editDraft, setEditDraft] = useState<any | null>(null);
@@ -39,30 +41,68 @@ export default function EmailPreviewScreen() {
 
   // Build supplier → items grouping
   const emailDrafts = useMemo(() => {
+    // Helper function to format product list for email body
+    const formatProductList = (items: typeof session.items) => {
+      if (items.length === 0) return '';
+      
+      return items.map((item, index) => {
+        return `${index + 1}. ${item.productName}${item.quantity > 1 ? ` (x${item.quantity})` : ''}`;
+      }).join('\n');
+    };
+
+    // Helper function to generate default email body
+    const generateEmailBody = (supplierName: string, items: typeof session.items) => {
+      const productList = formatProductList(items);
+      const storeName = senderProfile?.storeName || 'our store';
+      
+      return `Hi ${supplierName || 'there'},
+
+I'd like to place an order for the following items:
+
+${productList}
+
+Please let me know if you have any questions or if any items are unavailable.
+
+Thank you,
+${senderProfile?.name || 'Customer'}`;
+    };
+
     const map: Record<string, any> = {};
+    const storeName = senderProfile?.storeName || 'our store';
 
     for (const item of session.items) {
-      const supplierId = item.supplierId || 'unknown';
+      // Use supplierId if available, otherwise use supplierName as key
+      const supplierKey = item.supplierId || item.supplierName || 'unknown';
+      const supplierId = item.supplierId || supplierKey;
 
-      if (!map[supplierId]) {
-        const supplier = suppliers.find((s) => s.id === supplierId);
-        const edited = editedDrafts[supplierId];
+      if (!map[supplierKey]) {
+        const supplier = item.supplierId 
+          ? suppliers.find((s) => s.id === item.supplierId)
+          : suppliers.find((s) => s.name.toLowerCase() === (item.supplierName || '').toLowerCase());
+        
+        const edited = editedDrafts[supplierId] || editedDrafts[supplierKey];
+        const supplierItems = session.items.filter(i => {
+          if (i.supplierId) {
+            return i.supplierId === supplierId;
+          }
+          // Fallback to supplierName matching
+          const iKey = i.supplierId || i.supplierName || 'unknown';
+          return iKey === supplierKey;
+        });
 
-        map[supplierId] = {
-          supplierId,
-          supplierName: supplier?.name || 'Unknown Supplier',
+        map[supplierKey] = {
+          supplierId: supplierId,
+          supplierName: supplier?.name || item.supplierName || 'Unknown Supplier',
           supplierEmail: supplier?.email || '',
-          subject: edited?.subject || `Restock Order from ${session.createdAt}`,
-          body: edited?.body || `Hi ${supplier?.name || ''},\n\nI'd like to place an order for the following items:\n`,
-          items: []
+          subject: edited?.subject || `Restock Order from ${storeName}`,
+          body: edited?.body || generateEmailBody(supplier?.name || item.supplierName || '', supplierItems),
+          items: supplierItems
         };
       }
-
-      map[supplierId].items.push(item);
     }
 
     return Object.values(map);
-  }, [session, suppliers, editedDrafts]);
+  }, [session, suppliers, editedDrafts, senderProfile]);
 
 
   const handleSendAll = async () => {
@@ -80,7 +120,7 @@ export default function EmailPreviewScreen() {
             subject: draft.subject,
             body: draft.body,
             items: draft.items,
-            storeName: 'Restock App'
+            storeName: senderProfile?.storeName || senderProfile?.name || 'Restock App'
           })
         });
 
@@ -112,7 +152,12 @@ export default function EmailPreviewScreen() {
         <Text style={sessionStyles.title}>Email Preview</Text>
       </View>
 
-      <EmailsSummary emailCount={emailDrafts.length} senderName={''} senderEmail={''} />
+      <EmailsSummary 
+        emailCount={emailDrafts.length} 
+        senderName={senderProfile?.name || ''} 
+        senderEmail={senderProfile?.email || ''}
+        storeName={senderProfile?.storeName || undefined}
+      />
 
       <ScrollView style={{ padding: 16 }}>
         {emailDrafts.map((draft) => (
@@ -160,7 +205,13 @@ export default function EmailPreviewScreen() {
 
       <EmailEditModal
         visible={!!editDraft}
-        editingEmail={editDraft}
+        editingEmail={editDraft ? {
+          supplierName: editDraft.supplierName,
+          supplierEmail: editDraft.supplierEmail,
+          subject: editDraft.subject,
+          body: editDraft.body,
+          items: editDraft.items
+        } : null}
         onSave={(updated) => {
           if (editDraft) {
             setEditedDrafts(prev => ({
@@ -178,9 +229,18 @@ export default function EmailPreviewScreen() {
 
       <EmailDetailModal
         visible={!!selectedDraft}
-        email={selectedDraft}
+        email={selectedDraft ? {
+          supplierName: selectedDraft.supplierName,
+          supplierEmail: selectedDraft.supplierEmail,
+          subject: selectedDraft.subject,
+          body: selectedDraft.body,
+          items: selectedDraft.items
+        } : null}
         onClose={() => setSelectedDraft(null)}
-        onEdit={() => {}}
+        onEdit={(email) => {
+          setEditDraft(selectedDraft);
+          setSelectedDraft(null);
+        }}
       />
     </SafeAreaView>
   );

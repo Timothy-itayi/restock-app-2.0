@@ -8,8 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  SafeAreaView,
-  FlatList
+  SafeAreaView
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useThemedStyles } from '@styles/useThemedStyles';
@@ -161,7 +160,7 @@ export default function AddProductScreen() {
 
             {/* SUPPLIER */}
             <Text style={qtyStyles.label}>Supplier (optional)</Text>
-            <View style={{ position: 'relative' }}>
+            <View style={{ position: 'relative', zIndex: 1 }}>
               <TextInput
                 placeholder="Enter supplier name"
                 value={supplier}
@@ -191,30 +190,28 @@ export default function AddProductScreen() {
                   shadowOpacity: 0.1,
                   shadowRadius: 4,
                   elevation: 5,
+                  overflow: 'hidden',
                 }}>
-                  <FlatList
-                    data={filteredSuppliers}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                      <TouchableOpacity
-                        onPress={() => selectSupplier(item.name)}
-                        style={{
-                          padding: 12,
-                          borderBottomWidth: 1,
-                          borderBottomColor: colors.neutral.light,
-                        }}
-                      >
-                        <Text style={{ fontSize: 16, color: colors.neutral.darkest }}>
-                          {item.name}
+                  {filteredSuppliers.slice(0, 5).map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      onPress={() => selectSupplier(item.name)}
+                      style={{
+                        padding: 12,
+                        borderBottomWidth: 1,
+                        borderBottomColor: colors.neutral.light,
+                      }}
+                    >
+                      <Text style={{ fontSize: 16, color: colors.neutral.darkest }}>
+                        {item.name}
+                      </Text>
+                      {item.email && (
+                        <Text style={{ fontSize: 12, color: colors.neutral.medium, marginTop: 2 }}>
+                          {item.email}
                         </Text>
-                        {item.email && (
-                          <Text style={{ fontSize: 12, color: colors.neutral.medium, marginTop: 2 }}>
-                            {item.email}
-                          </Text>
-                        )}
-                      </TouchableOpacity>
-                    )}
-                  />
+                      )}
+                    </TouchableOpacity>
+                  ))}
                 </View>
               )}
             </View>
