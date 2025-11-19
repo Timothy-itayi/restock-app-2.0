@@ -133,9 +133,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   //----------------------------------------------------------------------
   // ACTIVE SESSIONS — *Stable selector*
+  // Includes 'active' and 'pendingEmails' (sessions still in progress)
   //----------------------------------------------------------------------
   getActiveSessions: () => {
-    return get().sessions.filter((s) => s.status === 'active');
+    return get().sessions.filter((s) => s.status === 'active' || s.status === 'pendingEmails');
   },
 
   //----------------------------------------------------------------------
@@ -160,7 +161,7 @@ export const useSessions = () => useSessionStore((s) => s.sessions);
 export const useActiveSessions = () => {
   const sessions = useSessions();
   return useMemo(
-    () => sessions.filter((x) => x.status === 'active'),
+    () => sessions.filter((x) => x.status === 'active' || x.status === 'pendingEmails'),
     [sessions]
   );
 };

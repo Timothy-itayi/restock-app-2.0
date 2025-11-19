@@ -3,10 +3,9 @@ main = "backend/send-email/index.ts"
 compatibility_date = "2024-11-21"
 
 [vars]
-EMAIL_FROM_ADDRESS = "orders@yourstore.com"
-EMAIL_PROVIDER_API_KEY = "<your-email-provider-api-key>"
-EMAIL_PROVIDER_URL = "https://your-email-provider-api-endpoint"
+EMAIL_FROM_ADDRESS = "Restock App <noreply@restockapp.email>"
+EMAIL_PROVIDER_URL = "https://api.resend.com/emails"
 
 [routes]
 pattern = "https://restock.yourdomain.com/send-email"
-zone_id = "<your-cloudflare-zone-id>"
+zone_id = "<YOUR_ZONE_ID>"
