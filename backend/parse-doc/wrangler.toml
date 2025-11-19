@@ -1,0 +1,12 @@
+name = "restock-parse-doc"
+main = "backend/parse-doc/index.ts"
+compatibility_date = "2024-11-21"
+
+[vars]
+OPENAI_API_KEY = "<your-openai-key>"
+
+[routes]
+# This exposes the worker at your chosen domain/path
+# Example: https://restock.yourdomain.com/parse-doc
+pattern = "https://restock.yourdomain.com/parse-doc"
+zone_id = "<your-cloudflare-zone-id>"

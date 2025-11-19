@@ -1,431 +1,176 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  Alert,
-  SafeAreaView,
-  ActivityIndicator
-} from 'react-native';
-import { router } from 'expo-router';
-import { useThemedStyles } from '@styles/useThemedStyles';
-import { getEmailsStyles } from '@styles/components/emails';
-import { useActiveSession, useSessionStore } from '../store/useSessionStore';
-import { useSenderProfile, useSenderProfileHydrated } from '../store/useSenderProfileStore';
-import type { SessionItem } from '../lib/helpers/storage/sessions';
-import { generateEmailBody, sendEmail, type EmailItem } from '../lib/api/sendEmail';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useMemo, useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { useLocalSearchParams, router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
-type SupplierGroup = {
-  supplierName: string;
-  supplierEmail: string;
-  items: SessionItem[];
-  subject: string;
-  body: string;
-  isGenerating: boolean;
-};
+import { useThemedStyles } from '../styles/useThemedStyles';
+import { getEmailsStyles } from '../styles/components/emails';
+
+import { useSessionStore } from '../store/useSessionStore';
+import { useSupplierStore } from '../store/useSupplierStore';
+
+import { EmailsSummary } from '../components/emails/EmailsSummary';
+import { EmailCard } from '../components/emails/EmailCard';
+import  {EmailEditModal } from '../components/emails/EmailEditModal';
+import { SendConfirmationModal } from '../components/emails/SendConfirmationModal';
+import { EmailDetailModal } from '../components/emails/EmailEditModal';
+
+const SEND_EMAIL_URL = 'https://your-domain.com/send-email';
 
 export default function EmailPreviewScreen() {
   const styles = useThemedStyles(getEmailsStyles);
-  const activeSession = useActiveSession();
-  const senderProfile = useSenderProfile();
-  const isSenderHydrated = useSenderProfileHydrated();
-  const completeSession = useSessionStore((state) => state.completeSession);
+  const { sessionId } = useLocalSearchParams();
   
-  const [supplierGroups, setSupplierGroups] = useState<SupplierGroup[]>([]);
-  const [loading, setLoading] = useState(true);
+  const session = useSessionStore((s) => s.getSession(sessionId as string));
+  const suppliers = useSupplierStore((s) => s.suppliers);
+
+  const [selectedDraft, setSelectedDraft] = useState<any | null>(null);
+  const [editDraft, setEditDraft] = useState<any | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [sending, setSending] = useState(false);
-  const [supplierEmails, setSupplierEmails] = useState<Record<string, string>>({});
+  const [success, setSuccess] = useState(false);
 
-  useEffect(() => {
-    if (!isSenderHydrated) {
-      return;
-    }
+  if (!session) {
+    return <Text>Session not found.</Text>;
+  }
 
-    // Check sender profile
-    if (!senderProfile) {
-      Alert.alert(
-        'Sender Profile Required',
-        'Please set up your sender profile before sending emails.',
-        [
-          {
-            text: 'Go to Setup',
-            onPress: () => router.replace('/auth/sender-setup')
-          }
-        ]
-      );
-      return;
-    }
+  // Build supplier → items grouping
+  const emailDrafts = useMemo(() => {
+    const map: Record<string, any> = {};
 
-    // Check active session
-    if (!activeSession || activeSession.items.length === 0) {
-      Alert.alert(
-        'No Active Session',
-        'Please add items to your session before sending emails.',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.back()
-          }
-        ]
-      );
-      return;
-    }
+    for (const item of session.items) {
+      const supplierId = item.supplierId || 'unknown';
 
-    initializeEmailGroups();
-  }, [isSenderHydrated, senderProfile, activeSession]);
+      if (!map[supplierId]) {
+        const supplier = suppliers.find((s) => s.id === supplierId);
 
-  const initializeEmailGroups = async () => {
-    if (!activeSession || !senderProfile) return;
-
-    setLoading(true);
-
-    try {
-      // Load supplier emails from storage
-      const stored = await AsyncStorage.getItem('suppliers');
-      const suppliers = stored ? JSON.parse(stored) : {};
-      const emailMap: Record<string, string> = {};
-
-      // Group items by supplier
-      const grouped: Record<string, SessionItem[]> = {};
-      activeSession.items.forEach(item => {
-        const supplier = item.supplierName || 'Unknown Supplier';
-        if (!grouped[supplier]) {
-          grouped[supplier] = [];
-          emailMap[supplier] = suppliers[supplier]?.email || '';
-        }
-        grouped[supplier].push(item);
-      });
-
-      // Check if we have at least one supplier
-      const suppliersList = Object.keys(grouped);
-      if (suppliersList.length === 0) {
-        Alert.alert('No Suppliers', 'Please assign suppliers to your items.');
-        router.back();
-        return;
+        map[supplierId] = {
+          supplierId,
+          supplierName: supplier?.name || 'Unknown Supplier',
+          supplierEmail: supplier?.email || '',
+          subject: `Restock Order from ${session.createdAt}`,
+          body: `Hi ${supplier?.name || ''},\n\nI'd like to place an order for the following items:\n`,
+          items: []
+        };
       }
 
-      setSupplierEmails(emailMap);
-
-      // Create supplier groups with default subject
-      const groups: SupplierGroup[] = suppliersList.map(supplierName => ({
-        supplierName,
-        supplierEmail: emailMap[supplierName] || '',
-        items: grouped[supplierName],
-        subject: `Order Request - ${new Date().toLocaleDateString()}`,
-        body: '',
-        isGenerating: true,
-      }));
-
-      setSupplierGroups(groups);
-
-      // Generate email bodies for each supplier
-      for (const group of groups) {
-        await generateEmailForSupplier(group);
-      }
-    } catch (error) {
-      console.error('Failed to initialize email groups:', error);
-      Alert.alert('Error', 'Failed to prepare emails. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const generateEmailForSupplier = async (group: SupplierGroup) => {
-    if (!senderProfile) return;
-
-    setSupplierGroups(prev => prev.map(g => 
-      g.supplierName === group.supplierName 
-        ? { ...g, isGenerating: true }
-        : g
-    ));
-
-    try {
-      const emailItems: EmailItem[] = group.items.map(item => ({
-        productName: item.productName,
-        quantity: item.quantity,
-      }));
-
-      const body = await generateEmailBody(
-        group.supplierName,
-        emailItems,
-        senderProfile.name,
-        senderProfile.storeName || undefined
-      );
-
-      setSupplierGroups(prev => prev.map(g => 
-        g.supplierName === group.supplierName 
-          ? { ...g, body, isGenerating: false }
-          : g
-      ));
-    } catch (error) {
-      console.error('Failed to generate email body:', error);
-      setSupplierGroups(prev => prev.map(g => 
-        g.supplierName === group.supplierName 
-          ? { ...g, isGenerating: false }
-          : g
-      ));
-    }
-  };
-
-  const updateGroup = (supplierName: string, updates: Partial<SupplierGroup>) => {
-    setSupplierGroups(prev => prev.map(g => 
-      g.supplierName === supplierName 
-        ? { ...g, ...updates }
-        : g
-    ));
-  };
-
-  const updateSupplierEmail = (supplierName: string, email: string) => {
-    setSupplierEmails(prev => ({ ...prev, [supplierName]: email }));
-    updateGroup(supplierName, { supplierEmail: email });
-  };
-
-  const handleSendEmails = async () => {
-    if (!senderProfile || !activeSession) return;
-
-    // Validate all supplier emails
-    const missingEmails: string[] = [];
-    supplierGroups.forEach(group => {
-      if (!group.supplierEmail || !group.supplierEmail.trim()) {
-        missingEmails.push(group.supplierName);
-      }
-    });
-
-    if (missingEmails.length > 0) {
-      Alert.alert(
-        'Missing Supplier Emails',
-        `Please enter email addresses for: ${missingEmails.join(', ')}`
-      );
-      return;
+      map[supplierId].items.push(item);
     }
 
-    // Validate at least one supplier
-    if (supplierGroups.length === 0) {
-      Alert.alert('No Suppliers', 'At least one supplier is required.');
-      return;
-    }
+    return Object.values(map);
+  }, [session, suppliers]);
 
+
+  const handleSendAll = async () => {
+    setShowConfirm(false);
     setSending(true);
 
     try {
-      // Send all emails
-      const sendPromises = supplierGroups.map(group => {
-        const emailItems: EmailItem[] = group.items.map(item => ({
-          productName: item.productName,
-          quantity: item.quantity,
-        }));
-
-        return sendEmail({
-          to: group.supplierEmail,
-          replyTo: senderProfile.email,
-          subject: group.subject,
-          text: group.body,
+      for (const draft of emailDrafts) {
+        const res = await fetch(SEND_EMAIL_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            supplierEmail: draft.supplierEmail,
+            replyTo: 'noreply@restock.email',
+            subject: draft.subject,
+            body: draft.body,
+            items: draft.items,
+            storeName: 'Restock App'
+          })
         });
-      });
 
-      const results = await Promise.all(sendPromises);
-      const failed = results.filter(r => !r.success);
-
-      if (failed.length > 0) {
-        const errorMessages = failed
-          .map(f => f.message || 'Unknown error')
-          .filter((msg, idx, arr) => arr.indexOf(msg) === idx); // Unique messages
-        
-        const errorDetails = errorMessages.length === 1 
-          ? errorMessages[0]
-          : `${failed.length} email(s) failed:\n${errorMessages.slice(0, 3).join('\n')}${errorMessages.length > 3 ? '\n...' : ''}`;
-
-        Alert.alert(
-          'Some Emails Failed',
-          errorDetails,
-          [{ text: 'OK' }]
-        );
-        setSending(false);
-        return;
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
       }
 
-      // Save supplier emails to storage
-      const stored = await AsyncStorage.getItem('suppliers');
-      const suppliers = stored ? JSON.parse(stored) : {};
-      supplierGroups.forEach(group => {
-        suppliers[group.supplierName] = { email: group.supplierEmail };
-      });
-      await AsyncStorage.setItem('suppliers', JSON.stringify(suppliers));
-
-      // Complete the session
-      completeSession(activeSession.id);
-
-      Alert.alert(
-        'Emails Sent',
-        `Successfully sent ${supplierGroups.length} email(s).`,
-        [
-          {
-            text: 'OK',
-            onPress: () => router.replace('/sessions')
-          }
-        ]
-      );
-    } catch (error) {
-      console.error('Failed to send emails:', error);
-      Alert.alert('Error', 'Failed to send emails. Please try again.');
       setSending(false);
+      setSuccess(true);
+
+      setTimeout(() => {
+        router.replace('/sessions');
+      }, 1500);
+
+    } catch (err: any) {
+      setSending(false);
+      Alert.alert('Error sending emails', err.message);
     }
   };
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#6B7F6B" />
-          <Text style={[styles.headerSubtitle, { marginTop: 16 }]}>Preparing emails...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (!senderProfile) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-          <Text style={styles.headerTitle}>Sender Profile Required</Text>
-          <Text style={styles.headerSubtitle}>
-            Please set up your sender profile before sending emails.
-          </Text>
-          <TouchableOpacity
-            style={[styles.emailCard, { marginTop: 20, padding: 16 }]}
-            onPress={() => router.replace('/auth/sender-setup')}
-          >
-            <Text style={{ color: '#6B7F6B', fontWeight: '600' }}>Go to Setup</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={24} />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Email Preview</Text>
-        <Text style={styles.headerSubtitle}>
-          Review and edit emails before sending
-        </Text>
       </View>
 
-      <ScrollView style={styles.emailList} showsVerticalScrollIndicator={false}>
-        {supplierGroups.map((group) => (
-          <View key={group.supplierName} style={styles.emailCard}>
-            <Text style={[styles.headerTitle, { fontSize: 18, marginBottom: 12 }]}>
-              {group.supplierName}
-            </Text>
+      <EmailsSummary emailCount={emailDrafts.length} senderName={''} senderEmail={''} />
 
-            <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 6, color: '#333' }}>
-              Supplier Email *
-            </Text>
-            <TextInput
-              placeholder="supplier@example.com"
-              value={group.supplierEmail}
-              onChangeText={(email) => updateSupplierEmail(group.supplierName, email)}
-              style={[
-                {
-                  borderWidth: 1,
-                  borderColor: '#ddd',
-                  borderRadius: 8,
-                  padding: 12,
-                  marginBottom: 12,
-                  backgroundColor: '#fff',
-                },
-                !group.supplierEmail?.trim() && { borderColor: '#FFC107' }
-              ]}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-
-            <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 6, color: '#333' }}>
-              Subject
-            </Text>
-            <TextInput
-              value={group.subject}
-              onChangeText={(subject) => updateGroup(group.supplierName, { subject })}
-              style={{
-                borderWidth: 1,
-                borderColor: '#ddd',
-                borderRadius: 8,
-                padding: 12,
-                marginBottom: 12,
-                backgroundColor: '#fff',
-              }}
-            />
-
-            <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 6, color: '#333' }}>
-              Body
-            </Text>
-            {group.isGenerating ? (
-              <View style={{ padding: 20, alignItems: 'center' }}>
-                <ActivityIndicator size="small" color="#6B7F6B" />
-                <Text style={{ marginTop: 8, color: '#666', fontSize: 12 }}>
-                  Generating email body...
-                </Text>
-              </View>
-            ) : (
-              <TextInput
-                value={group.body}
-                onChangeText={(body) => updateGroup(group.supplierName, { body })}
-                multiline
-                numberOfLines={10}
-                style={{
-                  borderWidth: 1,
-                  borderColor: '#ddd',
-                  borderRadius: 8,
-                  padding: 12,
-                  marginBottom: 12,
-                  backgroundColor: '#fff',
-                  minHeight: 150,
-                  textAlignVertical: 'top',
-                }}
-              />
-            )}
-
-            <View style={{ marginTop: 8 }}>
-              <Text style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
-                Items ({group.items.length}):
-              </Text>
-              {group.items.map((item) => (
-                <Text key={item.id} style={{ fontSize: 12, color: '#666', marginLeft: 8 }}>
-                  • {item.productName} (Qty: {item.quantity})
-                </Text>
-              ))}
-            </View>
-          </View>
+      <ScrollView style={{ padding: 16 }}>
+        {emailDrafts.map((draft) => (
+          <EmailCard
+            key={draft.supplierId}
+            email={draft}
+            onEdit={() => setEditDraft(draft)}
+            onTap={() => setSelectedDraft(draft)}
+          />
         ))}
-
-        <TouchableOpacity
-          onPress={handleSendEmails}
-          disabled={sending || supplierGroups.some(g => g.isGenerating)}
-          style={[
-            {
-              backgroundColor: '#6B7F6B',
-              padding: 16,
-              borderRadius: 10,
-              alignItems: 'center',
-              marginTop: 20,
-              marginBottom: 40,
-            },
-            (sending || supplierGroups.some(g => g.isGenerating)) && { opacity: 0.6 }
-          ]}
-        >
-          {sending ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>
-              Send All Emails ({supplierGroups.length})
-            </Text>
-          )}
-        </TouchableOpacity>
       </ScrollView>
-    </SafeAreaView>
+
+      {/* Send All */}
+      {!sending && !success && (
+        <View style={styles.actionButtonContainer}>
+          <TouchableOpacity
+            style={styles.doneButton}
+            onPress={() => setShowConfirm(true)}
+          >
+            <Text style={styles.doneButtonText}>Send All Emails</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {sending && (
+        <View style={styles.sendingOverlay}>
+          <Text>Sending...</Text>
+        </View>
+      )}
+
+      {success && (
+        <View style={styles.successIcon}>
+          <Ionicons name="checkmark-circle" size={48} color="green" />
+          <Text>Emails Sent!</Text>
+        </View>
+      )}
+
+      {/* Modals */}
+      <SendConfirmationModal
+        visible={showConfirm}
+        emailCount={emailDrafts.length}
+        onConfirm={handleSendAll}
+        onCancel={() => setShowConfirm(false)}
+      />
+
+      <EmailEditModal
+        visible={!!editDraft}
+        editingEmail={editDraft}
+        onSave={(updated) => {
+          editDraft.subject = updated.subject;
+          editDraft.body = updated.body;
+          setEditDraft(null);
+        }}
+        onCancel={() => setEditDraft(null)}
+      />
+
+      <EmailDetailModal
+        visible={!!selectedDraft}
+        email={selectedDraft}
+        onClose={() => setSelectedDraft(null)}
+        onEdit={() => {}}
+      />
+    </View>
   );
 }
-

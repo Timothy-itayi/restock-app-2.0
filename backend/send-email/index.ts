@@ -1,186 +1,214 @@
-/**
- * Send Email Serverless Function (Resend)
- * 
- * This is a placeholder for the serverless function that will be deployed.
- * Replace with your actual serverless platform (Vercel, Netlify, AWS Lambda, etc.)
- * 
- * Requirements:
- * - POST { to, replyTo, subject, text, deviceId }
- * - Validate input server-side
- * - Rate limit by device ID
- * - Use Resend API
- * - Returns { success: true }
- * - Block invalid email formats
- */
+// backend/send-email/index.ts
 
-import { Resend } from 'resend';
-
-// Initialize Resend (replace with your API key from environment variables)
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-// Rate limiting storage (in production, use Redis or similar)
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-
-// Rate limit: 10 emails per minute per device
-const RATE_LIMIT_MAX = 10;
-const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
-
-interface SendEmailRequest {
-  to: string;
-  replyTo: string;
-  subject: string;
-  text: string;
-  deviceId?: string;
-}
-
-interface SendEmailResponse {
-  success: boolean;
-  message?: string;
-  error?: string;
-}
-
-/**
- * Validates email format server-side.
- */
-function isValidEmail(email: string): boolean {
-  if (!email || typeof email !== 'string') return false;
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email.trim());
-}
-
-/**
- * Checks rate limit for a device ID.
- * Returns true if allowed, false if rate limited.
- */
-function checkRateLimit(deviceId: string): boolean {
-  const now = Date.now();
-  const limit = rateLimitMap.get(deviceId);
-
-  if (!limit || now > limit.resetAt) {
-    // Reset or initialize
-    rateLimitMap.set(deviceId, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
-    return true;
-  }
-
-  if (limit.count >= RATE_LIMIT_MAX) {
-    return false; // Rate limited
-  }
-
-  limit.count++;
-  return true;
-}
-
-/**
- * Main handler for the send-email endpoint.
- */
-export async function handler(request: SendEmailRequest): Promise<SendEmailResponse> {
-  try {
-    // Validate required fields
-    if (!request.to || !request.replyTo || !request.subject || !request.text) {
-      return {
-        success: false,
-        message: 'Missing required fields: to, replyTo, subject, and text are required',
-        error: 'MISSING_FIELDS',
-      };
-    }
-
-    // Validate email formats server-side
-    if (!isValidEmail(request.to)) {
-      return {
-        success: false,
-        message: 'Invalid supplier email format',
-        error: 'INVALID_EMAIL',
-      };
-    }
-
-    if (!isValidEmail(request.replyTo)) {
-      return {
-        success: false,
-        message: 'Invalid reply-to email format',
-        error: 'INVALID_REPLY_TO',
-      };
-    }
-
-    // Rate limiting by device ID
-    if (request.deviceId) {
-      if (!checkRateLimit(request.deviceId)) {
-        return {
-          success: false,
-          message: 'Rate limit exceeded. Please wait before sending more emails.',
-          error: 'RATE_LIMIT_EXCEEDED',
-        };
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    try {
+      if (request.method === "OPTIONS") {
+        return corsResponse();
       }
+
+      if (request.method !== "POST") {
+        return json({ success: false, error: "Method not allowed" }, 405);
+      }
+
+      const payload = await safeJson(request);
+      if (!payload.ok) {
+        return json({ success: false, error: payload.error }, 400);
+      }
+
+      const body = payload.value;
+
+      const validation = validateEmailRequest(body);
+      if (!validation.ok) {
+        return json({ success: false, error: validation.error }, 400);
+      }
+
+      const { supplierEmail, replyTo, subject, body: emailBody, items, storeName } =
+        validation.value!;
+
+      const textBody = renderTextBody(emailBody, items, storeName);
+      const htmlBody = renderHtmlBody(emailBody, items, storeName);
+
+      const res = await sendViaResend(
+        {
+          to: supplierEmail,
+          replyTo,
+          subject,
+          html: htmlBody,
+          text: textBody,
+          storeName
+        },
+        env
+      );
+
+      if (!res.ok) {
+        return json({ success: false, error: res.error }, 502);
+      }
+
+      return json({ success: true, messageId: res.id });
+    } catch (err: any) {
+      console.error("send-email error:", err);
+      return json({ success: false, error: "Unexpected server error" }, 500);
     }
+  }
+};
 
-    // Send email via Resend
-    const { data, error } = await resend.emails.send({
-      from: process.env.FROM_EMAIL || 'onboarding@resend.dev', // Replace with your verified domain
-      to: request.to,
-      replyTo: request.replyTo,
-      subject: request.subject,
-      text: request.text,
-    });
+// ---------------------------------------------------------------------
+// Email provider: Resend
+// ---------------------------------------------------------------------
+async function sendViaResend(
+  params: {
+    to: string;
+    replyTo: string;
+    subject: string;
+    html: string;
+    text: string;
+    storeName: string;
+  },
+  env: Env
+): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const payload = {
+    from: env.EMAIL_FROM_ADDRESS,
+    to: [params.to],
+    reply_to: params.replyTo,
+    subject: params.subject,
+    text: params.text,
+    html: params.html
+  };
 
-    if (error) {
-      console.error('Resend API error:', error);
-      return {
-        success: false,
-        message: 'Failed to send email. Please try again.',
-        error: 'RESEND_ERROR',
-      };
+  const r = await fetch(env.EMAIL_PROVIDER_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!r.ok) {
+    const err = await r.text().catch(() => "Unknown error");
+    console.error("Resend failure:", err);
+    return { ok: false, error: err };
+  }
+
+  const data = await r.json();
+  return { ok: true, id: data.id };
+}
+
+// ---------------------------------------------------------------------
+// Validation
+// ---------------------------------------------------------------------
+function validateEmailRequest(input: any) {
+  if (!input || typeof input !== "object") {
+    return { ok: false, error: "Invalid JSON" };
+  }
+
+  const supplierEmail = safeEmail(input.supplierEmail);
+  const replyTo = safeEmail(input.replyTo);
+  const subject = safeString(input.subject);
+  const body = safeString(input.body);
+  const items = Array.isArray(input.items) ? input.items : [];
+
+  if (!supplierEmail) return { ok: false, error: "supplierEmail is required" };
+  if (!replyTo) return { ok: false, error: "replyTo is required" };
+  if (!subject) return { ok: false, error: "subject is required" };
+  if (!body) return { ok: false, error: "body is required" };
+
+  const cleanedItems = items
+    .map((i: any) => {
+      const name = safeString(i.productName);
+      const qty = typeof i.quantity === "number" ? i.quantity : 0;
+      if (!name || qty <= 0) return null;
+      return { productName: name, quantity: qty };
+    })
+    .filter(Boolean);
+
+  return {
+    ok: true,
+    value: {
+      supplierEmail,
+      replyTo,
+      subject,
+      body,
+      items: cleanedItems,
+      storeName: safeString(input.storeName || "Restock App")
     }
+  };
+}
 
-    // Success - email sent
-    return {
-      success: true,
-      message: 'Email sent successfully',
-    };
-  } catch (error: any) {
-    console.error('Send email error:', error);
-    
-    // Handle invalid supplier email gracefully
-    if (error.message?.includes('invalid') || error.message?.includes('email')) {
-      return {
-        success: false,
-        message: 'Invalid supplier email. Please check the email address and try again.',
-        error: 'INVALID_SUPPLIER_EMAIL',
-      };
-    }
+// ---------------------------------------------------------------------
+// Email Rendering
+// ---------------------------------------------------------------------
+function renderTextBody(body: string, items: any[], storeName: string): string {
+  const lines = [body.trim(), "", "Items:"];
+  for (const i of items) lines.push(`- ${i.quantity} x ${i.productName}`);
+  lines.push("", `Sent on behalf of ${storeName}`);
+  return lines.join("\n");
+}
 
-    return {
-      success: false,
-      message: 'An unexpected error occurred. Please try again.',
-      error: 'UNKNOWN_ERROR',
-    };
+function renderHtmlBody(body: string, items: any[], storeName: string): string {
+  const formatted = body
+    .replace(/\n\n/g, "</p><p>")
+    .replace(/\n/g, "<br>");
+
+  const itemsHtml = items
+    .map((i) => `<li>${i.quantity} × ${i.productName}</li>`)
+    .join("");
+
+  return `
+    <html>
+      <body>
+        <p>${formatted}</p>
+        <ul>${itemsHtml}</ul>
+        <p>Sent on behalf of ${storeName}</p>
+      </body>
+    </html>
+  `;
+}
+
+// ---------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------
+async function safeJson(req: Request) {
+  try {
+    return { ok: true, value: await req.json() };
+  } catch {
+    return { ok: false, error: "Invalid JSON payload" };
   }
 }
 
-/**
- * Example usage for different serverless platforms:
- * 
- * Vercel:
- * export default async function handler(req: NextApiRequest, res: NextApiResponse) {
- *   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
- *   const result = await handler(req.body);
- *   return res.status(result.success ? 200 : 400).json(result);
- * }
- * 
- * Netlify:
- * exports.handler = async (event) => {
- *   if (event.httpMethod !== 'POST') {
- *     return { statusCode: 405, body: JSON.stringify({ error: 'Method not allowed' }) };
- *   }
- *   const result = await handler(JSON.parse(event.body));
- *   return { statusCode: result.success ? 200 : 400, body: JSON.stringify(result) };
- * }
- * 
- * AWS Lambda:
- * export const handler = async (event) => {
- *   if (event.httpMethod !== 'POST') {
- *     return { statusCode: 405, body: JSON.stringify({ error: 'Method not allowed' }) };
- *   }
- *   const result = await handler(JSON.parse(event.body));
- *   return { statusCode: result.success ? 200 : 400, body: JSON.stringify(result) };
- * }
- */
+function safeString(v: any) {
+  return typeof v === "string" ? v.trim() : "";
+}
 
+function safeEmail(v: any) {
+  const s = safeString(v);
+  return s.includes("@") ? s : "";
+}
+
+function json(data: any, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*"
+    }
+  });
+}
+
+function corsResponse() {
+  return new Response(null, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type"
+    }
+  });
+}
+
+interface Env {
+  RESEND_API_KEY: string;
+  EMAIL_FROM_ADDRESS: string;
+  EMAIL_PROVIDER_URL: string;
+}

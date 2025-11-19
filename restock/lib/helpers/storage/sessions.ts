@@ -7,12 +7,13 @@ export type SessionItem = {
   productName: string;
   quantity: number;
   supplierName?: string;
+  supplierId?: string;
 };
 
 export type Session = {
   id: string;
   createdAt: number;
-  status: 'active' | 'completed' | 'cancelled';
+  status: 'active' | 'completed' | 'cancelled' | 'pendingEmails';
   items: SessionItem[];
 };
 
@@ -25,7 +26,7 @@ function isValidSession(session: any): session is Session {
     typeof session === 'object' &&
     typeof session.id === 'string' &&
     typeof session.createdAt === 'number' &&
-    (session.status === 'active' || session.status === 'completed') &&
+    (session.status === 'active' || session.status === 'completed' || session.status === 'cancelled' || session.status === 'pendingEmails') &&
     Array.isArray(session.items)
   );
 }
