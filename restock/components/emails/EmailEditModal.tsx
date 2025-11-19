@@ -6,9 +6,14 @@ import { useThemeStore } from '../../styles/useThemeStore';
 interface EmailEditModalProps {
   visible: boolean;
   editingEmail: {
+    supplierName: string;
     supplierEmail: string;
     subject: string;
     body: string;
+    items?: Array<{
+      productName: string;
+      quantity: number;
+    }>;
   } | null;
   onSave: (updated: { subject: string; body: string }) => void;
   onCancel: () => void;
@@ -77,9 +82,32 @@ export function EmailEditModal({
 
         <ScrollView style={{ padding: 16 }}>
           <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 6 }}>To</Text>
-          <Text style={{ fontSize: 16, marginBottom: 16, color: theme.neutral.medium }}>
+          <Text style={{ fontSize: 16, marginBottom: 4, color: theme.neutral.darkest, fontWeight: '600' }}>
+            {editingEmail.supplierName}
+          </Text>
+          <Text style={{ fontSize: 14, marginBottom: 16, color: theme.neutral.medium }}>
             {editingEmail.supplierEmail}
           </Text>
+
+          {editingEmail.items && editingEmail.items.length > 0 && (
+            <>
+              <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 6, marginTop: 8 }}>Items in this order</Text>
+              <View style={{
+                backgroundColor: theme.neutral.lighter,
+                padding: 12,
+                borderRadius: 8,
+                marginBottom: 16,
+                borderWidth: 1,
+                borderColor: theme.neutral.light
+              }}>
+                {editingEmail.items.map((item, index) => (
+                  <Text key={index} style={{ fontSize: 14, color: theme.neutral.dark, marginBottom: 4 }}>
+                    • {item.productName}{item.quantity > 1 ? ` (x${item.quantity})` : ''}
+                  </Text>
+                ))}
+              </View>
+            </>
+          )}
 
           <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Subject</Text>
           <TextInput
@@ -123,12 +151,17 @@ export function EmailEditModal({
 interface EmailDetailModalProps {
   visible: boolean;
   email: {
+    supplierName: string;
     supplierEmail: string;
     subject: string;
     body: string;
+    items?: Array<{
+      productName: string;
+      quantity: number;
+    }>;
   } | null;
   onClose: () => void;
-  onEdit: (email: { supplierEmail: string; subject: string; body: string }) => void;
+  onEdit: (email: { supplierName: string; supplierEmail: string; subject: string; body: string; items?: Array<{ productName: string; quantity: number }> }) => void;
 }
 
 export function EmailDetailModal({
@@ -182,13 +215,38 @@ export function EmailDetailModal({
   
           <ScrollView style={{ padding: 16 }}>
             <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 6 }}>To</Text>
-            <Text style={{ fontSize: 16, marginBottom: 16 }}>{email.supplierEmail}</Text>
+            <Text style={{ fontSize: 16, marginBottom: 4, fontWeight: '600', color: theme.neutral.darkest }}>
+              {email.supplierName}
+            </Text>
+            <Text style={{ fontSize: 14, marginBottom: 16, color: theme.neutral.medium }}>
+              {email.supplierEmail}
+            </Text>
+
+            {email.items && email.items.length > 0 && (
+              <>
+                <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Items in this order</Text>
+                <View style={{
+                  backgroundColor: theme.neutral.lighter,
+                  padding: 12,
+                  borderRadius: 8,
+                  marginBottom: 16,
+                  borderWidth: 1,
+                  borderColor: theme.neutral.light
+                }}>
+                  {email.items.map((item, index) => (
+                    <Text key={index} style={{ fontSize: 14, color: theme.neutral.dark, marginBottom: 4 }}>
+                      • {item.productName}{item.quantity > 1 ? ` (x${item.quantity})` : ''}
+                    </Text>
+                  ))}
+                </View>
+              </>
+            )}
   
             <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Subject</Text>
             <Text style={{ fontSize: 16, marginBottom: 16 }}>{email.subject}</Text>
   
             <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Message</Text>
-            <Text style={{ fontSize: 15, lineHeight: 22 }}>{email.body}</Text>
+            <Text style={{ fontSize: 15, lineHeight: 22, color: theme.neutral.darkest }}>{email.body}</Text>
           </ScrollView>
         </SafeAreaView>
       </Modal>
