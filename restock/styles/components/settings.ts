@@ -5,9 +5,25 @@ import colors, { type AppColors } from '../../lib/theme/colors';
 export const getSettingsStyles = (t: AppColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: t.neutral.lighter,
+    backgroundColor: t.neutral.lightest,
+  },
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 20,
-    paddingVertical: 50,
+  },
+  headerContainer: {
+    paddingTop: 50,
+    paddingBottom: 20,
+  },
+  formContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: 40,
+    overflow: 'hidden',
+  },
+  actionsContainer: {
+    paddingTop: 20,
+    paddingBottom: 40,
   },
   
   // Header
@@ -15,11 +31,12 @@ export const getSettingsStyles = (t: AppColors) => StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    paddingVertical: 20,
+   
     paddingTop: 40,
   },
   headerContent: {
     flex: 1,
+
   },
   headerTitle: {
     fontFamily: fontFamily.satoshiBold,
@@ -248,21 +265,20 @@ export const getSettingsStyles = (t: AppColors) => StyleSheet.create({
   // Settings Section
   settingsSection: {
     backgroundColor: t.neutral.lightest,
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 24,
+    marginHorizontal: 20,
     borderWidth: 1,
     borderColor: t.neutral.light,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+    overflow: 'hidden',
   },
   settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 20,
+    padding: 0,
     borderBottomWidth: 1,
     borderBottomColor: t.neutral.lighter,
   },
@@ -294,6 +310,99 @@ export const getSettingsStyles = (t: AppColors) => StyleSheet.create({
     fontFamily: 'Satoshi-Regular',
     fontSize: 14,
     color: t.neutral.medium,
+  },
+  
+  // Form Field Styles (for editing)
+  formFieldContainer: {
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: t.neutral.lighter,
+  },
+  formFieldContainerEditing: {
+    backgroundColor: t.brand.primary + '0A', // 4% opacity
+    borderLeftWidth: 3,
+    borderLeftColor: t.brand.primary,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+  },
+  formFieldLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    flexWrap: 'wrap',
+  },
+  formFieldLabel: {
+    fontFamily: fontFamily.satoshiMedium,
+    fontSize: 16,
+    fontWeight: '600',
+    color: t.neutral.darkest,
+    marginRight: 8,
+  },
+  editingBadge: {
+    backgroundColor: t.brand.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  editingBadgeText: {
+    fontFamily: fontFamily.satoshiBold,
+    fontSize: 10,
+    color: t.neutral.lightest,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  formFieldInput: {
+    fontFamily: fontFamily.satoshi,
+    fontSize: 16,
+    color: t.neutral.darkest,
+    backgroundColor: t.neutral.lightest,
+    borderWidth: 1,
+    borderColor: t.neutral.light,
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    minHeight: 48,
+  },
+  formFieldInputEditing: {
+    borderColor: t.brand.primary,
+    borderWidth: 2,
+    backgroundColor: t.neutral.lightest,
+    shadowColor: t.brand.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  formFieldInputFocused: {
+    borderColor: t.brand.primary,
+    borderWidth: 2,
+  },
+  modifiedIndicator: {
+    marginLeft: 6,
+  },
+  
+  // Unsaved Changes Banner
+  unsavedChangesBanner: {
+    backgroundColor: t.status.warning + '15',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: t.status.warning + '40',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  unsavedChangesText: {
+    fontFamily: fontFamily.satoshiMedium,
+    fontSize: 14,
+    color: t.status.warning,
+    marginLeft: 10,
+    flex: 1,
   },
   
   // Sign Out Section
