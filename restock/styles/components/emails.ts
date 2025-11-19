@@ -5,7 +5,8 @@ import colors, { type AppColors } from '../../lib/theme/colors';
 export const getEmailsStyles = (t: AppColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral.lighter,
+    paddingVertical: 26,
+    backgroundColor: colors.neutral.lightest,
     maxWidth: '100%',
     alignSelf: 'center',
     width: '100%',
@@ -13,7 +14,7 @@ export const getEmailsStyles = (t: AppColors) => StyleSheet.create({
   header: {
     backgroundColor: colors.neutral.lighter,
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 26,
     borderBottomWidth: 1,
     borderBottomColor: colors.neutral.light,
     maxWidth: '100%',

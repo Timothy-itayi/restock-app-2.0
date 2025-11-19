@@ -1,6 +1,6 @@
 import { Modal, TouchableOpacity, View, Text } from "react-native";
 import React from 'react';
-
+import { useThemeStore } from '../../styles/useThemeStore';
 
 export const SendConfirmationModal = ({
     visible,
@@ -68,8 +68,5 @@ export const SendConfirmationModal = ({
       </Modal>
     );
   };
-  export default SendConfirmationModal;
 
-function useThemeStore(): { theme: any; } {
-    throw new Error("Function not implemented.");
-}
+export default SendConfirmationModal;

@@ -1,31 +1,34 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, SafeAreaView } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { useThemedStyles } from '../styles/useThemedStyles';
-import { getEmailsStyles } from '../styles/components/emails';
+import { useThemedStyles } from '../../../styles/useThemedStyles';
+import { getEmailsStyles } from '../../../styles/components/emails';
+import { getSessionsStyles } from '../../../styles/components/sessions';
 
-import { useSessionStore } from '../store/useSessionStore';
-import { useSupplierStore } from '../store/useSupplierStore';
+import { useSessionStore } from '../../../store/useSessionStore';
+import { useSupplierStore } from '../../../store/useSupplierStore';
 
-import { EmailsSummary } from '../components/emails/EmailsSummary';
-import { EmailCard } from '../components/emails/EmailCard';
-import  {EmailEditModal } from '../components/emails/EmailEditModal';
-import { SendConfirmationModal } from '../components/emails/SendConfirmationModal';
-import { EmailDetailModal } from '../components/emails/EmailEditModal';
+import { EmailsSummary } from '../../../components/emails/EmailsSummary';
+import { EmailCard } from '../../../components/emails/EmailCard';
+import  {EmailEditModal } from '../../../components/emails/EmailEditModal';
+import { SendConfirmationModal } from '../../../components/emails/SendConfirmationModal';
+import { EmailDetailModal } from '../../../components/emails/EmailEditModal';
 
 const SEND_EMAIL_URL = 'https://your-domain.com/send-email';
 
 export default function EmailPreviewScreen() {
   const styles = useThemedStyles(getEmailsStyles);
-  const { sessionId } = useLocalSearchParams();
+  const sessionStyles = useThemedStyles(getSessionsStyles);
+  const { id } = useLocalSearchParams<{ id: string }>();
   
-  const session = useSessionStore((s) => s.getSession(sessionId as string));
+  const session = useSessionStore((s) => s.getSession(id));
   const suppliers = useSupplierStore((s) => s.suppliers);
 
   const [selectedDraft, setSelectedDraft] = useState<any | null>(null);
   const [editDraft, setEditDraft] = useState<any | null>(null);
+  const [editedDrafts, setEditedDrafts] = useState<Record<string, { subject: string; body: string }>>({});
   const [showConfirm, setShowConfirm] = useState(false);
   const [sending, setSending] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -43,13 +46,14 @@ export default function EmailPreviewScreen() {
 
       if (!map[supplierId]) {
         const supplier = suppliers.find((s) => s.id === supplierId);
+        const edited = editedDrafts[supplierId];
 
         map[supplierId] = {
           supplierId,
           supplierName: supplier?.name || 'Unknown Supplier',
           supplierEmail: supplier?.email || '',
-          subject: `Restock Order from ${session.createdAt}`,
-          body: `Hi ${supplier?.name || ''},\n\nI'd like to place an order for the following items:\n`,
+          subject: edited?.subject || `Restock Order from ${session.createdAt}`,
+          body: edited?.body || `Hi ${supplier?.name || ''},\n\nI'd like to place an order for the following items:\n`,
           items: []
         };
       }
@@ -58,7 +62,7 @@ export default function EmailPreviewScreen() {
     }
 
     return Object.values(map);
-  }, [session, suppliers]);
+  }, [session, suppliers, editedDrafts]);
 
 
   const handleSendAll = async () => {
@@ -99,13 +103,13 @@ export default function EmailPreviewScreen() {
 
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={24} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, paddingBottom: 8 }}>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 16 }}>
+          <Ionicons name="chevron-back" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Email Preview</Text>
+        <Text style={sessionStyles.title}>Email Preview</Text>
       </View>
 
       <EmailsSummary emailCount={emailDrafts.length} senderName={''} senderEmail={''} />
@@ -158,8 +162,15 @@ export default function EmailPreviewScreen() {
         visible={!!editDraft}
         editingEmail={editDraft}
         onSave={(updated) => {
-          editDraft.subject = updated.subject;
-          editDraft.body = updated.body;
+          if (editDraft) {
+            setEditedDrafts(prev => ({
+              ...prev,
+              [editDraft.supplierId]: {
+                subject: updated.subject,
+                body: updated.body
+              }
+            }));
+          }
           setEditDraft(null);
         }}
         onCancel={() => setEditDraft(null)}
@@ -171,6 +182,6 @@ export default function EmailPreviewScreen() {
         onClose={() => setSelectedDraft(null)}
         onEdit={() => {}}
       />
-    </View>
+    </SafeAreaView>
   );
 }

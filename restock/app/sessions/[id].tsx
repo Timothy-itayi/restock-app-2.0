@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -23,10 +23,23 @@ export default function SessionDetailScreen() {
 
   const deleteSession = useSessionStore((s) => s.deleteSession);
   const updateSession = useSessionStore((s) => s.updateSession);
+  const hasAutoNavigated = useRef(false);
 
   useEffect(() => {
-    if (!session) console.warn('Session not found:', id);
-  }, [session]);
+    if (!session) {
+      console.warn('Session not found:', id);
+      return;
+    }
+    
+    // Auto-navigate to email preview if session is in pendingEmails status (only once on mount/reload)
+    if (session.status === 'pendingEmails' && !hasAutoNavigated.current) {
+      hasAutoNavigated.current = true;
+      router.push({
+        pathname: `/sessions/${session.id}/email-preview`,
+        params: { id: session.id }
+      });
+    }
+  }, [session, id]);
 
   if (!session) {
     return (
@@ -39,28 +52,36 @@ export default function SessionDetailScreen() {
     );
   }
 
-  const isLocked = session.status !== 'active'; // <-- KEY LOGIC
+  const isLocked = session.status !== 'active' && session.status !== 'pendingEmails'; // Allow pendingEmails to access email preview
 
   const statusColor =
     session.status === 'active'
       ? styles.statusActive.color
       : styles.statusInactive.color;
 
-      const handleComplete = () => {
-        try {
-          // Move session to pending-email state
-          updateSession(session.id, { status: 'pendingEmails' });
+  const handleComplete = () => {
+    try {
+      // Move session to pending-email state
+      updateSession(session.id, { status: 'pendingEmails' });
+  
+      // Navigate to email preview
+      router.push({
+        pathname: `/sessions/${session.id}/email-preview`,
+        params: { id: session.id }
+      });
       
-          // Navigate to email preview
-          router.push({
-            pathname: '/email-preview',
-            params: { id: session.id }
-          });
-        } catch (err) {
-          console.error('Failed finishing session', err);
-          Alert.alert('Error', 'Could not proceed to email preview.');
-        }
-      };
+    } catch (err) {
+      console.error('Failed finishing session', err);
+      Alert.alert('Error', 'Could not proceed to email preview.');
+    }
+  };
+
+  const handleViewEmailPreview = () => {
+    router.push({
+      pathname: `/sessions/${session.id}/email-preview`,
+      params: { id: session.id }
+    });
+  };
       
   const handleCancel = () => {
     updateSession(session.id, { status: 'cancelled' });
@@ -151,15 +172,22 @@ export default function SessionDetailScreen() {
         )}
 
         {/* SESSION ACTIONS */}
-        {!isLocked && (
-          <TouchableOpacity style={styles.primaryButton} onPress={handleComplete}>
-            <Text style={styles.primaryButtonText}>Finish Session</Text>
-          </TouchableOpacity>
+        {session.status === 'active' && (
+          <>
+            <TouchableOpacity style={styles.primaryButton} onPress={handleComplete}>
+              <Text style={styles.primaryButtonText}>View Email Preview</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.secondaryButton} onPress={handleCancel}>
+              <Text style={styles.secondaryButtonText}>Cancel Session</Text>
+            </TouchableOpacity>
+          </>
         )}
 
-        {!isLocked && (
-          <TouchableOpacity style={styles.secondaryButton} onPress={handleCancel}>
-            <Text style={styles.secondaryButtonText}>Cancel Session</Text>
+        {/* EMAIL PREVIEW BUTTON FOR PENDING EMAILS */}
+        {session.status === 'pendingEmails' && (
+          <TouchableOpacity style={styles.primaryButton} onPress={handleViewEmailPreview}>
+            <Text style={styles.primaryButtonText}>View Email Preview</Text>
           </TouchableOpacity>
         )}
 
