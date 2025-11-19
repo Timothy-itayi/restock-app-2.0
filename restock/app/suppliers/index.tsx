@@ -10,20 +10,19 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useThemedStyles } from '@styles/useThemedStyles';
 import { getSuppliersStyles } from '@styles/components/suppliers';
+import { useSupplierStore, type Supplier } from '../../store/useSupplierStore';
 import colors from '../../lib/theme/colors';
-
-type Supplier = {
-  id: string;
-  name: string;
-  email: string;
-};
 
 export default function SuppliersScreen() {
   const styles = useThemedStyles(getSuppliersStyles);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const suppliers = useSupplierStore((state) => state.suppliers);
+  const addSupplier = useSupplierStore((state) => state.addSupplier);
+  const updateSupplier = useSupplierStore((state) => state.updateSupplier);
+  const deleteSupplier = useSupplierStore((state) => state.deleteSupplier);
+  const loadSuppliers = useSupplierStore((state) => state.loadSuppliers);
+  
   const [editing, setEditing] = useState<Supplier | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -31,31 +30,8 @@ export default function SuppliersScreen() {
 
   // Load from storage
   useEffect(() => {
-    loadSuppliers();
-  }, []);
-
-  const loadSuppliers = async () => {
-    setLoading(true);
-    try {
-      const raw = await AsyncStorage.getItem('suppliers');
-      if (raw) {
-        const obj = JSON.parse(raw);
-        const arr = Object.keys(obj).map(key => ({
-          id: key,
-          name: key,
-          email: obj[key].email || ''
-        }));
-        setSuppliers(arr);
-      } else {
-        setSuppliers([]);
-      }
-    } catch (err) {
-      console.warn('Failed to load suppliers:', err);
-      setSuppliers([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+    loadSuppliers().finally(() => setLoading(false));
+  }, [loadSuppliers]);
 
   const saveSupplier = async () => {
     if (!name.trim()) {
@@ -85,24 +61,23 @@ export default function SuppliersScreen() {
       return;
     }
 
-    const updatedList = editing
-      ? suppliers.map(s => (s.id === editing.id ? { id: trimmedName, name: trimmedName, email: trimmedEmail } : s))
-      : [...suppliers, { id: trimmedName, name: trimmedName, email: trimmedEmail }];
+    if (editing) {
+      // Update existing supplier
+      updateSupplier(editing.id, {
+        name: trimmedName,
+        email: trimmedEmail
+      });
+    } else {
+      // Add new supplier
+      addSupplier(trimmedName, trimmedEmail);
+    }
 
-    setSuppliers(updatedList);
     setEditing(null);
     setName('');
     setEmail('');
-
-    const map: any = {};
-    updatedList.forEach(s => {
-      map[s.name] = { email: s.email };
-    });
-
-    await AsyncStorage.setItem('suppliers', JSON.stringify(map));
   };
 
-  const deleteSupplier = (supplier: Supplier) => {
+  const handleDeleteSupplier = (supplier: Supplier) => {
     Alert.alert(
       'Delete Supplier',
       `Are you sure you want to delete "${supplier.name}"?`,
@@ -111,22 +86,19 @@ export default function SuppliersScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: async () => {
-            const updatedList = suppliers.filter(s => s.id !== supplier.id);
-            setSuppliers(updatedList);
+          onPress: () => {
+            try {
+              deleteSupplier(supplier.id);
 
-            const map: any = {};
-            updatedList.forEach(s => {
-              map[s.name] = { email: s.email };
-            });
-
-            await AsyncStorage.setItem('suppliers', JSON.stringify(map));
-
-            // If we were editing this supplier, cancel editing
-            if (editing && editing.id === supplier.id) {
-              setEditing(null);
-              setName('');
-              setEmail('');
+              // If we were editing this supplier, cancel editing
+              if (editing && editing.id === supplier.id) {
+                setEditing(null);
+                setName('');
+                setEmail('');
+              }
+            } catch (error) {
+              console.warn('Error deleting supplier:', error);
+              Alert.alert('Error', 'Failed to delete supplier. Please try again.');
             }
           }
         }
@@ -137,7 +109,7 @@ export default function SuppliersScreen() {
   const startEdit = (sup: Supplier) => {
     setEditing(sup);
     setName(sup.name);
-    setEmail(sup.email);
+    setEmail(sup.email || '');
   };
 
   const cancel = () => {
@@ -231,7 +203,7 @@ export default function SuppliersScreen() {
                   <Ionicons name="pencil" size={20} color="#6B7F6B" />
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={() => deleteSupplier(item)}
+                  onPress={() => handleDeleteSupplier(item)}
                   style={{ padding: 8 }}
                 >
                   <Ionicons name="trash" size={20} color="#DC3545" />

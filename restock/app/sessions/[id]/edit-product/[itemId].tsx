@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemedStyles } from '@styles/useThemedStyles';
 import { getSessionsStyles } from '@styles/components/sessions';
 import { useSessionHydrated, useSessionStore } from '../../../../store/useSessionStore';
+import { useSupplierStore } from '../../../../store/useSupplierStore';
 
 export default function EditProductScreen() {
   const styles = useThemedStyles(getSessionsStyles);
@@ -14,10 +15,17 @@ export default function EditProductScreen() {
   const updateItem = useSessionStore(s => s.updateItemInSession);
   const loadSessionsFromStorage = useSessionStore(s => s.loadSessionsFromStorage);
   const isHydrated = useSessionHydrated();
+  const getSupplierByName = useSupplierStore(s => s.getSupplierByName);
+  const addSupplier = useSupplierStore(s => s.addSupplier);
+  const loadSuppliers = useSupplierStore(s => s.loadSuppliers);
+  const isSupplierHydrated = useSupplierStore(s => s.isHydrated);
 
   useEffect(() => {
     if (!isHydrated) loadSessionsFromStorage();
-  }, [isHydrated, loadSessionsFromStorage]);
+    if (!isSupplierHydrated) {
+      loadSuppliers();
+    }
+  }, [isHydrated, isSupplierHydrated, loadSessionsFromStorage, loadSuppliers]);
 
   if (!isHydrated) {
     return (
@@ -53,9 +61,25 @@ export default function EditProductScreen() {
   const decrement = () => setQty(q => Math.max(1, q - 1));
 
   const saveChanges = () => {
+    const supplierNameTrimmed = supplier?.trim() || '';
+    let supplierId: string | undefined;
+
+    // If supplier name provided, create or get supplier
+    if (supplierNameTrimmed) {
+      try {
+        const existing = getSupplierByName(supplierNameTrimmed);
+        const supplierObj = existing ?? addSupplier(supplierNameTrimmed);
+        supplierId = supplierObj.id;
+      } catch (error) {
+        console.warn('Error accessing supplier store:', error);
+        // Continue without supplierId if there's an error
+      }
+    }
+
     updateItem(id, itemId, {
       productName: name,
-      supplierName: supplier,
+      supplierName: supplierNameTrimmed || undefined,
+      supplierId,
       quantity: qty
     });
 

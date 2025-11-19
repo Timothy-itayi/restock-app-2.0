@@ -13,6 +13,7 @@ type SupplierStore = {
 
   addSupplier: (name: string, email?: string) => Supplier;
   updateSupplier: (id: string, updates: Partial<Supplier>) => void;
+  deleteSupplier: (id: string) => void;
   getSupplierByName: (name: string) => Supplier | undefined;
 
   loadSuppliers: () => Promise<void>;
@@ -36,7 +37,8 @@ export const useSupplierStore = create<SupplierStore>((set, get) => ({
       email
     };
 
-    const updated = [...get().suppliers, newSupplier];
+    const currentSuppliers = get().suppliers || [];
+    const updated = [...currentSuppliers, newSupplier];
 
     set({ suppliers: updated });
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated)).catch(console.warn);
@@ -48,9 +50,21 @@ export const useSupplierStore = create<SupplierStore>((set, get) => ({
   // UPDATE
   //------------------------------------------------------------------
   updateSupplier: (id, updates) => {
-    const updated = get().suppliers.map(s =>
+    const currentSuppliers = get().suppliers || [];
+    const updated = currentSuppliers.map(s =>
       s.id === id ? { ...s, ...updates } : s
     );
+
+    set({ suppliers: updated });
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated)).catch(console.warn);
+  },
+
+  //------------------------------------------------------------------
+  // DELETE
+  //------------------------------------------------------------------
+  deleteSupplier: (id) => {
+    const currentSuppliers = get().suppliers || [];
+    const updated = currentSuppliers.filter(s => s.id !== id);
 
     set({ suppliers: updated });
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated)).catch(console.warn);
@@ -60,8 +74,11 @@ export const useSupplierStore = create<SupplierStore>((set, get) => ({
   // FIND BY NAME (case-insensitive)
   //------------------------------------------------------------------
   getSupplierByName: (name) => {
+    const currentSuppliers = get().suppliers || [];
+    if (currentSuppliers.length === 0) return undefined;
+    
     const target = name.trim().toLowerCase();
-    return get().suppliers.find(
+    return currentSuppliers.find(
       s => s.name.trim().toLowerCase() === target
     );
   },
@@ -70,15 +87,29 @@ export const useSupplierStore = create<SupplierStore>((set, get) => ({
   // LOAD
   //------------------------------------------------------------------
   loadSuppliers: async () => {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const suppliers = raw ? JSON.parse(raw) : [];
-    set({ suppliers, isHydrated: true });
+    try {
+      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        set({ suppliers: [], isHydrated: true });
+        return;
+      }
+      
+      const parsed = JSON.parse(raw);
+      // Ensure we have an array
+      const suppliers = Array.isArray(parsed) ? parsed : [];
+      set({ suppliers, isHydrated: true });
+    } catch (error) {
+      console.warn('Failed to load suppliers:', error);
+      // Initialize with empty array on error
+      set({ suppliers: [], isHydrated: true });
+    }
   },
 
   //------------------------------------------------------------------
   // SAVE
   //------------------------------------------------------------------
   saveSuppliers: async () => {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(get().suppliers));
+    const currentSuppliers = get().suppliers || [];
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(currentSuppliers));
   }
 }));
