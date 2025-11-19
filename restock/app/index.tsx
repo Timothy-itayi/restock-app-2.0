@@ -23,6 +23,8 @@ import {
 } from '../store/useSessionStore';
 
 import { safeRead } from '../lib/helpers/errorHandling';
+import ActiveSessionGauge from './activeSessionGauge';
+import colors from '@styles/theme/colors';
 
 export default function DashboardScreen() {
   const [isChecking, setIsChecking] = useState(true);
@@ -93,24 +95,56 @@ export default function DashboardScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.contentContainer}>
         
-        <View style={styles.welcomeSection}>
-          <Text style={styles.welcomeTitle}>
-            Welcome, <Text style={styles.userName}>{userName}</Text>
-          </Text>
-          <Text style={styles.welcomeEmail}>{userEmail}</Text>
-          {senderProfile.storeName && (
-            <Text style={styles.welcomeSubtitle}>{senderProfile.storeName}</Text>
-          )}
-        </View>
+      <View style={styles.welcomeSection}>
 
-        {hasActive && (
-          <View style={styles.activeSessionCard}>
-            <Text style={styles.activeSessionTitle}>Active Sessions</Text>
-            <Text style={styles.activeSessionText}>
-              {activeSessions.length} active session(s)
-            </Text>
-          </View>
-        )}
+{/* TOP ROW: Welcome + Name */}
+<View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
+  <Text style={styles.welcomeTitle}>Welcome,</Text>
+  <Text style={styles.userName}>{userName}</Text>
+</View>
+
+{/* STORE */}
+{senderProfile.storeName && (
+  <>
+    <Text style={styles.welcomeLabel}>Store</Text>
+    <Text style={styles.welcomeValue}>{senderProfile.storeName}</Text>
+  </>
+)}
+
+{/* EMAIL */}
+<Text style={styles.welcomeLabel}>Email</Text>
+<Text style={styles.welcomeValue}>{userEmail}</Text>
+
+</View>
+
+
+
+{hasActive && (
+  <View style={styles.activeSessionCard}>
+    <Text style={styles.activeSessionTitle}>Active Sessions</Text>
+
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+      <ActiveSessionGauge
+        count={activeSessions.length}
+        colors={{
+          track: colors.neutral.light,
+          fill: colors.analytics.clay,
+          center: colors.brand.secondary,
+        }}
+      />
+
+      <View style={{ flex: 1 }}>
+        <Text style={styles.activeSessionText}>
+          {activeSessions.length} active session(s)
+        </Text>
+        <Text style={styles.activeSessionSubtext}>
+          Your restock workflow is in progress.
+        </Text>
+      </View>
+    </View>
+  </View>
+)}
+
 
         <View style={styles.menuList}>
           {menuItems.map((item) => (

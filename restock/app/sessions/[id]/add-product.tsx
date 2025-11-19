@@ -13,11 +13,14 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import { useThemedStyles } from '@styles/useThemedStyles';
 import { getUploadStyles } from '@styles/components/upload';
+import { addProductScreenStyles } from '@styles/components/add-product';
 import { useSessionStore } from '../../../store/useSessionStore';
 import type { SessionItem } from '../../../lib/helpers/storage/sessions';
 
 export default function AddProductScreen() {
   const styles = useThemedStyles(getUploadStyles);
+  const qtyStyles = addProductScreenStyles;
+
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const session = useSessionStore((state) =>
@@ -27,7 +30,7 @@ export default function AddProductScreen() {
   const addItemToSession = useSessionStore((state) => state.addItemToSession);
 
   const [productName, setProductName] = useState('');
-  const [quantity, setQuantity] = useState('1');
+  const [quantity, setQuantity] = useState(1);
   const [supplier, setSupplier] = useState('');
 
   if (!session) {
@@ -52,27 +55,24 @@ export default function AddProductScreen() {
       return;
     }
 
-    const qty = parseInt(quantity, 10);
-    if (isNaN(qty) || qty < 1) {
-      Alert.alert('Error', 'Quantity must be at least 1.');
-      return;
-    }
-
     const newItem: SessionItem = {
       id: `${Date.now()}-${Math.random()}`,
       productName: productName.trim(),
-      quantity: qty,
-      supplierName: supplier.trim() || undefined
+      quantity,
+      supplierName: supplier.trim() || undefined,
     };
 
     addItemToSession(session.id, newItem);
 
     setProductName('');
-    setQuantity('1');
+    setQuantity(1);
     setSupplier('');
 
     router.replace(`/sessions/${session.id}`);
   };
+
+  const incrementQty = () => setQuantity(q => q + 1);
+  const decrementQty = () => setQuantity(q => (q > 1 ? q - 1 : 1));
 
   return (
     <SafeAreaView style={styles.sessionContainer}>
@@ -81,14 +81,13 @@ export default function AddProductScreen() {
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 16 }}>
+          
           <Text style={styles.sessionSelectionTitle}>Add Product</Text>
-          <Text style={styles.sectionSubtitle}>
-            Add a product to Session {new Date(session.createdAt).toLocaleDateString()}
-          </Text>
 
           <View style={[styles.formCard, { marginTop: 20 }]}>
-
-            <Text style={{ fontFamily: 'Satoshi-Bold', fontSize: 16, fontWeight: '700', color: '#1c2011', marginTop: 16 }}>Product Name *</Text>
+            
+            {/* PRODUCT NAME */}
+            <Text style={qtyStyles.label}>Product Name *</Text>
             <TextInput
               placeholder="Enter product name"
               value={productName}
@@ -96,20 +95,22 @@ export default function AddProductScreen() {
               style={styles.textInput}
             />
 
-            <Text style={{ fontFamily: 'Satoshi-Bold', fontSize: 16, fontWeight: '700', color: '#1c2011', marginTop: 16 }}>
-              Quantity *
-            </Text>
-            <TextInput
-              placeholder="1"
-              value={quantity}
-              onChangeText={(t) => {
-                if (t === '' || /^\d+$/.test(t)) setQuantity(t);
-              }}
-              style={styles.textInput}
-              keyboardType="numeric"
-            />
+            {/* QUANTITY */}
+            <Text style={qtyStyles.label}>Quantity *</Text>
+            <View style={qtyStyles.qtyContainer}>
+              <TouchableOpacity style={qtyStyles.qtyButton} onPress={decrementQty}>
+                <Text style={qtyStyles.qtyButtonText}>−</Text>
+              </TouchableOpacity>
 
-            <Text style={{ fontFamily: 'Satoshi-Bold', fontSize: 16, fontWeight: '700', color: '#1c2011', marginTop: 16 }}>Supplier (optional)</Text>
+              <Text style={qtyStyles.qtyValue}>{quantity}</Text>
+
+              <TouchableOpacity style={qtyStyles.qtyButton} onPress={incrementQty}>
+                <Text style={qtyStyles.qtyButtonText}>+</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* SUPPLIER */}
+            <Text style={qtyStyles.label}>Supplier (optional)</Text>
             <TextInput
               placeholder="Enter supplier name"
               value={supplier}
@@ -117,6 +118,7 @@ export default function AddProductScreen() {
               style={styles.textInput}
             />
 
+            {/* ACTION BUTTONS */}
             <TouchableOpacity
               style={[styles.saveButton, { marginTop: 24 }]}
               onPress={handleSave}
@@ -132,6 +134,7 @@ export default function AddProductScreen() {
             </TouchableOpacity>
 
           </View>
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

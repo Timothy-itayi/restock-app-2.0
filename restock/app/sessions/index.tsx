@@ -18,6 +18,7 @@ import {
   useActiveSessions
 } from '../../store/useSessionStore';
 import type { Session } from '../../lib/helpers/storage/sessions';
+import colors from '@styles/theme/colors';
 
 export default function SessionsScreen() {
   const styles = useThemedStyles(getSessionsStyles);
@@ -49,7 +50,7 @@ export default function SessionsScreen() {
       <TouchableOpacity
         style={[
           styles.sessionCard,
-          isActive && { borderWidth: 2, borderColor: '#6B7F6B' }
+          isActive && { borderWidth: 2, borderColor: colors.analytics.clay }
         ]}
         onPress={() => router.push(`/sessions/${item.id}`)}
       >
@@ -66,7 +67,7 @@ export default function SessionsScreen() {
           {isActive && (
             <View
               style={{
-                backgroundColor: '#6B7F6B',
+                backgroundColor: colors.analytics.clay,
                 paddingHorizontal: 8,
                 paddingVertical: 4,
                 borderRadius: 4

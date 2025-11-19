@@ -1,4 +1,4 @@
-import { AppColors } from "@styles/theme/colors";
+import colors, { AppColors } from "@styles/theme/colors";
 import { fontFamily } from "@styles/typography";
 import { StyleSheet } from "react-native";
 
@@ -32,21 +32,21 @@ export const getDashboardStyles = (t: AppColors) =>
       /* WELCOME SECTION */
       welcomeSection: {
         marginBottom: 16, 
-        gap: 16,  // tighter hero → menu spacing
+        gap: 8,  // tighter hero → menu spacing
       },
   
       welcomeTitle: {
-        fontFamily: fontFamily.satoshi,
+        fontFamily: fontFamily.satoshiBlack,
         fontSize: 32,
         lineHeight: 38,
-        color: t.neutral.darkest,
+        
       },
   
-      userName: {
-        fontFamily: fontFamily.satoshiBold,
-        fontSize: 28,
-        lineHeight: 34,
-        color: t.neutral.darkest,
+    userName: {
+        fontFamily: fontFamily.satoshiLightItalic,
+        fontSize: 32,
+        lineHeight: 38,
+        color: t.brand.secondary,
       },
   
       welcomeEmail: {
@@ -54,7 +54,7 @@ export const getDashboardStyles = (t: AppColors) =>
         fontSize: 15,
         lineHeight: 20,
         color: t.neutral.medium,
-        marginTop: 4,
+        
       },
   
       welcomeSubtitle: {
@@ -62,8 +62,22 @@ export const getDashboardStyles = (t: AppColors) =>
         fontSize: 15,
         lineHeight: 20,
         color: t.neutral.medium,
-        marginTop: 2,
+      
       },
+      welcomeLabel: {
+        fontSize: 14,
+        fontWeight: '500',
+       
+        color: colors.neutral.medium,
+      },
+      
+      welcomeValue: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: colors.neutral.dark,
+  
+      },
+      
   
       /* MENU LIST */
       menuList: {
@@ -124,21 +138,28 @@ export const getDashboardStyles = (t: AppColors) =>
         backgroundColor: t.neutral.lighter,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: t.brand.primary,
+        borderColor: t.brand.secondary,
         marginBottom: 8,   // prevents that weird abyss
       },
   
       activeSessionTitle: {
         fontFamily: fontFamily.satoshiBold,
         fontSize: 14,
-        color: t.brand.primary,
+        color: 'black',
         marginBottom: 4,
       },
   
       activeSessionText: {
         fontFamily: fontFamily.satoshi,
         fontSize: 14,
-        color: t.neutral.dark,
+        color: t.neutral.darkest,
       },
+      activeSessionSubtext: {
+        fontFamily: fontFamily.satoshi,
+        fontSize: 12,
+        color: t.neutral.dark,
+        marginTop: 4,
+      },
+      
     });
   
