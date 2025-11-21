@@ -1,7 +1,9 @@
 /**
- * Groq API client wrapper
+ * Groq API client wrapper using groq-sdk
  * Supports vision parsing and chat completion with structured prompts
  */
+
+import Groq from "groq-sdk";
 
 export interface GroqVisionPayload {
   messages: Array<{
@@ -32,37 +34,25 @@ export interface GroqResponse {
   error?: string;
 }
 
-const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-
 /**
- * Calls Groq API for vision parsing (PDF/image to text)
+ * Calls Groq API for vision parsing (image to text)
+ * Note: Only accepts image files (PNG/JPG), NOT PDFs
  */
 export async function groqVision(
   payload: GroqVisionPayload,
   apiKey: string
 ): Promise<GroqResponse> {
   try {
-    const response = await fetch(GROQ_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
+    const groq = new Groq({ apiKey });
+
+    const completion = await groq.chat.completions.create({
+      model: payload.model,
+      messages: payload.messages as any, // SDK handles the content array format
+      temperature: payload.temperature ?? 0.1,
+      response_format: payload.response_format,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => "Unknown error");
-      return {
-        ok: false,
-        error: `Groq API error: ${errorText}`,
-      };
-    }
-
-    const data = await response.json();
-    const content =
-      data?.choices?.[0]?.message?.content ||
-      data?.choices?.[0]?.message?.text;
+    const content = completion.choices[0]?.message?.content;
 
     if (!content) {
       return {
@@ -75,10 +65,12 @@ export async function groqVision(
       ok: true,
       content,
     };
-  } catch (err) {
+  } catch (err: any) {
+    // Extract error message from SDK error
+    const errorMessage = err?.message || err?.error?.message || "Groq API request failed";
     return {
       ok: false,
-      error: err instanceof Error ? err.message : "Groq API request failed",
+      error: `Groq API error: ${errorMessage}`,
     };
   }
 }
@@ -91,27 +83,19 @@ export async function groqChat(
   apiKey: string
 ): Promise<GroqResponse> {
   try {
-    const response = await fetch(GROQ_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
+    const groq = new Groq({ apiKey });
+
+    const completion = await groq.chat.completions.create({
+      model: payload.model,
+      messages: payload.messages.map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      })),
+      temperature: payload.temperature ?? 0.1,
+      response_format: payload.response_format,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => "Unknown error");
-      return {
-        ok: false,
-        error: `Groq API error: ${errorText}`,
-      };
-    }
-
-    const data = await response.json();
-    const content =
-      data?.choices?.[0]?.message?.content ||
-      data?.choices?.[0]?.message?.text;
+    const content = completion.choices[0]?.message?.content;
 
     if (!content) {
       return {
@@ -124,18 +108,24 @@ export async function groqChat(
       ok: true,
       content,
     };
-  } catch (err) {
+  } catch (err: any) {
+    // Extract error message from SDK error
+    const errorMessage = err?.message || err?.error?.message || "Groq API request failed";
     return {
       ok: false,
-      error: err instanceof Error ? err.message : "Groq API request failed",
+      error: `Groq API error: ${errorMessage}`,
     };
   }
 }
 
 /**
- * Converts PDF buffer to base64 data URL for vision API
+ * Converts image buffer to base64 data URL for vision API
+ * Note: Only use for image files (PNG/JPG), NOT PDFs
  */
-export function pdfToBase64DataUrl(buffer: ArrayBuffer, mimeType: string = "application/pdf"): string {
+export function imageToBase64DataUrl(
+  buffer: ArrayBuffer,
+  mimeType: string = "image/png"
+): string {
   const bytes = new Uint8Array(buffer);
   let binary = "";
   for (let b of bytes) binary += String.fromCharCode(b);
@@ -143,3 +133,19 @@ export function pdfToBase64DataUrl(buffer: ArrayBuffer, mimeType: string = "appl
   return `data:${mimeType};base64,${base64}`;
 }
 
+/**
+ * @deprecated Use imageToBase64DataUrl instead. PDFs cannot be sent to vision API.
+ * This function is kept for backwards compatibility but should not be used.
+ */
+export function pdfToBase64DataUrl(
+  buffer: ArrayBuffer,
+  mimeType: string = "application/pdf"
+): string {
+  console.warn("pdfToBase64DataUrl: PDFs cannot be sent to Groq vision API. Use image files only.");
+  // This will fail - PDFs are not supported by Groq vision API
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let b of bytes) binary += String.fromCharCode(b);
+  const base64 = btoa(binary);
+  return `data:${mimeType};base64,${base64}`;
+}

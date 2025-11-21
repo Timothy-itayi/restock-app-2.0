@@ -39,7 +39,7 @@ export function EmailCard({ email, onEdit, onTap }: EmailCardProps) {
           <Text style={{ fontSize: 16, fontWeight: '600', color: theme.neutral.darkest }}>
             {email.supplierName}
           </Text>
-          <Text style={{ fontSize: 13, color: theme.neutral.medium, fontFamily: 'monospace' }}>
+          <Text style={{ fontSize: 13, color: theme.neutral.dark, marginTop: 2 }}>
             {email.supplierEmail}
           </Text>
         </View>
