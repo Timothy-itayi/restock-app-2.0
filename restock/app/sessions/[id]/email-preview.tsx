@@ -1,11 +1,12 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useThemedStyles } from '../../../styles/useThemedStyles';
 import { getEmailsStyles } from '../../../styles/components/emails';
 import { getSessionsStyles } from '../../../styles/components/sessions';
+import { useThemeStore } from '../../../styles/useThemeStore';
 
 import { useSessionStore } from '../../../store/useSessionStore';
 import { useSupplierStore } from '../../../store/useSupplierStore';
@@ -26,6 +27,7 @@ import { useToast } from '../../../lib/hooks/useToast';
 export default function EmailPreviewScreen() {
   const styles = useThemedStyles(getEmailsStyles);
   const sessionStyles = useThemedStyles(getSessionsStyles);
+  const { theme } = useThemeStore();
   const { id } = useLocalSearchParams<{ id: string }>();
   
   const session = useSessionStore((s) => s.getSession(id));
@@ -251,12 +253,22 @@ ${senderProfile?.name || 'Customer'}`;
     router.replace('/sessions');
   };
 
+  // Handle back navigation - prevent going back after session is completed
+  const handleBackPress = () => {
+    if (session?.status === 'completed') {
+      // If session is completed, navigate to sessions list instead of going back
+      router.replace('/sessions');
+    } else {
+      // Normal back navigation for active/pending sessions
+      router.back();
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, paddingBottom: 8 }}>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 16 }}>
+        <TouchableOpacity onPress={handleBackPress} style={{ marginRight: 16 }}>
           <Ionicons name="chevron-back" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={sessionStyles.title}>Email Preview</Text>
@@ -305,7 +317,10 @@ ${senderProfile?.name || 'Customer'}`;
 
       {sending && (
         <View style={styles.sendingOverlay}>
-          <Text>Sending...</Text>
+          <View style={styles.sendingContainer}>
+            <ActivityIndicator size="large" color={theme.brand.primary} />
+            <Text style={styles.sendingTitle}>Sending emails...</Text>
+          </View>
         </View>
       )}
 
