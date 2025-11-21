@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,6 +12,7 @@ import { useSupplierStore } from '../../../store/useSupplierStore';
 import { useSenderProfile } from '../../../store/useSenderProfileStore';
 
 import { groupBySupplier } from '../../../lib/utils/groupBySupplier';
+import { sendEmail } from '../../../lib/api/sendEmail';
 
 import { EmailsSummary } from '../../../components/emails/EmailsSummary';
 import { EmailCard } from '../../../components/emails/EmailCard';
@@ -22,14 +23,13 @@ import { EmailDetailModal } from '../../../components/emails/EmailEditModal';
 import { Toast } from '../../../components/Toast';
 import { useToast } from '../../../lib/hooks/useToast';
 
-const SEND_EMAIL_URL = 'https://restock-send-email.parse-doc.workers.dev';
-
 export default function EmailPreviewScreen() {
   const styles = useThemedStyles(getEmailsStyles);
   const sessionStyles = useThemedStyles(getSessionsStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
   
   const session = useSessionStore((s) => s.getSession(id));
+  const updateSession = useSessionStore((s) => s.updateSession);
   const suppliers = useSupplierStore((s) => s.suppliers);
   const senderProfile = useSenderProfile();
 
@@ -41,12 +41,21 @@ export default function EmailPreviewScreen() {
   const [showSuccess, setShowSuccess] = useState(false);
   const { toast, showError, hideToast } = useToast();
 
-  if (!session) {
-    return <Text>Session not found.</Text>;
-  }
+  // Handle session deletion - navigate away if session is deleted
+  useEffect(() => {
+    if (!session && id) {
+      // Session was deleted, navigate back to sessions list
+      router.replace('/sessions');
+    }
+  }, [session, id]);
 
   // Build supplier → items grouping using centralized utility
   const emailDrafts = useMemo(() => {
+    // Return empty array if session is not available
+    if (!session) {
+      return [];
+    }
+    
     // Helper function to format product list for email body
     const formatProductList = (items: typeof session.items) => {
       if (items.length === 0) return '';
@@ -92,8 +101,26 @@ ${senderProfile?.name || 'Customer'}`;
     });
   }, [session, suppliers, editedDrafts, senderProfile]);
 
+  // Early return after all hooks are called - but handle gracefully
+  if (!session) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, paddingBottom: 8 }}>
+          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 16 }}>
+            <Ionicons name="chevron-back" size={24} color="#333" />
+          </TouchableOpacity>
+          <Text style={sessionStyles.title}>Email Preview</Text>
+        </View>
+        <View style={{ padding: 16 }}>
+          <Text style={sessionStyles.emptyStateText}>Session not found.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
 
   const handleSendAll = async () => {
+    console.log('[EmailPreview] handleSendAll called');
     setShowConfirm(false);
     setSending(true);
 
@@ -102,33 +129,86 @@ ${senderProfile?.name || 'Customer'}`;
       let failureCount = 0;
       const errors: string[] = [];
 
+      // Get sender email for replyTo
+      const replyToEmail = senderProfile?.email;
+      console.log('[EmailPreview] Sender profile:', {
+        email: replyToEmail,
+        name: senderProfile?.name,
+        storeName: senderProfile?.storeName,
+      });
+      
+      if (!replyToEmail) {
+        console.error('[EmailPreview] No sender email found in profile');
+        setSending(false);
+        showError(
+          'Sender email required',
+          'Please set your email in settings before sending emails.'
+        );
+        return;
+      }
+
+      console.log(`[EmailPreview] Starting to send ${emailDrafts.length} emails`);
+      
       for (const draft of emailDrafts) {
+        console.log(`[EmailPreview] Sending email to ${draft.supplierName} (${draft.supplierEmail})`);
+        console.log('[EmailPreview] Draft details:', {
+          supplierName: draft.supplierName,
+          supplierEmail: draft.supplierEmail,
+          subject: draft.subject,
+          bodyLength: draft.body.length,
+          itemsCount: draft.items.length,
+        });
+        
         try {
-          const res = await fetch(SEND_EMAIL_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              supplierEmail: draft.supplierEmail,
-              replyTo: 'noreply@restock.email',
-              subject: draft.subject,
-              body: draft.body,
-              items: draft.items,
-              storeName: senderProfile?.storeName || senderProfile?.name || 'Restock App'
-            })
+          // Use the sendEmail API client
+          // Send items so backend can format HTML version
+          const emailRequest = {
+            to: draft.supplierEmail,
+            replyTo: replyToEmail,
+            subject: draft.subject,
+            text: draft.body,
+            items: draft.items.map(item => ({
+              productName: item.productName,
+              quantity: item.quantity || 1,
+            })),
+            storeName: senderProfile?.storeName || senderProfile?.name || 'Restock App',
+          };
+          
+          console.log('[EmailPreview] Email request:', {
+            to: emailRequest.to,
+            replyTo: emailRequest.replyTo,
+            subject: emailRequest.subject,
+            textLength: emailRequest.text.length,
+            itemsCount: emailRequest.items.length,
+            storeName: emailRequest.storeName,
+          });
+          
+          const result = await sendEmail(emailRequest);
+          
+          console.log(`[EmailPreview] Email result for ${draft.supplierName}:`, {
+            success: result.success,
+            message: result.message,
+            error: result.error,
           });
 
-          const json = await res.json();
-          if (!json.success) {
+          if (!result.success) {
             failureCount++;
-            errors.push(`${draft.supplierName}: ${json.error || 'Failed to send'}`);
+            const errorMsg = `${draft.supplierName}: ${result.message || result.error || 'Failed to send'}`;
+            console.error(`[EmailPreview] Failed to send to ${draft.supplierName}:`, errorMsg);
+            errors.push(errorMsg);
           } else {
             successCount++;
+            console.log(`[EmailPreview] Successfully sent to ${draft.supplierName}`);
           }
         } catch (draftError: any) {
           failureCount++;
-          errors.push(`${draft.supplierName}: ${draftError.message || 'Network error'}`);
+          const errorMsg = `${draft.supplierName}: ${draftError.message || 'Network error'}`;
+          console.error(`[EmailPreview] Exception sending to ${draft.supplierName}:`, draftError);
+          errors.push(errorMsg);
         }
       }
+      
+      console.log(`[EmailPreview] Send complete: ${successCount} succeeded, ${failureCount} failed`);
 
       setSending(false);
 
@@ -151,6 +231,9 @@ ${senderProfile?.name || 'Customer'}`;
 
       // Show success modal if at least one succeeded
       if (successCount > 0) {
+        // Update session status to completed
+        updateSession(id, { status: 'completed' });
+        console.log(`[EmailPreview] Updated session ${id} status to completed`);
         setShowSuccess(true);
       }
 

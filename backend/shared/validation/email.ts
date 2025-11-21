@@ -14,7 +14,8 @@ export const EmailPayloadSchema = z.object({
   supplierEmail: z.string().email("Invalid supplier email").optional(),
   subject: z.string().min(1, "Subject is required"),
   html: z.string().optional(),
-  body: z.string().min(1, "Email body is required"),
+  body: z.string().optional(), // Backend expects 'body'
+  text: z.string().optional(), // Frontend sends 'text' - will be normalized to 'body'
   replyTo: z.string().email("Invalid reply-to email").optional(),
   storeName: z.string().optional(),
   items: z.array(EmailItemSchema).optional().default([]),
@@ -23,6 +24,12 @@ export const EmailPayloadSchema = z.object({
   {
     message: "Either 'to' or 'supplierEmail' is required",
     path: ["to"],
+  }
+).refine(
+  (data) => data.body || data.text,
+  {
+    message: "Email body is required (provide 'body' or 'text')",
+    path: ["body"],
   }
 );
 
@@ -45,17 +52,25 @@ export function validateEmailRequest(
       };
     }
     
-    // Normalize: ensure 'to' field is always present
+    // Normalize: ensure 'to' and 'body' fields are always present
     const payload = result.data;
     const normalized = {
       ...payload,
       to: payload.to || payload.supplierEmail || "",
+      body: payload.body || payload.text || "", // Accept 'text' as alias for 'body'
     };
     
     if (!normalized.to) {
       return {
         ok: false,
         error: "Recipient email is required",
+      };
+    }
+    
+    if (!normalized.body) {
+      return {
+        ok: false,
+        error: "Email body is required",
       };
     }
     

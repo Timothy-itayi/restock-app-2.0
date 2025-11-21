@@ -46,12 +46,15 @@ export default function SessionsScreen() {
   const renderSessionItem = ({ item }: { item: Session }) => {
     const isActive = item.status === 'active';
     const isPendingEmails = item.status === 'pendingEmails';
+    const isCompleted = item.status === 'completed';
 
     let cardBorderStyle = {};
     if (isActive) {
       cardBorderStyle = { borderWidth: 2, borderColor: colors.analytics.moss  };
     } else if (isPendingEmails) {
       cardBorderStyle = { borderWidth: 2, borderColor: colors.analytics.clay};
+    } else if (isCompleted) {
+      cardBorderStyle = { borderWidth: 2, borderColor: colors.brand.primary };
     }
 
     const handleSessionPress = () => {
@@ -111,6 +114,20 @@ export default function SessionsScreen() {
             >
               <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
                 Pending Emails
+              </Text>
+            </View>
+          )}
+          {isCompleted && (
+            <View
+              style={{
+                backgroundColor: colors.brand.primary,
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                borderRadius: 4
+              }}
+            >
+              <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
+                Completed
               </Text>
             </View>
           )}

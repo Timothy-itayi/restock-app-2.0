@@ -102,12 +102,14 @@ export function EmailEditModal({
             showsVerticalScrollIndicator={true}
           >
             <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 6 }}>To</Text>
-            <Text style={{ fontSize: 16, marginBottom: 4, color: theme.neutral.darkest, fontWeight: '600' }}>
-              {editingEmail.supplierName}
-            </Text>
-            <Text style={{ fontSize: 14, marginBottom: 16, color: theme.neutral.medium }}>
-              {editingEmail.supplierEmail}
-            </Text>
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{ fontSize: 16, marginBottom: 4, color: theme.neutral.darkest, fontWeight: '600' }}>
+                {editingEmail.supplierName}
+              </Text>
+              <Text style={{ fontSize: 14, color: theme.neutral.dark }}>
+                {editingEmail.supplierEmail}
+              </Text>
+            </View>
 
             {editingEmail.items && editingEmail.items.length > 0 && (
               <>
@@ -237,12 +239,14 @@ export function EmailDetailModal({
   
           <ScrollView style={{ padding: 16 }}>
             <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 6 }}>To</Text>
-            <Text style={{ fontSize: 16, marginBottom: 4, fontWeight: '600', color: theme.neutral.darkest }}>
-              {email.supplierName}
-            </Text>
-            <Text style={{ fontSize: 14, marginBottom: 16, color: theme.neutral.medium }}>
-              {email.supplierEmail}
-            </Text>
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{ fontSize: 16, marginBottom: 4, fontWeight: '600', color: theme.neutral.darkest }}>
+                {email.supplierName}
+              </Text>
+              <Text style={{ fontSize: 14, color: theme.neutral.dark }}>
+                {email.supplierEmail}
+              </Text>
+            </View>
 
             {email.items && email.items.length > 0 && (
               <>

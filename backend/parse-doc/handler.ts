@@ -6,7 +6,7 @@
 import { extractPdfText } from "../shared/parsing/pdfExtract";
 import { parseSupplierBlocks, createFallbackBlock } from "../shared/parsing/blockParser";
 import { buildExtractionPrompt, buildVisionPrompt } from "../shared/parsing/llmPrompt";
-import { groqChat, groqVision, pdfToBase64DataUrl } from "../shared/clients/groq";
+import { groqChat, groqVision, imageToBase64DataUrl } from "../shared/clients/groq";
 import { validateParsedDoc } from "../shared/validation/parsedDoc";
 import { normalizeSupplier, normalizeProduct } from "../shared/utils/normalize";
 import { createError, createSuccess } from "../shared/utils/errors";
@@ -42,17 +42,29 @@ export async function handleParseDoc(
     // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer();
 
-    // Step 1: Try to extract text from PDF
-    const textResult = await extractPdfText(arrayBuffer);
-
     let items: Array<{ supplier?: string; product: string; quantity?: number }> = [];
 
-    if (textResult && textResult.text) {
-      // Step 2: Parse text into supplier blocks
+    // Route based on file type
+    const isPdf = mimeType.includes("pdf");
+    const isImage = mimeType.startsWith("image/");
+
+    if (isPdf) {
+      // PDF: Extract text → Send to Groq Chat API
+      const textResult = await extractPdfText(arrayBuffer);
+
+      if (!textResult || !textResult.text) {
+        const { response } = createError(
+          "Could not extract text from PDF. The PDF may be scanned or corrupted. Please ensure the PDF has a text layer.",
+          400
+        );
+        return response;
+      }
+
+      // Parse text into supplier blocks
       const blocks = parseSupplierBlocks(textResult.text);
       const blocksToProcess = blocks.length > 0 ? blocks : [createFallbackBlock(textResult.text)];
 
-      // Step 3: Build prompt and send to LLM
+      // Build prompt and send to Groq Chat API
       const prompt = buildExtractionPrompt(blocksToProcess);
       const llmResponse = await groqChat(
         {
@@ -70,24 +82,26 @@ export async function handleParseDoc(
       );
 
       if (!llmResponse.ok) {
-        console.error("Groq chat failed:", llmResponse.error);
-        // Fall through to vision API
-      } else {
-        // Step 4: Parse and validate LLM response
-        try {
-          const parsed = JSON.parse(llmResponse.content!);
-          const validated = validateParsedDoc(parsed);
-          items = validated.items;
-        } catch (parseErr) {
-          console.warn("Failed to parse LLM JSON:", parseErr);
-          // Fall through to vision API
-        }
+        const { response } = createError(
+          llmResponse.error || "Failed to parse document with LLM",
+          500
+        );
+        return response;
       }
-    }
 
-    // Step 5: If text extraction failed or returned no items, use vision API
-    if (items.length === 0) {
-      const base64DataUrl = pdfToBase64DataUrl(arrayBuffer, mimeType);
+      // Parse and validate LLM response
+      try {
+        const parsed = JSON.parse(llmResponse.content!);
+        const validated = validateParsedDoc(parsed);
+        items = validated.items;
+      } catch (parseErr) {
+        console.error("Failed to parse LLM JSON:", parseErr);
+        const { response } = createError("Invalid response from parsing service", 500);
+        return response;
+      }
+    } else if (isImage) {
+      // Image: Send directly to Groq Vision API
+      const base64DataUrl = imageToBase64DataUrl(arrayBuffer, mimeType);
       const visionResponse = await groqVision(
         {
           messages: [
@@ -114,7 +128,7 @@ export async function handleParseDoc(
 
       if (!visionResponse.ok) {
         const { response } = createError(
-          visionResponse.error || "Failed to parse document",
+          visionResponse.error || "Failed to parse image",
           500
         );
         return response;
@@ -130,6 +144,10 @@ export async function handleParseDoc(
         const { response } = createError("Invalid response from parsing service", 500);
         return response;
       }
+    } else {
+      // Should not reach here due to validation above, but handle anyway
+      const { response } = createError("Unsupported file type", 400);
+      return response;
     }
 
     // Step 6: Normalize items
