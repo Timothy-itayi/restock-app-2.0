@@ -384,6 +384,53 @@ export const getSettingsStyles = (t: AppColors) => StyleSheet.create({
     marginLeft: 6,
   },
   
+  // Preview Container
+  previewContainer: {
+    backgroundColor: t.neutral.lightest,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: t.neutral.light,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  previewTitle: {
+    fontFamily: fontFamily.satoshiMedium,
+    fontSize: 14,
+    color: t.neutral.darkest,
+    marginLeft: 8,
+    fontWeight: '600',
+  },
+  previewContent: {
+    flexDirection: 'row',
+    marginBottom: 8,
+    flexWrap: 'wrap',
+  },
+  previewLabel: {
+    fontFamily: fontFamily.satoshi,
+    fontSize: 13,
+    color: t.neutral.medium,
+    marginRight: 8,
+    minWidth: 60,
+  },
+  previewValue: {
+    fontFamily: fontFamily.satoshiMedium,
+    fontSize: 13,
+    color: t.neutral.darkest,
+    flex: 1,
+  },
+  
   // Unsaved Changes Banner
   unsavedChangesBanner: {
     backgroundColor: t.status.warning + '15',

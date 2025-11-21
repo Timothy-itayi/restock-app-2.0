@@ -57,7 +57,7 @@ export async function sendEmail(request: Omit<SendEmailRequest, 'deviceId'>): Pr
     const { getDeviceId } = await import('../utils/deviceId');
     const deviceId = await getDeviceId();
 
-    const response = await fetch('https://your-backend-url/send-email', {
+    const response = await fetch('https://restock-send-email.parse-doc.workers.dev', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -117,7 +117,8 @@ export async function sendEmail(request: Omit<SendEmailRequest, 'deviceId'>): Pr
 }
 
 /**
- * Generates email body text using AI for a given supplier and items.
+ * Generates email body text for a given supplier and items.
+ * Note: This endpoint doesn't exist in the backend - email body is generated client-side.
  */
 export async function generateEmailBody(
   supplierName: string,
@@ -125,34 +126,12 @@ export async function generateEmailBody(
   senderName: string,
   storeName?: string
 ): Promise<string> {
-  try {
-    const response = await fetch('https://your-backend-url/generate-email-body', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        supplierName,
-        items,
-        senderName,
-        storeName,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to generate email body');
-    }
-
-    const data = await response.json();
-    return data.body || '';
-  } catch (error) {
-    console.error('Failed to generate email body:', error);
-    // Fallback to a simple template
-    const itemsList = items
-      .map(item => `- ${item.productName} (Qty: ${item.quantity})`)
-      .join('\n');
-    
-    return `Hello ${supplierName},
+  // Generate email body locally (no backend endpoint for this)
+  const itemsList = items
+    .map(item => `- ${item.productName} (Qty: ${item.quantity})`)
+    .join('\n');
+  
+  return `Hello ${supplierName},
 
 I would like to place an order for the following items:
 
@@ -162,6 +141,5 @@ Please let me know if these items are available and when they can be delivered.
 
 Thank you,
 ${senderName}${storeName ? `\n${storeName}` : ''}`;
-  }
 }
 

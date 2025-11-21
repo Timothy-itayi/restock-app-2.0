@@ -12,7 +12,11 @@ compatibility_date = "2024-11-21"
 # binding = "PARSE_DEBUG"
 # id = "<namespace-id>"
 
-# Routes configuration (uncomment and configure when deploying)
+# Routes configuration
+# For MVP: Use workers.dev subdomain (answer "yes" when prompted)
+# Workers will be available at: https://restock-parse-doc.<your-username>.workers.dev
+#
+# For custom domain (later):
 # [routes]
 # pattern = "https://restock.yourdomain.com/parse-doc"
 # zone_id = "<your-cloudflare-zone-id>"
