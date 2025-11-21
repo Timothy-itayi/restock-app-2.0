@@ -1,7 +1,7 @@
 {
-  "name": "restock-send-email",
+  "name": "restock-parse-doc",
   "version": "1.0.0",
-  "description": "Cloudflare Worker for sending emails via Resend",
+  "description": "Cloudflare Worker for parsing PDF documents",
   "main": "index.ts",
   "scripts": {
     "dev": "wrangler dev",
@@ -14,3 +14,4 @@
     "wrangler": "^3.19.0"
   }
 }
+
