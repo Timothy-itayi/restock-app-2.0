@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getVersionedJSON, setVersionedJSON } from '../lib/helpers/storage/utils';
 
 export type ProductHistory = {
   id: string;
@@ -46,7 +47,7 @@ export const useProductsStore = create<ProductStore>((set, get) => ({
       );
 
       set({ products: newList });
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newList)).catch(console.warn);
+      setVersionedJSON(STORAGE_KEY, newList).catch(console.warn);
 
       return updated;
     }
@@ -60,8 +61,8 @@ export const useProductsStore = create<ProductStore>((set, get) => ({
 
     const merged = [...get().products, newProd];
 
-    set({ products: merged });
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(merged)).catch(console.warn);
+      set({ products: merged });
+      setVersionedJSON(STORAGE_KEY, merged).catch(console.warn);
 
     return newProd;
   },
@@ -80,15 +81,30 @@ export const useProductsStore = create<ProductStore>((set, get) => ({
   // LOAD
   //------------------------------------------------------------------
   loadProducts: async () => {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const products = raw ? JSON.parse(raw) : [];
-    set({ products, isHydrated: true });
+    try {
+      const products = await getVersionedJSON<ProductHistory[]>(
+        STORAGE_KEY,
+        (oldVersion, oldData) => {
+          // Migration function: ensure array format
+          if (oldVersion === 0 || oldVersion === 1) {
+            return Array.isArray(oldData) ? oldData : [];
+          }
+          return null;
+        }
+      );
+      
+      const validProducts = Array.isArray(products) ? products : [];
+      set({ products: validProducts, isHydrated: true });
+    } catch (error) {
+      console.warn('Failed to load products:', error);
+      set({ products: [], isHydrated: true });
+    }
   },
 
   //------------------------------------------------------------------
   // SAVE
   //------------------------------------------------------------------
   saveProducts: async () => {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(get().products));
+    await setVersionedJSON(STORAGE_KEY, get().products);
   }
 }));

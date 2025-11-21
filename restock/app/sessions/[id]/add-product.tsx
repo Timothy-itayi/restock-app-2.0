@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  SafeAreaView
+  SafeAreaView,
+  Pressable
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useThemedStyles } from '@styles/useThemedStyles';
@@ -40,6 +41,7 @@ export default function AddProductScreen() {
   const [supplier, setSupplier] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredSuppliers, setFilteredSuppliers] = useState<typeof suppliers>([]);
+  const supplierInputRef = useRef<TextInput>(null);
 
   // Load suppliers on mount
   useEffect(() => {
@@ -118,6 +120,8 @@ export default function AddProductScreen() {
   const selectSupplier = (supplierName: string) => {
     setSupplier(supplierName);
     setShowSuggestions(false);
+    // Blur input to dismiss keyboard
+    supplierInputRef.current?.blur();
   };
 
   const incrementQty = () => setQuantity(q => q + 1);
@@ -126,10 +130,15 @@ export default function AddProductScreen() {
   return (
     <SafeAreaView style={styles.sessionContainer}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 16 }}>
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, padding: 16, paddingBottom: 40 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={true}
+        >
           
           <Text style={styles.sessionSelectionTitle}>Add Product</Text>
 
@@ -162,13 +171,30 @@ export default function AddProductScreen() {
             <Text style={qtyStyles.label}>Supplier (optional)</Text>
             <View style={{ position: 'relative', zIndex: 1 }}>
               <TextInput
+                ref={supplierInputRef}
                 placeholder="Enter supplier name"
                 value={supplier}
-                onChangeText={setSupplier}
+                onChangeText={(text) => {
+                  setSupplier(text);
+                  if (text.trim()) {
+                    const filtered = suppliers.filter(s =>
+                      s.name.toLowerCase().includes(text.toLowerCase())
+                    );
+                    setFilteredSuppliers(filtered);
+                    setShowSuggestions(filtered.length > 0);
+                  } else {
+                    setShowSuggestions(false);
+                    setFilteredSuppliers([]);
+                  }
+                }}
                 onFocus={() => {
                   if (supplier.trim() && filteredSuppliers.length > 0) {
                     setShowSuggestions(true);
                   }
+                }}
+                onBlur={() => {
+                  // Delay hiding suggestions to allow tap to register
+                  setTimeout(() => setShowSuggestions(false), 200);
                 }}
                 style={styles.textInput}
               />
@@ -193,14 +219,15 @@ export default function AddProductScreen() {
                   overflow: 'hidden',
                 }}>
                   {filteredSuppliers.slice(0, 5).map((item) => (
-                    <TouchableOpacity
+                    <Pressable
                       key={item.id}
                       onPress={() => selectSupplier(item.name)}
-                      style={{
+                      style={({ pressed }) => ({
                         padding: 12,
                         borderBottomWidth: 1,
                         borderBottomColor: colors.neutral.light,
-                      }}
+                        backgroundColor: pressed ? colors.neutral.light : 'transparent',
+                      })}
                     >
                       <Text style={{ fontSize: 16, color: colors.neutral.darkest }}>
                         {item.name}
@@ -210,7 +237,7 @@ export default function AddProductScreen() {
                           {item.email}
                         </Text>
                       )}
-                    </TouchableOpacity>
+                    </Pressable>
                   ))}
                 </View>
               )}

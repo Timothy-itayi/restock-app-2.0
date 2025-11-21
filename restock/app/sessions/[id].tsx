@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemedStyles } from '@styles/useThemedStyles';
 import { getSessionsStyles } from '@styles/components/sessions';
 import { useSessionStore } from '../../store/useSessionStore';
+import { useSupplierStore } from '../../store/useSupplierStore';
+import { groupBySupplier } from '../../lib/utils/groupBySupplier';
 
 export default function SessionDetailScreen() {
   const styles = useThemedStyles(getSessionsStyles);
@@ -21,9 +23,16 @@ export default function SessionDetailScreen() {
     s.sessions.find((sess) => sess.id === id)
   );
 
+  const suppliers = useSupplierStore((s) => s.suppliers);
   const deleteSession = useSessionStore((s) => s.deleteSession);
   const updateSession = useSessionStore((s) => s.updateSession);
   const hasAutoNavigated = useRef(false);
+
+  // Group items by supplier
+  const supplierGroups = useMemo(() => {
+    if (!session || !session.items.length) return [];
+    return groupBySupplier(session.items, suppliers);
+  }, [session, suppliers]);
 
   useEffect(() => {
     if (!session) {
@@ -32,12 +41,20 @@ export default function SessionDetailScreen() {
     }
     
     // Auto-navigate to email preview if session is in pendingEmails status (only once on mount/reload)
+    // Add a small delay to allow the detail screen to render first, making the transition smoother
     if (session.status === 'pendingEmails' && !hasAutoNavigated.current) {
       hasAutoNavigated.current = true;
-      router.push({
-        pathname: `/sessions/${session.id}/email-preview`,
-        params: { id: session.id }
-      });
+      
+      // Small delay to allow screen to render before navigation
+      // This creates a smoother transition if someone navigates directly to this screen
+      const timeoutId = setTimeout(() => {
+        router.push({
+          pathname: `/sessions/${session.id}/email-preview`,
+          params: { id: session.id }
+        });
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [session, id]);
 
@@ -116,7 +133,6 @@ export default function SessionDetailScreen() {
     >
       <View style={{ flex: 1 }}>
         <Text style={styles.itemName}>{item.productName}</Text>
-        <Text style={styles.itemSupplier}>{item.supplierName}</Text>
       </View>
 
       <Text style={styles.itemQty}>x{item.quantity}</Text>
@@ -125,6 +141,47 @@ export default function SessionDetailScreen() {
         <Ionicons name="create-outline" size={20} color="#333" />
       )}
     </TouchableOpacity>
+  );
+
+  // Render supplier group with header
+  const renderSupplierGroup = ({ item: group }: any) => (
+    <View style={{ marginBottom: 16 }}>
+      {/* Supplier Header */}
+      <View style={{ 
+        paddingHorizontal: 16, 
+        paddingVertical: 8, 
+        backgroundColor: '#f5f5f5',
+        borderLeftWidth: 3,
+        borderLeftColor: '#6B7F6B',
+        marginBottom: 8
+      }}>
+        <Text style={{ 
+          fontSize: 16, 
+          fontWeight: '600', 
+          color: '#333' 
+        }}>
+          {group.supplierName}
+        </Text>
+        {group.supplierEmail ? (
+          <Text style={{ 
+            fontSize: 13, 
+            color: '#666', 
+            marginTop: 2 
+          }}>
+            {group.supplierEmail}
+          </Text>
+        ) : null}
+      </View>
+
+      {/* Items for this supplier */}
+      <FlatList
+        data={group.items}
+        keyExtractor={(i) => i.id}
+        renderItem={renderItem}
+        scrollEnabled={false}
+        contentContainerStyle={{ paddingHorizontal: 0 }}
+      />
+    </View>
   );
 
   return (
@@ -147,14 +204,16 @@ export default function SessionDetailScreen() {
           {session.items.length} items • {session.status}
         </Text>
 
-        {/* ITEM LIST */}
+        {/* ITEM LIST - GROUPED BY SUPPLIER */}
         {session.items.length === 0 ? (
           <Text style={styles.emptyStateText}>No items in this session yet.</Text>
+        ) : supplierGroups.length === 0 ? (
+          <Text style={styles.emptyStateText}>No items to display.</Text>
         ) : (
           <FlatList
-            data={session.items}
-            keyExtractor={(i) => i.id}
-            renderItem={renderItem}
+            data={supplierGroups}
+            keyExtractor={(group) => group.supplierId}
+            renderItem={renderSupplierGroup}
             contentContainerStyle={{ paddingTop: 12 }}
           />
         )}

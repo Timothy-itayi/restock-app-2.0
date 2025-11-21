@@ -11,6 +11,8 @@ import { useSessionStore } from '../../../store/useSessionStore';
 import { useSupplierStore } from '../../../store/useSupplierStore';
 import { useSenderProfile } from '../../../store/useSenderProfileStore';
 
+import { groupBySupplier } from '../../../lib/utils/groupBySupplier';
+
 import { EmailsSummary } from '../../../components/emails/EmailsSummary';
 import { EmailCard } from '../../../components/emails/EmailCard';
 import  {EmailEditModal } from '../../../components/emails/EmailEditModal';
@@ -39,7 +41,7 @@ export default function EmailPreviewScreen() {
     return <Text>Session not found.</Text>;
   }
 
-  // Build supplier → items grouping
+  // Build supplier → items grouping using centralized utility
   const emailDrafts = useMemo(() => {
     // Helper function to format product list for email body
     const formatProductList = (items: typeof session.items) => {
@@ -67,41 +69,23 @@ Thank you,
 ${senderProfile?.name || 'Customer'}`;
     };
 
-    const map: Record<string, any> = {};
+    // Use centralized grouping utility
+    const supplierGroups = groupBySupplier(session.items, suppliers);
     const storeName = senderProfile?.storeName || 'our store';
 
-    for (const item of session.items) {
-      // Use supplierId if available, otherwise use supplierName as key
-      const supplierKey = item.supplierId || item.supplierName || 'unknown';
-      const supplierId = item.supplierId || supplierKey;
-
-      if (!map[supplierKey]) {
-        const supplier = item.supplierId 
-          ? suppliers.find((s) => s.id === item.supplierId)
-          : suppliers.find((s) => s.name.toLowerCase() === (item.supplierName || '').toLowerCase());
-        
-        const edited = editedDrafts[supplierId] || editedDrafts[supplierKey];
-        const supplierItems = session.items.filter(i => {
-          if (i.supplierId) {
-            return i.supplierId === supplierId;
-          }
-          // Fallback to supplierName matching
-          const iKey = i.supplierId || i.supplierName || 'unknown';
-          return iKey === supplierKey;
-        });
-
-        map[supplierKey] = {
-          supplierId: supplierId,
-          supplierName: supplier?.name || item.supplierName || 'Unknown Supplier',
-          supplierEmail: supplier?.email || '',
-          subject: edited?.subject || `Restock Order from ${storeName}`,
-          body: edited?.body || generateEmailBody(supplier?.name || item.supplierName || '', supplierItems),
-          items: supplierItems
-        };
-      }
-    }
-
-    return Object.values(map);
+    // Transform groups into email drafts
+    return supplierGroups.map((group) => {
+      const edited = editedDrafts[group.supplierId];
+      
+      return {
+        supplierId: group.supplierId,
+        supplierName: group.supplierName,
+        supplierEmail: group.supplierEmail,
+        subject: edited?.subject || `Restock Order from ${storeName}`,
+        body: edited?.body || generateEmailBody(group.supplierName, group.items),
+        items: group.items
+      };
+    });
   }, [session, suppliers, editedDrafts, senderProfile]);
 
 

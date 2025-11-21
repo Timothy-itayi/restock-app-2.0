@@ -45,14 +45,36 @@ export default function SessionsScreen() {
 
   const renderSessionItem = ({ item }: { item: Session }) => {
     const isActive = item.status === 'active';
+    const isPendingEmails = item.status === 'pendingEmails';
+
+    let cardBorderStyle = {};
+    if (isActive) {
+      cardBorderStyle = { borderWidth: 2, borderColor: colors.analytics.moss  };
+    } else if (isPendingEmails) {
+      cardBorderStyle = { borderWidth: 2, borderColor: colors.analytics.clay};
+    }
+
+    const handleSessionPress = () => {
+      // For pendingEmails sessions, navigate directly to email preview
+      // This avoids the jarring double-navigation through session detail
+      if (isPendingEmails) {
+        router.push({
+          pathname: `/sessions/${item.id}/email-preview`,
+          params: { id: item.id }
+        });
+      } else {
+        // For other sessions, go to session detail
+        router.push(`/sessions/${item.id}`);
+      }
+    };
 
     return (
       <TouchableOpacity
         style={[
           styles.sessionCard,
-          isActive && { borderWidth: 2, borderColor: colors.analytics.clay }
+          cardBorderStyle
         ]}
-        onPress={() => router.push(`/sessions/${item.id}`)}
+        onPress={handleSessionPress}
       >
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           <View style={{ flex: 1 }}>
@@ -67,7 +89,7 @@ export default function SessionsScreen() {
           {isActive && (
             <View
               style={{
-                backgroundColor: colors.analytics.clay,
+                backgroundColor: colors.analytics.moss,
                 paddingHorizontal: 8,
                 paddingVertical: 4,
                 borderRadius: 4
@@ -75,6 +97,20 @@ export default function SessionsScreen() {
             >
               <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
                 Active
+              </Text>
+            </View>
+          )}
+          {isPendingEmails && (
+            <View
+              style={{
+                backgroundColor: colors.analytics.clay,
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                borderRadius: 4
+              }}
+            >
+              <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
+                Pending Emails
               </Text>
             </View>
           )}
