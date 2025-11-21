@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, SafeAreaView } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -17,7 +17,10 @@ import { EmailsSummary } from '../../../components/emails/EmailsSummary';
 import { EmailCard } from '../../../components/emails/EmailCard';
 import  {EmailEditModal } from '../../../components/emails/EmailEditModal';
 import { SendConfirmationModal } from '../../../components/emails/SendConfirmationModal';
+import { SuccessModal } from '../../../components/emails/SuccessModal';
 import { EmailDetailModal } from '../../../components/emails/EmailEditModal';
+import { Toast } from '../../../components/Toast';
+import { useToast } from '../../../lib/hooks/useToast';
 
 const SEND_EMAIL_URL = 'https://your-domain.com/send-email';
 
@@ -35,7 +38,8 @@ export default function EmailPreviewScreen() {
   const [editedDrafts, setEditedDrafts] = useState<Record<string, { subject: string; body: string }>>({});
   const [showConfirm, setShowConfirm] = useState(false);
   const [sending, setSending] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const { toast, showError, hideToast } = useToast();
 
   if (!session) {
     return <Text>Session not found.</Text>;
@@ -94,35 +98,74 @@ ${senderProfile?.name || 'Customer'}`;
     setSending(true);
 
     try {
-      for (const draft of emailDrafts) {
-        const res = await fetch(SEND_EMAIL_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            supplierEmail: draft.supplierEmail,
-            replyTo: 'noreply@restock.email',
-            subject: draft.subject,
-            body: draft.body,
-            items: draft.items,
-            storeName: senderProfile?.storeName || senderProfile?.name || 'Restock App'
-          })
-        });
+      let successCount = 0;
+      let failureCount = 0;
+      const errors: string[] = [];
 
-        const json = await res.json();
-        if (!json.success) throw new Error(json.error);
+      for (const draft of emailDrafts) {
+        try {
+          const res = await fetch(SEND_EMAIL_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              supplierEmail: draft.supplierEmail,
+              replyTo: 'noreply@restock.email',
+              subject: draft.subject,
+              body: draft.body,
+              items: draft.items,
+              storeName: senderProfile?.storeName || senderProfile?.name || 'Restock App'
+            })
+          });
+
+          const json = await res.json();
+          if (!json.success) {
+            failureCount++;
+            errors.push(`${draft.supplierName}: ${json.error || 'Failed to send'}`);
+          } else {
+            successCount++;
+          }
+        } catch (draftError: any) {
+          failureCount++;
+          errors.push(`${draft.supplierName}: ${draftError.message || 'Network error'}`);
+        }
       }
 
       setSending(false);
-      setSuccess(true);
 
-      setTimeout(() => {
-        router.replace('/sessions');
-      }, 1500);
+      // If all failed, show error toast
+      if (successCount === 0) {
+        showError(
+          'Failed to send emails',
+          errors.length > 0 ? errors.slice(0, 2).join(', ') : 'Please try again'
+        );
+        return;
+      }
+
+      // If some failed, show warning toast
+      if (failureCount > 0) {
+        showError(
+          `${failureCount} ${failureCount === 1 ? 'email' : 'emails'} failed to send`,
+          errors.slice(0, 2).join(', ')
+        );
+      }
+
+      // Show success modal if at least one succeeded
+      if (successCount > 0) {
+        setShowSuccess(true);
+      }
 
     } catch (err: any) {
       setSending(false);
-      Alert.alert('Error sending emails', err.message);
+      showError(
+        'Error sending emails',
+        err.message || 'An unexpected error occurred. Please try again.'
+      );
     }
+  };
+
+  const handleSuccessClose = () => {
+    setShowSuccess(false);
+    router.replace('/sessions');
   };
 
 
@@ -143,6 +186,17 @@ ${senderProfile?.name || 'Customer'}`;
         storeName={senderProfile?.storeName || undefined}
       />
 
+      {/* Edit Products Button */}
+      <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 }}>
+        <TouchableOpacity
+          style={[sessionStyles.secondaryButton, { marginBottom: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
+          onPress={() => router.push(`/sessions/${id}`)}
+        >
+          <Ionicons name="create-outline" size={18} color="#666" style={{ marginRight: 8 }} />
+          <Text style={sessionStyles.secondaryButtonText}>Edit Products</Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView style={{ padding: 16 }}>
         {emailDrafts.map((draft) => (
           <EmailCard
@@ -155,7 +209,7 @@ ${senderProfile?.name || 'Customer'}`;
       </ScrollView>
 
       {/* Send All */}
-      {!sending && !success && (
+      {!sending && !showSuccess && (
         <View style={styles.actionButtonContainer}>
           <TouchableOpacity
             style={styles.doneButton}
@@ -172,19 +226,27 @@ ${senderProfile?.name || 'Customer'}`;
         </View>
       )}
 
-      {success && (
-        <View style={styles.successIcon}>
-          <Ionicons name="checkmark-circle" size={48} color="green" />
-          <Text>Emails Sent!</Text>
-        </View>
-      )}
-
       {/* Modals */}
       <SendConfirmationModal
         visible={showConfirm}
         emailCount={emailDrafts.length}
         onConfirm={handleSendAll}
         onCancel={() => setShowConfirm(false)}
+      />
+
+      <SuccessModal
+        visible={showSuccess}
+        emailCount={emailDrafts.length}
+        onClose={handleSuccessClose}
+      />
+
+      {/* Toast */}
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        subtext={toast.subtext}
+        type={toast.type}
+        onClose={hideToast}
       />
 
       <EmailEditModal

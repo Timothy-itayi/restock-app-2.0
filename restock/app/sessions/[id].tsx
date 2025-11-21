@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -26,7 +26,6 @@ export default function SessionDetailScreen() {
   const suppliers = useSupplierStore((s) => s.suppliers);
   const deleteSession = useSessionStore((s) => s.deleteSession);
   const updateSession = useSessionStore((s) => s.updateSession);
-  const hasAutoNavigated = useRef(false);
 
   // Group items by supplier
   const supplierGroups = useMemo(() => {
@@ -34,29 +33,8 @@ export default function SessionDetailScreen() {
     return groupBySupplier(session.items, suppliers);
   }, [session, suppliers]);
 
-  useEffect(() => {
-    if (!session) {
-      console.warn('Session not found:', id);
-      return;
-    }
-    
-    // Auto-navigate to email preview if session is in pendingEmails status (only once on mount/reload)
-    // Add a small delay to allow the detail screen to render first, making the transition smoother
-    if (session.status === 'pendingEmails' && !hasAutoNavigated.current) {
-      hasAutoNavigated.current = true;
-      
-      // Small delay to allow screen to render before navigation
-      // This creates a smoother transition if someone navigates directly to this screen
-      const timeoutId = setTimeout(() => {
-        router.push({
-          pathname: `/sessions/${session.id}/email-preview`,
-          params: { id: session.id }
-        });
-      }, 100);
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [session, id]);
+  // Removed auto-navigation to allow users to edit products in pendingEmails sessions
+  // Users can navigate to email preview manually via the button
 
   if (!session) {
     return (
