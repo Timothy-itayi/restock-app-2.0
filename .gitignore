@@ -99,4 +99,13 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# Cloudflare Wrangler
+.wrangler/
+.wrangler.toml
+*.wrangler.json
+
+# Backend test coverage
+backend/coverage/
+backend/.vitest/
+
 # @end expo-cli

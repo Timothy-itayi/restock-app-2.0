@@ -22,7 +22,7 @@ import { EmailDetailModal } from '../../../components/emails/EmailEditModal';
 import { Toast } from '../../../components/Toast';
 import { useToast } from '../../../lib/hooks/useToast';
 
-const SEND_EMAIL_URL = 'https://your-domain.com/send-email';
+const SEND_EMAIL_URL = 'https://restock-send-email.parse-doc.workers.dev';
 
 export default function EmailPreviewScreen() {
   const styles = useThemedStyles(getEmailsStyles);

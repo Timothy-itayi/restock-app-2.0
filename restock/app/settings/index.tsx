@@ -124,21 +124,52 @@ export default function SettingsScreen() {
   };
 
   //----------------------------------------------------------------------
-  // RESET ALL
+  // RESET ALL - Multi-step confirmation
   //----------------------------------------------------------------------
   const handleReset = async () => {
+    // Step 1: Initial warning
     Alert.alert(
-      'Reset App',
-      'This will erase all sessions, suppliers, and your profile.',
+      'Reset All Data',
+      'This will permanently delete:\n\n• All sessions\n• All suppliers\n• All products\n• Your sender profile\n\nThis action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Reset',
+          text: 'Continue',
           style: 'destructive',
-          onPress: async () => {
-            await AsyncStorage.clear();
-            useSenderProfileStore.getState().clearProfile();
-            router.replace('/auth/sender-setup');
+          onPress: () => {
+            // Step 2: Final confirmation
+            Alert.alert(
+              'Final Confirmation',
+              'Type "RESET" to confirm you want to delete all data.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Confirm Reset',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await AsyncStorage.clear();
+                      useSenderProfileStore.getState().clearProfile();
+                      Alert.alert(
+                        'Reset Complete',
+                        'All data has been cleared. You will be redirected to setup.',
+                        [
+                          {
+                            text: 'OK',
+                            onPress: () => router.replace('/auth/sender-setup')
+                          }
+                        ]
+                      );
+                    } catch (error) {
+                      Alert.alert(
+                        'Reset Failed',
+                        'An error occurred while resetting data. Please try again.'
+                      );
+                    }
+                  }
+                }
+              ]
+            );
           }
         }
       ]
@@ -175,6 +206,28 @@ export default function SettingsScreen() {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Settings</Text>
         </View>
+
+        {/* Sender Identity Preview */}
+        {senderProfile && !hasUnsavedChanges && (
+          <View style={styles.previewContainer}>
+            <View style={styles.previewHeader}>
+              <Ionicons name="person-circle" size={20} color={theme.brand.primary} />
+              <Text style={styles.previewTitle}>Current Sender Identity</Text>
+            </View>
+            <View style={styles.previewContent}>
+              <Text style={styles.previewLabel}>Name:</Text>
+              <Text style={styles.previewValue}>{senderProfile.name || 'Not set'}</Text>
+            </View>
+            <View style={styles.previewContent}>
+              <Text style={styles.previewLabel}>Email:</Text>
+              <Text style={styles.previewValue}>{senderProfile.email || 'Not set'}</Text>
+            </View>
+            <View style={styles.previewContent}>
+              <Text style={styles.previewLabel}>Store:</Text>
+              <Text style={styles.previewValue}>{senderProfile.storeName || 'Not set'}</Text>
+            </View>
+          </View>
+        )}
 
         {/* Unsaved Changes Indicator */}
         {hasUnsavedChanges && (

@@ -1,0 +1,26 @@
+{
+  "name": "restock-backend",
+  "version": "1.0.0",
+  "description": "Backend workers for Restock app",
+  "private": true,
+  "scripts": {
+    "deploy:send-email": "cd send-email && wrangler deploy",
+    "deploy:parse-doc": "cd parse-doc && wrangler deploy",
+    "deploy:all": "npm run deploy:send-email && npm run deploy:parse-doc",
+    "dev:send-email": "cd send-email && wrangler dev",
+    "dev:parse-doc": "cd parse-doc && wrangler dev",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241121.0",
+    "@vitest/coverage-v8": "^1.0.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.0.0",
+    "wrangler": "^3.19.0"
+  }
+}

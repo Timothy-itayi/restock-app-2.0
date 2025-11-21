@@ -38,7 +38,7 @@ type ParsedItem = {
   product: string;
 };
 
-const PARSE_DOC_URL = 'https://your-backend-url/parse-doc'; // TODO: env/config
+const PARSE_DOC_URL = 'https://restock-parse-doc.parse-doc.workers.dev';
 
 export default function UploadScreen() {
   const styles = useThemedStyles(getUploadStyles);

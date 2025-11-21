@@ -1,11 +1,20 @@
 name = "restock-send-email"
-main = "backend/send-email/index.ts"
+main = "index.ts"
 compatibility_date = "2024-11-21"
 
 [vars]
 EMAIL_FROM_ADDRESS = "Restock App <noreply@restockapp.email>"
 EMAIL_PROVIDER_URL = "https://api.resend.com/emails"
 
-[routes]
-pattern = "https://restock.yourdomain.com/send-email"
-zone_id = "<YOUR_ZONE_ID>"
+# Secrets should be set via: wrangler secret put RESEND_API_KEY
+# [secrets]
+# RESEND_API_KEY = "set via wrangler secret put"
+
+# Routes configuration
+# For MVP: Use workers.dev subdomain (answer "yes" when prompted)
+# Workers will be available at: https://restock-send-email.<your-username>.workers.dev
+#
+# For custom domain (later):
+# [routes]
+# pattern = "https://restock.yourdomain.com/send-email"
+# zone_id = "<YOUR_ZONE_ID>"
