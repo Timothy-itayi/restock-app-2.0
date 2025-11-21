@@ -31,14 +31,7 @@ import {
   safeString,
   ensureId
 } from '../../lib/utils/normalise';
-
-type ParsedItem = {
-  id: string;
-  supplier: string;
-  product: string;
-};
-
-const PARSE_DOC_URL = 'https://restock-parse-doc.parse-doc.workers.dev';
+import { parseDocument, type ParsedItem, type DocumentFile } from '../../lib/api/parseDoc';
 
 export default function UploadScreen() {
   const styles = useThemedStyles(getUploadStyles);
@@ -109,55 +102,20 @@ export default function UploadScreen() {
     setParsingError(null);
 
     try {
-      const form = new FormData();
-      form.append('file', {
+      const result = await parseDocument({
         uri: file.uri,
         name: file.name,
-        type: file.mimeType || 'application/octet-stream'
-      } as any);
+        mimeType: file.mimeType,
+        size: file.size,
+      } as DocumentFile);
 
-      const response = await fetch(PARSE_DOC_URL, {
-        method: 'POST',
-        body: form
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server error (${response.status})`);
+      if (!result.success) {
+        setParsingError(result.error);
+        return;
       }
 
-      let data: any;
-      try {
-        data = await response.json();
-      } catch {
-        throw new Error('Invalid server response');
-      }
-
-      if (!data.items || !Array.isArray(data.items)) {
-        throw new Error('Invalid parse format');
-      }
-
-      const itemsWithIds: ParsedItem[] = data.items
-        .map((raw: any, i: number) => {
-          const product = safeString(raw.product);
-          const supplier = safeString(raw.supplier);
-
-          // Ignore lines with no product name
-          if (!product) return null;
-
-          return {
-            id: raw.id || ensureId('parsed'),
-            product,
-            supplier
-          };
-        })
-        .filter(Boolean) as ParsedItem[];
-
-      if (itemsWithIds.length === 0) {
-        throw new Error('No items found in document');
-      }
-
-      setParsed(itemsWithIds);
-      setSelectedItems(new Set(itemsWithIds.map((x) => x.id)));
+      setParsed(result.items);
+      setSelectedItems(new Set(result.items.map((x) => x.id)));
     } catch (e: any) {
       console.warn('parse-doc error', e);
       setParsingError(

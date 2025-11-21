@@ -59,9 +59,14 @@ Rules:
 
 /**
  * Creates a vision API prompt for scanned PDFs
+ * Uses the specific prompt format for product list extraction
  */
 export function buildVisionPrompt(): string {
-  return `Extract a clean JSON array of supplier items from this document image.
+  return `Take an image of a printed product list
+Extract text
+Infer supplier groupings
+Remove pricing/quantities
+Reformat into a clean grouped PDF/table
 
 Return ONLY this JSON shape (no markdown, no comments, no extra text):
 
