@@ -105,7 +105,7 @@ export async function handleParseDoc(
               ],
             },
           ],
-          model: "llama-3.2-90b-vision-preview", // Groq vision model
+          model: "meta-llama/llama-4-scout-17b-16e-instruct", // Groq vision model
           temperature: 0.1,
           response_format: { type: "json_object" },
         },
