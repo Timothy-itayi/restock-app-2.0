@@ -3,12 +3,23 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { sendViaResend } from '../../shared/clients/resend';
+import { sendViaResend, type ResendPayload } from '../../shared/clients/resend';
 
-// Mock fetch
+// Mock fetch globally
 global.fetch = vi.fn();
 
 describe('Resend API client', () => {
+  const mockApiKey = 'test_api_key';
+  const mockApiUrl = 'https://api.resend.com/emails';
+  const mockPayload: ResendPayload = {
+    from: 'test@example.com',
+    to: 'recipient@example.com',
+    reply_to: 'reply@example.com',
+    subject: 'Test Subject',
+    html: '<p>Test HTML</p>',
+    text: 'Test text',
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -22,81 +33,133 @@ describe('Resend API client', () => {
 
     (global.fetch as any).mockResolvedValueOnce(mockResponse);
 
-    const result = await sendViaResend(
-      {
-        from: 'test@example.com',
-        to: 'recipient@example.com',
-        subject: 'Test',
-        html: '<p>Test</p>',
-      },
-      'api_key'
-    );
+    const result = await sendViaResend(mockPayload, mockApiKey, mockApiUrl);
 
     expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.json?.id).toBe('resend_123');
-    }
+    expect(result.status).toBe(200);
+    expect(result.json?.id).toBe('resend_123');
+    expect(global.fetch).toHaveBeenCalledWith(
+      mockApiUrl,
+      expect.objectContaining({
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${mockApiKey}`,
+          'Content-Type': 'application/json',
+        },
+      })
+    );
   });
 
-  it('should retry on 5xx errors', async () => {
-    const mockResponse500 = {
+  it('should handle 4xx client errors without retrying', async () => {
+    const mockResponse = {
       ok: false,
-      status: 500,
-      text: async () => 'Internal Server Error',
+      status: 400,
+      json: async () => ({ error: 'Invalid recipient' }),
     };
 
-    const mockResponse200 = {
+    (global.fetch as any).mockResolvedValueOnce(mockResponse);
+
+    const result = await sendViaResend(mockPayload, mockApiKey, mockApiUrl);
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe(400);
+    expect(result.error).toBeTruthy();
+    expect(global.fetch).toHaveBeenCalledTimes(1); // No retries for 4xx
+  });
+
+  it('should retry on 5xx server errors', async () => {
+    const mockErrorResponse = {
+      ok: false,
+      status: 500,
+      json: async () => ({ error: 'Server error' }),
+    };
+
+    const mockSuccessResponse = {
       ok: true,
       status: 200,
       json: async () => ({ id: 'resend_123' }),
     };
 
-    // First call fails, second succeeds
+    // First attempt fails, second succeeds
     (global.fetch as any)
-      .mockResolvedValueOnce(mockResponse500)
-      .mockResolvedValueOnce(mockResponse200);
+      .mockResolvedValueOnce(mockErrorResponse)
+      .mockResolvedValueOnce(mockSuccessResponse);
 
-    const result = await sendViaResend(
-      {
-        from: 'test@example.com',
-        to: 'recipient@example.com',
-        subject: 'Test',
-        html: '<p>Test</p>',
-      },
-      'api_key'
-    );
+    const result = await sendViaResend(mockPayload, mockApiKey, mockApiUrl);
 
     expect(result.ok).toBe(true);
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
-  it('should not retry on 4xx errors', async () => {
-    const mockResponse = {
+  it('should retry on network errors', async () => {
+    const mockSuccessResponse = {
+      ok: true,
+      status: 200,
+      json: async () => ({ id: 'resend_123' }),
+    };
+
+    // First attempt fails with network error, second succeeds
+    (global.fetch as any)
+      .mockRejectedValueOnce(new Error('Network error'))
+      .mockResolvedValueOnce(mockSuccessResponse);
+
+    const result = await sendViaResend(mockPayload, mockApiKey, mockApiUrl);
+
+    expect(result.ok).toBe(true);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('should exhaust retries and return error', async () => {
+    const mockErrorResponse = {
       ok: false,
-      status: 400,
-      json: async () => ({ message: 'Bad Request' }),
+      status: 502,
+      json: async () => ({ error: 'Bad gateway' }),
+    };
+
+    (global.fetch as any).mockResolvedValue(mockErrorResponse);
+
+    const result = await sendViaResend(mockPayload, mockApiKey, mockApiUrl);
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe(502);
+    expect(global.fetch).toHaveBeenCalledTimes(3); // MAX_RETRIES
+  });
+
+  it('should use exponential backoff between retries', async () => {
+    const mockErrorResponse = {
+      ok: false,
+      status: 500,
+      json: async () => ({ error: 'Server error' }),
+    };
+
+    (global.fetch as any).mockResolvedValue(mockErrorResponse);
+
+    const startTime = Date.now();
+    await sendViaResend(mockPayload, mockApiKey, mockApiUrl);
+    const endTime = Date.now();
+
+    // Should have waited between retries (at least 1s + 2s = 3s total)
+    expect(endTime - startTime).toBeGreaterThan(2000);
+  });
+
+  it('should handle invalid JSON response', async () => {
+    const mockResponse = {
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new Error('Invalid JSON');
+      },
     };
 
     (global.fetch as any).mockResolvedValueOnce(mockResponse);
 
-    const result = await sendViaResend(
-      {
-        from: 'test@example.com',
-        to: 'recipient@example.com',
-        subject: 'Test',
-        html: '<p>Test</p>',
-      },
-      'api_key'
-    );
+    const result = await sendViaResend(mockPayload, mockApiKey, mockApiUrl);
 
-    expect(result.ok).toBe(false);
-    expect(global.fetch).toHaveBeenCalledTimes(1);
-    if (!result.ok) {
-      expect(result.error).toBeTruthy();
-    }
+    expect(result.ok).toBe(true);
+    expect(result.json).toEqual({});
   });
 
-  it('should include correct headers', async () => {
+  it('should use default API URL when not provided', async () => {
     const mockResponse = {
       ok: true,
       status: 200,
@@ -105,48 +168,51 @@ describe('Resend API client', () => {
 
     (global.fetch as any).mockResolvedValueOnce(mockResponse);
 
-    await sendViaResend(
-      {
-        from: 'test@example.com',
-        to: 'recipient@example.com',
-        subject: 'Test',
-        html: '<p>Test</p>',
-      },
-      'test_api_key'
-    );
+    await sendViaResend(mockPayload, mockApiKey);
 
     expect(global.fetch).toHaveBeenCalledWith(
       'https://api.resend.com/emails',
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer test_api_key',
-          'Content-Type': 'application/json',
-        }),
-      })
+      expect.anything()
     );
   });
 
-  it('should fail after max retries', async () => {
-    const mockResponse = {
-      ok: false,
-      status: 500,
-      text: async () => 'Internal Server Error',
+  it('should handle array of recipients', async () => {
+    const payloadWithArray: ResendPayload = {
+      ...mockPayload,
+      to: ['recipient1@example.com', 'recipient2@example.com'],
     };
 
-    (global.fetch as any).mockResolvedValue(mockResponse);
+    const mockResponse = {
+      ok: true,
+      status: 200,
+      json: async () => ({ id: 'resend_123' }),
+    };
 
-    const result = await sendViaResend(
-      {
-        from: 'test@example.com',
-        to: 'recipient@example.com',
-        subject: 'Test',
-        html: '<p>Test</p>',
-      },
-      'api_key'
-    );
+    (global.fetch as any).mockResolvedValueOnce(mockResponse);
 
-    expect(result.ok).toBe(false);
-    expect(global.fetch).toHaveBeenCalledTimes(3); // Max retries
+    const result = await sendViaResend(payloadWithArray, mockApiKey, mockApiUrl);
+
+    expect(result.ok).toBe(true);
+    const callArgs = (global.fetch as any).mock.calls[0];
+    const body = JSON.parse(callArgs[1].body);
+    expect(Array.isArray(body.to)).toBe(true);
+  });
+
+  it('should include all required headers', async () => {
+    const mockResponse = {
+      ok: true,
+      status: 200,
+      json: async () => ({ id: 'resend_123' }),
+    };
+
+    (global.fetch as any).mockResolvedValueOnce(mockResponse);
+
+    await sendViaResend(mockPayload, mockApiKey, mockApiUrl);
+
+    const callArgs = (global.fetch as any).mock.calls[0];
+    expect(callArgs[1].headers).toEqual({
+      Authorization: `Bearer ${mockApiKey}`,
+      'Content-Type': 'application/json',
+    });
   });
 });
-
