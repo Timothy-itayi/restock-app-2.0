@@ -1,11 +1,22 @@
-import React, { useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, SafeAreaView } from 'react-native';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  SafeAreaView, 
+  ScrollView, 
+  Pressable,
+  KeyboardAvoidingView,
+  Platform
+} from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemedStyles } from '@styles/useThemedStyles';
 import { getSessionsStyles } from '@styles/components/sessions';
 import { useSessionHydrated, useSessionStore } from '../../../../store/useSessionStore';
 import { useSupplierStore } from '../../../../store/useSupplierStore';
+import colors from '../../../../lib/theme/colors';
 
 export default function EditProductScreen() {
   const styles = useThemedStyles(getSessionsStyles);
@@ -15,6 +26,7 @@ export default function EditProductScreen() {
   const updateItem = useSessionStore(s => s.updateItemInSession);
   const loadSessionsFromStorage = useSessionStore(s => s.loadSessionsFromStorage);
   const isHydrated = useSessionHydrated();
+  const suppliers = useSupplierStore(s => s.suppliers);
   const getSupplierByName = useSupplierStore(s => s.getSupplierByName);
   const addSupplier = useSupplierStore(s => s.addSupplier);
   const loadSuppliers = useSupplierStore(s => s.loadSuppliers);
@@ -54,11 +66,27 @@ export default function EditProductScreen() {
   }
 
   const [name, setName] = React.useState(item.productName);
-  const [supplier, setSupplier] = React.useState(item.supplierName);
+  const [supplier, setSupplier] = React.useState(item.supplierName || '');
   const [qty, setQty] = React.useState(item.quantity);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const supplierInputRef = useRef<TextInput>(null);
+
+  // Filter suppliers based on input
+  const filteredSuppliers = useMemo(() => {
+    if (!supplier.trim() || !suppliers.length) return [];
+    return suppliers.filter(s =>
+      s.name.toLowerCase().includes(supplier.toLowerCase())
+    );
+  }, [supplier, suppliers]);
 
   const increment = () => setQty(q => q + 1);
   const decrement = () => setQty(q => Math.max(1, q - 1));
+
+  const selectSupplier = (supplierName: string) => {
+    setSupplier(supplierName);
+    setShowSuggestions(false);
+    supplierInputRef.current?.blur();
+  };
 
   const saveChanges = () => {
     const supplierNameTrimmed = supplier?.trim() || '';
@@ -88,18 +116,29 @@ export default function EditProductScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      
-      {/* HEADER */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 16 }}>
-          <Ionicons name="chevron-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Edit Product</Text>
-      </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        {/* HEADER */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 16 }}>
+            <Ionicons name="chevron-back" size={24} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.title}>Edit Product</Text>
+        </View>
 
-      <View style={styles.contentContainer}>
-
+        <ScrollView 
+          style={styles.contentContainer}
+          contentContainerStyle={{ paddingBottom: 40 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={true}
+        >
         {/* PRODUCT NAME */}
+        <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 8 }}>
+          Product Name
+        </Text>
         <TextInput
           style={styles.input}
           value={name}
@@ -108,12 +147,77 @@ export default function EditProductScreen() {
         />
 
         {/* SUPPLIER NAME */}
-        <TextInput
-          style={styles.input}
-          value={supplier}
-          onChangeText={setSupplier}
-          placeholder="Supplier Name"
-        />
+        <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 8, marginTop: 16 }}>
+          Supplier (optional)
+        </Text>
+        <View style={{ position: 'relative', zIndex: 1 }}>
+          <TextInput
+            ref={supplierInputRef}
+            style={styles.input}
+            value={supplier}
+            onChangeText={(text) => {
+              setSupplier(text);
+              if (text.trim() && filteredSuppliers.length > 0) {
+                setShowSuggestions(true);
+              } else {
+                setShowSuggestions(false);
+              }
+            }}
+            onFocus={() => {
+              if (supplier.trim() && filteredSuppliers.length > 0) {
+                setShowSuggestions(true);
+              }
+            }}
+            onBlur={() => {
+              // Delay hiding suggestions to allow tap to register
+              setTimeout(() => setShowSuggestions(false), 200);
+            }}
+            placeholder="Enter supplier name"
+          />
+          {showSuggestions && filteredSuppliers.length > 0 && (
+            <View style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              right: 0,
+              backgroundColor: colors.neutral.lightest,
+              borderWidth: 1,
+              borderColor: colors.neutral.light,
+              borderRadius: 8,
+              marginTop: 4,
+              maxHeight: 200,
+              zIndex: 1000,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+              elevation: 5,
+              overflow: 'hidden',
+            }}>
+              {filteredSuppliers.slice(0, 5).map((item) => (
+                <Pressable
+                  key={item.id}
+                  onPress={() => selectSupplier(item.name)}
+                  style={({ pressed }) => ({
+                    padding: 12,
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.neutral.light,
+                    backgroundColor: pressed ? colors.neutral.light : 'transparent',
+                  })}
+                >
+                  <Text style={{ fontSize: 16, color: colors.neutral.darkest }}>
+                    {item.name}
+                  </Text>
+                  {item.email && (
+                    <Text style={{ fontSize: 12, color: colors.neutral.medium, marginTop: 2 }}>
+                      {item.email}
+                    </Text>
+                  )}
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </View>
 
         {/* QUANTITY */}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
@@ -157,7 +261,8 @@ export default function EditProductScreen() {
           <Text style={styles.primaryButtonText}>Save Changes</Text>
         </TouchableOpacity>
 
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

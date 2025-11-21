@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Modal, ScrollView, SafeAreaView, TextInput } from 'react-native';
+import { 
+  View, 
+  Text, 
+  TouchableOpacity, 
+  Modal, 
+  ScrollView, 
+  SafeAreaView, 
+  TextInput,
+  KeyboardAvoidingView,
+  Platform
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../styles/useThemeStore';
 
@@ -45,104 +55,116 @@ export function EmailEditModal({
   return (
     <Modal visible={visible} animationType="slide">
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.neutral.lightest }}>
-        <View
-          style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: 16,
-            borderBottomWidth: 1,
-            borderBottomColor: theme.neutral.light
-          }}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
-          <TouchableOpacity
-            onPress={onCancel}
+          <View
             style={{
-              padding: 6,
-              backgroundColor: theme.neutral.lighter,
-              borderRadius: 8
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: theme.neutral.light
             }}
           >
-            <Ionicons name="close" size={16} color={theme.neutral.medium} />
-          </TouchableOpacity>
-
-          <Text style={{ fontSize: 18, fontWeight: '600' }}>Edit Email</Text>
-
-          <TouchableOpacity
-            onPress={handleSave}
-            style={{
-              padding: 6,
-              backgroundColor: theme.neutral.lighter,
-              borderRadius: 8
-            }}
-          >
-            <Ionicons name="checkmark" size={16} color={theme.neutral.medium} />
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView style={{ padding: 16 }}>
-          <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 6 }}>To</Text>
-          <Text style={{ fontSize: 16, marginBottom: 4, color: theme.neutral.darkest, fontWeight: '600' }}>
-            {editingEmail.supplierName}
-          </Text>
-          <Text style={{ fontSize: 14, marginBottom: 16, color: theme.neutral.medium }}>
-            {editingEmail.supplierEmail}
-          </Text>
-
-          {editingEmail.items && editingEmail.items.length > 0 && (
-            <>
-              <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 6, marginTop: 8 }}>Items in this order</Text>
-              <View style={{
+            <TouchableOpacity
+              onPress={onCancel}
+              style={{
+                padding: 6,
                 backgroundColor: theme.neutral.lighter,
-                padding: 12,
-                borderRadius: 8,
+                borderRadius: 8
+              }}
+            >
+              <Ionicons name="close" size={16} color={theme.neutral.medium} />
+            </TouchableOpacity>
+
+            <Text style={{ fontSize: 18, fontWeight: '600' }}>Edit Email</Text>
+
+            <TouchableOpacity
+              onPress={handleSave}
+              style={{
+                padding: 6,
+                backgroundColor: theme.neutral.lighter,
+                borderRadius: 8
+              }}
+            >
+              <Ionicons name="checkmark" size={16} color={theme.neutral.medium} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={true}
+          >
+            <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 6 }}>To</Text>
+            <Text style={{ fontSize: 16, marginBottom: 4, color: theme.neutral.darkest, fontWeight: '600' }}>
+              {editingEmail.supplierName}
+            </Text>
+            <Text style={{ fontSize: 14, marginBottom: 16, color: theme.neutral.medium }}>
+              {editingEmail.supplierEmail}
+            </Text>
+
+            {editingEmail.items && editingEmail.items.length > 0 && (
+              <>
+                <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 6, marginTop: 8 }}>Items in this order</Text>
+                <View style={{
+                  backgroundColor: theme.neutral.lighter,
+                  padding: 12,
+                  borderRadius: 8,
+                  marginBottom: 16,
+                  borderWidth: 1,
+                  borderColor: theme.neutral.light
+                }}>
+                  {editingEmail.items.map((item, index) => (
+                    <Text key={index} style={{ fontSize: 14, color: theme.neutral.dark, marginBottom: 4 }}>
+                      • {item.productName}{item.quantity > 1 ? ` (x${item.quantity})` : ''}
+                    </Text>
+                  ))}
+                </View>
+              </>
+            )}
+
+            <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Subject</Text>
+            <TextInput
+              style={{
+                fontSize: 16,
                 marginBottom: 16,
+                padding: 12,
                 borderWidth: 1,
-                borderColor: theme.neutral.light
-              }}>
-                {editingEmail.items.map((item, index) => (
-                  <Text key={index} style={{ fontSize: 14, color: theme.neutral.dark, marginBottom: 4 }}>
-                    • {item.productName}{item.quantity > 1 ? ` (x${item.quantity})` : ''}
-                  </Text>
-                ))}
-              </View>
-            </>
-          )}
+                borderColor: theme.neutral.light,
+                borderRadius: 8,
+                backgroundColor: theme.neutral.lightest
+              }}
+              value={subject}
+              onChangeText={setSubject}
+              placeholder="Email subject"
+            />
 
-          <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Subject</Text>
-          <TextInput
-            style={{
-              fontSize: 16,
-              marginBottom: 16,
-              padding: 12,
-              borderWidth: 1,
-              borderColor: theme.neutral.light,
-              borderRadius: 8,
-              backgroundColor: theme.neutral.lightest
-            }}
-            value={subject}
-            onChangeText={setSubject}
-            placeholder="Email subject"
-          />
-
-          <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Message</Text>
-          <TextInput
-            style={{
-              fontSize: 15,
-              minHeight: 200,
-              padding: 12,
-              borderWidth: 1,
-              borderColor: theme.neutral.light,
-              borderRadius: 8,
-              backgroundColor: theme.neutral.lightest,
-              textAlignVertical: 'top'
-            }}
-            value={body}
-            onChangeText={setBody}
-            placeholder="Email message"
-            multiline
-          />
-        </ScrollView>
+            <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Message</Text>
+            <TextInput
+              style={{
+                fontSize: 15,
+                minHeight: 200,
+                padding: 12,
+                borderWidth: 1,
+                borderColor: theme.neutral.light,
+                borderRadius: 8,
+                backgroundColor: theme.neutral.lightest,
+                textAlignVertical: 'top'
+              }}
+              value={body}
+              onChangeText={setBody}
+              placeholder="Email message"
+              multiline
+              scrollEnabled={false}
+            />
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>
   );

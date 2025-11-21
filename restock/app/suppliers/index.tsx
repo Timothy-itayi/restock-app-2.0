@@ -6,7 +6,10 @@ import {
   TextInput,
   FlatList,
   SafeAreaView,
-  Alert
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -120,17 +123,27 @@ export default function SuppliersScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 16 }}>
-          <Ionicons name="chevron-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.sectionTitle}>
-          Suppliers
-        </Text>
-      </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}>
+          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 16 }}>
+            <Ionicons name="chevron-back" size={24} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.sectionTitle}>
+            Suppliers
+          </Text>
+        </View>
 
-      {/* Add/Edit Form */}
-      <View style={styles.formCard}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 20 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={true}
+        >
+          {/* Add/Edit Form */}
+          <View style={styles.formCard}>
         <TextInput
           placeholder="Supplier name"
           placeholderTextColor={colors.neutral.medium}
@@ -183,36 +196,39 @@ export default function SuppliersScreen() {
           </Text>
         </View>
       ) : (
-        <FlatList
-          data={suppliers}
-          keyExtractor={i => i.id}
-          renderItem={({ item }) => (
-            <View style={[styles.productItem, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
-              <TouchableOpacity
-                onPress={() => startEdit(item)}
-                style={{ flex: 1 }}
-              >
-                <Text style={styles.productName}>{item.name}</Text>
-                <Text style={styles.productEmail}>{item.email}</Text>
-              </TouchableOpacity>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
+          <FlatList
+            data={suppliers}
+            keyExtractor={i => i.id}
+            renderItem={({ item }) => (
+              <View style={[styles.productItem, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
                 <TouchableOpacity
                   onPress={() => startEdit(item)}
-                  style={{ padding: 8 }}
+                  style={{ flex: 1 }}
                 >
-                  <Ionicons name="pencil" size={20} color="#6B7F6B" />
+                  <Text style={styles.productName}>{item.name}</Text>
+                  <Text style={styles.productEmail}>{item.email}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => handleDeleteSupplier(item)}
-                  style={{ padding: 8 }}
-                >
-                  <Ionicons name="trash" size={20} color="#DC3545" />
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity
+                    onPress={() => startEdit(item)}
+                    style={{ padding: 8 }}
+                  >
+                    <Ionicons name="pencil" size={20} color="#6B7F6B" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleDeleteSupplier(item)}
+                    style={{ padding: 8 }}
+                  >
+                    <Ionicons name="trash" size={20} color="#DC3545" />
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          )}
-        />
-      )}
+            )}
+            scrollEnabled={false}
+          />
+        )}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

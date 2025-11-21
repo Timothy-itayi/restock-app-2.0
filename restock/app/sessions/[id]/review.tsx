@@ -1,16 +1,25 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, FlatList, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemedStyles } from '@styles/useThemedStyles';
 import { getSessionsStyles } from '@styles/components/sessions';
 import { useSessionStore } from '../../../store/useSessionStore';
+import { useSupplierStore } from '../../../store/useSupplierStore';
+import { groupBySupplier } from '../../../lib/utils/groupBySupplier';
 
 export default function ReviewScreen() {
   const styles = useThemedStyles(getSessionsStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const session = useSessionStore(s => s.getSession(id));
+  const suppliers = useSupplierStore(s => s.suppliers);
+
+  // Group items by supplier
+  const supplierGroups = useMemo(() => {
+    if (!session || !session.items.length) return [];
+    return groupBySupplier(session.items, suppliers);
+  }, [session, suppliers]);
 
   if (!session) {
     return (
@@ -24,11 +33,49 @@ export default function ReviewScreen() {
     <View style={styles.itemRow}>
       <View style={{ flex: 1 }}>
         <Text style={styles.itemName}>{item.productName}</Text>
-        {item.supplierName ? (
-          <Text style={styles.itemSupplier}>{item.supplierName}</Text>
-        ) : null}
       </View>
       <Text style={styles.itemQty}>x{item.quantity}</Text>
+    </View>
+  );
+
+  // Render supplier group with header
+  const renderSupplierGroup = ({ item: group }) => (
+    <View style={{ marginBottom: 16 }}>
+      {/* Supplier Header */}
+      <View style={{ 
+        paddingHorizontal: 16, 
+        paddingVertical: 8, 
+        backgroundColor: '#f5f5f5',
+        borderLeftWidth: 3,
+        borderLeftColor: '#6B7F6B',
+        marginBottom: 8
+      }}>
+        <Text style={{ 
+          fontSize: 16, 
+          fontWeight: '600', 
+          color: '#333' 
+        }}>
+          {group.supplierName}
+        </Text>
+        {group.supplierEmail ? (
+          <Text style={{ 
+            fontSize: 13, 
+            color: '#666', 
+            marginTop: 2 
+          }}>
+            {group.supplierEmail}
+          </Text>
+        ) : null}
+      </View>
+
+      {/* Items for this supplier */}
+      <FlatList
+        data={group.items}
+        keyExtractor={(i) => i.id}
+        renderItem={renderItem}
+        scrollEnabled={false}
+        contentContainerStyle={{ paddingHorizontal: 0 }}
+      />
     </View>
   );
 
@@ -44,11 +91,13 @@ export default function ReviewScreen() {
       <View style={styles.contentContainer}>
         {session.items.length === 0 ? (
           <Text style={styles.emptyStateText}>No items yet.</Text>
+        ) : supplierGroups.length === 0 ? (
+          <Text style={styles.emptyStateText}>No items to display.</Text>
         ) : (
           <FlatList
-            data={session.items}
-            keyExtractor={i => i.id}
-            renderItem={renderItem}
+            data={supplierGroups}
+            keyExtractor={(group) => group.supplierId}
+            renderItem={renderSupplierGroup}
             contentContainerStyle={{ paddingTop: 12 }}
           />
         )}

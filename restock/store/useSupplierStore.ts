@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getVersionedJSON, setVersionedJSON } from '../lib/helpers/storage/utils';
 
 export type Supplier = {
   id: string;
@@ -41,7 +42,7 @@ export const useSupplierStore = create<SupplierStore>((set, get) => ({
     const updated = [...currentSuppliers, newSupplier];
 
     set({ suppliers: updated });
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated)).catch(console.warn);
+    setVersionedJSON(STORAGE_KEY, updated).catch(console.warn);
 
     return newSupplier;
   },
@@ -56,7 +57,7 @@ export const useSupplierStore = create<SupplierStore>((set, get) => ({
     );
 
     set({ suppliers: updated });
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated)).catch(console.warn);
+    setVersionedJSON(STORAGE_KEY, updated).catch(console.warn);
   },
 
   //------------------------------------------------------------------
@@ -67,7 +68,7 @@ export const useSupplierStore = create<SupplierStore>((set, get) => ({
     const updated = currentSuppliers.filter(s => s.id !== id);
 
     set({ suppliers: updated });
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated)).catch(console.warn);
+    setVersionedJSON(STORAGE_KEY, updated).catch(console.warn);
   },
 
   //------------------------------------------------------------------
@@ -88,16 +89,20 @@ export const useSupplierStore = create<SupplierStore>((set, get) => ({
   //------------------------------------------------------------------
   loadSuppliers: async () => {
     try {
-      const raw = await AsyncStorage.getItem(STORAGE_KEY);
-      if (!raw) {
-        set({ suppliers: [], isHydrated: true });
-        return;
-      }
+      const suppliers = await getVersionedJSON<Supplier[]>(
+        STORAGE_KEY,
+        (oldVersion, oldData) => {
+          // Migration function: ensure array format
+          if (oldVersion === 0 || oldVersion === 1) {
+            return Array.isArray(oldData) ? oldData : [];
+          }
+          return null;
+        }
+      );
       
-      const parsed = JSON.parse(raw);
       // Ensure we have an array
-      const suppliers = Array.isArray(parsed) ? parsed : [];
-      set({ suppliers, isHydrated: true });
+      const validSuppliers = Array.isArray(suppliers) ? suppliers : [];
+      set({ suppliers: validSuppliers, isHydrated: true });
     } catch (error) {
       console.warn('Failed to load suppliers:', error);
       // Initialize with empty array on error
@@ -110,6 +115,6 @@ export const useSupplierStore = create<SupplierStore>((set, get) => ({
   //------------------------------------------------------------------
   saveSuppliers: async () => {
     const currentSuppliers = get().suppliers || [];
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(currentSuppliers));
+    await setVersionedJSON(STORAGE_KEY, currentSuppliers);
   }
 }));
