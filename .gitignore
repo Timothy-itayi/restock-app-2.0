@@ -54,7 +54,7 @@ yarn-error.*
 app-example
 
 # Markdown files
-*.md
+
 !README.md
 expo.log
 .log
