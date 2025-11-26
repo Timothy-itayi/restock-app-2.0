@@ -138,12 +138,12 @@ export default function SessionsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={{ flexDirection: 'row', padding: 16 }}>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 16 }}>
+      {/* Sticky Header */}
+      <View style={styles.stickyHeader}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.stickyBackButton}>
           <Ionicons name="chevron-back" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.title}>Restock Sessions</Text>
+        <Text style={styles.stickyHeaderTitle}>Restock Sessions</Text>
       </View>
 
       {/* Content */}

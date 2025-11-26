@@ -107,11 +107,11 @@ ${senderProfile?.name || 'Customer'}`;
   if (!session) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, paddingBottom: 8 }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 16 }}>
+        <View style={sessionStyles.stickyHeader}>
+          <TouchableOpacity onPress={() => router.back()} style={sessionStyles.stickyBackButton}>
             <Ionicons name="chevron-back" size={24} color="#333" />
           </TouchableOpacity>
-          <Text style={sessionStyles.title}>Email Preview</Text>
+          <Text style={sessionStyles.stickyHeaderTitle}>Email Preview</Text>
         </View>
         <View style={{ padding: 16 }}>
           <Text style={sessionStyles.emptyStateText}>Session not found.</Text>
@@ -266,12 +266,12 @@ ${senderProfile?.name || 'Customer'}`;
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, paddingBottom: 8 }}>
-        <TouchableOpacity onPress={handleBackPress} style={{ marginRight: 16 }}>
+      {/* Sticky Header */}
+      <View style={sessionStyles.stickyHeader}>
+        <TouchableOpacity onPress={handleBackPress} style={sessionStyles.stickyBackButton}>
           <Ionicons name="chevron-back" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={sessionStyles.title}>Email Preview</Text>
+        <Text style={sessionStyles.stickyHeaderTitle}>Email Preview</Text>
       </View>
 
       <EmailsSummary 

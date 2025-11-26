@@ -55,6 +55,26 @@ export const getSuppliersStyles = (t: AppColors) => StyleSheet.create({
     paddingVertical: 24,
     alignItems: "center",
   },
+  stickyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    backgroundColor: colors.neutral.lighter,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutral.light,
+    zIndex: 10,
+  },
+  stickyBackButton: {
+    marginRight: 16,
+  },
+  stickyHeaderTitle: {
+    fontFamily: fontFamily.satoshiBold,
+    fontSize: 24,
+    fontWeight: "700",
+    color: colors.neutral.darkest,
+  },
   sectionTitle: {
     fontFamily: fontFamily.satoshiBold,
     fontSize: 24,

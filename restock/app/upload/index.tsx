@@ -193,14 +193,15 @@ export default function UploadScreen() {
   // ---------------------------------------------------------------------------
   return (
     <SafeAreaView style={styles.sessionContainer}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16 }}>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 16 }}>
+      {/* Sticky Header */}
+      <View style={styles.stickyHeader}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.stickyBackButton}>
           <Ionicons name="chevron-back" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.sessionSelectionTitle}>Upload Catalog</Text>
+        <Text style={styles.stickyHeaderTitle}>Upload Catalog</Text>
       </View>
 
-      <View style={{ padding: 16 }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
         {!file && (
           <TouchableOpacity onPress={pickFile} style={styles.saveButton}>
             <Text style={styles.saveButtonText}>Choose File</Text>
@@ -267,7 +268,7 @@ export default function UploadScreen() {
             </TouchableOpacity>
           </ScrollView>
         )}
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

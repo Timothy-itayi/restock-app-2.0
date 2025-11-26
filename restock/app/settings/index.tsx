@@ -193,20 +193,20 @@ export default function SettingsScreen() {
       style={{ flex: 1 }}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
+      {/* Sticky Header */}
+      <View style={styles.stickyHeader}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="chevron-back" size={24} color={theme.neutral.darkest} />
+        </TouchableOpacity>
+        <Text style={styles.stickyHeaderTitle}>Settings</Text>
+      </View>
+
       <ScrollView 
         style={styles.container}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 40 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={true}
       >
-      <View style={styles.headerContainer}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16 }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 16 }}>
-            <Ionicons name="chevron-back" size={24} color="#333" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Settings</Text>
-        </View>
-
         {/* Sender Identity Preview */}
         {senderProfile && !hasUnsavedChanges && (
           <View style={styles.previewContainer}>
@@ -238,7 +238,6 @@ export default function SettingsScreen() {
             </Text>
           </View>
         )}
-      </View>
 
       <View style={styles.formContainer}>
         <View style={styles.settingsSection}>
