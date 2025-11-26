@@ -6,19 +6,42 @@ export const getSettingsStyles = (t: AppColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: t.neutral.lightest,
+    overflow: 'hidden',
   },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  stickyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    backgroundColor: t.neutral.lightest,
+    borderBottomWidth: 1,
+    borderBottomColor: t.neutral.light,
+    zIndex: 10,
+  },
+  backButton: {
+    marginRight: 16,
+  },
+  stickyHeaderTitle: {
+    fontFamily: fontFamily.satoshiBold,
+    fontSize: 28,
+    fontWeight: '600',
+    color: t.neutral.darkest,
   },
   headerContainer: {
     paddingTop: 50,
-    paddingBottom: 20,
+    overflow: 'hidden',
+
   },
   formContainer: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingVertical: 40,
+    paddingVertical: 4,
     overflow: 'hidden',
   },
   actionsContainer: {
@@ -408,7 +431,7 @@ export const getSettingsStyles = (t: AppColors) => StyleSheet.create({
   previewTitle: {
     fontFamily: fontFamily.satoshiMedium,
     fontSize: 14,
-    color: t.neutral.darkest,
+    color: t.neutral.medium,
     marginLeft: 8,
     fontWeight: '600',
   },
@@ -459,7 +482,7 @@ export const getSettingsStyles = (t: AppColors) => StyleSheet.create({
   
   // Action Buttons
   saveButton: {
-    marginTop: 25,
+   
     paddingVertical: 14,
     borderRadius: 10,
     backgroundColor: t.brand.primary,

@@ -123,20 +123,19 @@ export default function SuppliersScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Sticky Header */}
+      <View style={styles.stickyHeader}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.stickyBackButton}>
+          <Ionicons name="chevron-back" size={24} color="#333" />
+        </TouchableOpacity>
+        <Text style={styles.stickyHeaderTitle}>Suppliers</Text>
+      </View>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 16 }}>
-            <Ionicons name="chevron-back" size={24} color="#333" />
-          </TouchableOpacity>
-          <Text style={styles.sectionTitle}>
-            Suppliers
-          </Text>
-        </View>
-
         <ScrollView
           contentContainerStyle={{ paddingBottom: 20 }}
           keyboardShouldPersistTaps="handled"

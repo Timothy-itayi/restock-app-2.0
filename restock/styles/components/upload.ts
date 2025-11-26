@@ -11,6 +11,26 @@ export const getUploadStyles = (t: AppColors) => StyleSheet.create({
     flex: 1,
     backgroundColor: colors.neutral.lighter,
   },
+  stickyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    backgroundColor: colors.neutral.lighter,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutral.light,
+    zIndex: 10,
+  },
+  stickyBackButton: {
+    marginRight: 16,
+  },
+  stickyHeaderTitle: {
+    fontFamily: fontFamily.satoshiBold,
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.neutral.darkest,
+  },
 
   // Title and subtitle at the top of the screen
   sessionSelectionTitle: {

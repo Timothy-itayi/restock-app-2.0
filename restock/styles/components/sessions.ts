@@ -15,7 +15,7 @@ export const getSessionsStyles = (t: AppColors) => StyleSheet.create({
   },
   contentContainer: {
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 20,
     paddingBottom: 32,
     maxWidth: '100%',
     alignSelf: 'center',
@@ -321,6 +321,28 @@ export const getSessionsStyles = (t: AppColors) => StyleSheet.create({
     color: colors.neutral.lightest,
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Sticky Header Styles
+  stickyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    backgroundColor: colors.neutral.lightest,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutral.light,
+    zIndex: 10,
+  },
+  stickyBackButton: {
+    marginRight: 16,
+  },
+  stickyHeaderTitle: {
+    fontFamily: fontFamily.satoshiBlack,
+    fontSize: 28,
+    fontWeight: "700",
+    color: colors.neutral.darkest,
+    lineHeight: 34,
   },
   // Legacy styles (keeping for compatibility)
   header: {

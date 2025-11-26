@@ -164,12 +164,12 @@ export default function SessionDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* HEADER */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, paddingBottom: 8 }}>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 16 }}>
+      {/* Sticky Header */}
+      <View style={styles.stickyHeader}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.stickyBackButton}>
           <Ionicons name="chevron-back" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.title}>Session Details</Text>
+        <Text style={styles.stickyHeaderTitle}>Session Details</Text>
       </View>
 
       {/* SESSION INFO */}

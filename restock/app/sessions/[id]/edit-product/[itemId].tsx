@@ -121,12 +121,12 @@ export default function EditProductScreen() {
         style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        {/* HEADER */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 16 }}>
+        {/* Sticky Header */}
+        <View style={styles.stickyHeader}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.stickyBackButton}>
             <Ionicons name="chevron-back" size={24} color="#333" />
           </TouchableOpacity>
-          <Text style={styles.title}>Edit Product</Text>
+          <Text style={styles.stickyHeaderTitle}>Edit Product</Text>
         </View>
 
         <ScrollView 
