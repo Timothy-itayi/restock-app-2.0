@@ -5,7 +5,7 @@
 
 import { handleCorsPreflight, withCors } from "../shared/utils/cors";
 import { createError, sanitizeError } from "../shared/utils/errors";
-import { handleParseDoc, type Env } from "./handler";
+import { handleParseDoc, handleParseImages, type Env } from "./handler";
 
 export default {
     async fetch(request: Request, env: Env): Promise<Response> {
@@ -37,16 +37,56 @@ export default {
         return withCors(response);
       }
 
-      // Get file
-      const file = formData.get("file") as File | null;
-      if (!file) {
-        const { response } = createError("No file uploaded", 400);
-        return withCors(response);
+      // Get request type (pdf or images)
+      let type = formData.get("type") as string | null;
+      console.log("[parse-doc:index] Request type:", type, typeof type);
+
+      // Fallback: If type is not provided but file exists, assume PDF (backwards compatibility)
+      if (!type) {
+        const file = formData.get("file") as File | null;
+        if (file) {
+          console.log("[parse-doc:index] Type not provided, but file exists. Defaulting to 'pdf'");
+          type = "pdf";
         }
-  
-      // Handle parsing
-      const response = await handleParseDoc(file, env);
-      return withCors(response);
+      }
+
+      // Debug: Log all form data keys
+      const formDataKeys: string[] = [];
+      for (const key of formData.keys()) {
+        formDataKeys.push(key);
+      }
+      console.log("[parse-doc:index] Form data keys:", formDataKeys);
+
+      if (type === "pdf") {
+        // Handle PDF file upload
+        const file = formData.get("file") as File | null;
+        if (!file) {
+          const { response } = createError("No file uploaded", 400);
+          return withCors(response);
+        }
+        const response = await handleParseDoc(file, env);
+        return withCors(response);
+      } else if (type === "images") {
+        // Handle pre-converted images from client
+        const images: File[] = [];
+        for (const [key, value] of formData.entries()) {
+          if (key === "images" && value instanceof File) {
+            images.push(value);
+          }
+        }
+        
+        if (images.length === 0) {
+          const { response } = createError("No images uploaded", 400);
+          return withCors(response);
+        }
+        
+        const response = await handleParseImages(images, env);
+        return withCors(response);
+      } else {
+        // Type not recognized
+        const { response } = createError("Invalid type. Expected 'pdf' or 'images'", 400);
+        return withCors(response);
+      }
     } catch (err) {
         console.error("parse-doc error:", err);
       const errorMessage = sanitizeError(err);

@@ -33,9 +33,12 @@ export type DocumentFile = {
 
 /**
  * Parses a document file and returns structured items
+ * For PDFs: Client should convert to images first (since PDF.js doesn't work in Workers)
+ * This function should NOT be called with PDFs - the upload component handles conversion
  */
 export async function parseDocument(
-  file: DocumentFile
+  file: DocumentFile,
+  onProgress?: (message: string, progress?: number) => void
 ): Promise<{ success: true; items: ParsedItem[] } | { success: false; error: string }> {
   try {
     // Validate file
@@ -54,14 +57,30 @@ export async function parseDocument(
       };
     }
 
+    const isPdf = file.mimeType?.includes('pdf') || file.name?.endsWith('.pdf');
+  
+    // For PDFs: Client should convert to images first (since PDF.js doesn't work in Workers)
+    // This function should NOT be called with PDFs - the upload component handles conversion
+    if (isPdf) {
+      return {
+        success: false,
+        error: 'PDF files must be converted to images client-side before calling parseDocument. ' +
+          'Use the upload component which handles PDF conversion automatically.',
+      };
+    }
+
+    // For images: Send directly
+    onProgress?.('Uploading images...', 0);
+  
     // Create FormData for React Native
     const formData = new FormData();
+    formData.append('type', 'images');
     
-    // React Native FormData format
-    formData.append('file', {
+    // React Native FormData format - append as 'images' field (can be multiple)
+    formData.append('images', {
       uri: file.uri,
-      name: file.name || 'document.pdf',
-      type: file.mimeType || 'application/pdf',
+      name: file.name || 'image.jpg',
+      type: file.mimeType || 'image/jpeg',
     } as any);
 
     // Send to backend
@@ -164,6 +183,151 @@ export async function parseDocument(
     return {
       success: false,
       error: error.message || 'Failed to parse document',
+    };
+  }
+}
+
+/**
+ * Parses multiple image files and returns structured items
+ * Used for pre-converted PDF pages
+ */
+export async function parseImages(
+  imageFiles: DocumentFile[],
+  onProgress?: (message: string, progress?: number) => void
+): Promise<{ success: true; items: ParsedItem[] } | { success: false; error: string }> {
+  try {
+    // Validate files
+    if (!imageFiles || imageFiles.length === 0) {
+      return {
+        success: false,
+        error: 'No images provided',
+      };
+    }
+
+    // Check total size (10MB limit)
+    const totalSize = imageFiles.reduce((sum, f) => sum + (f.size || 0), 0);
+    if (totalSize > 10 * 1024 * 1024) {
+      return {
+        success: false,
+        error: 'Total file size too large (limit 10 MB)',
+      };
+    }
+
+    // Create FormData for React Native
+    const formData = new FormData();
+    formData.append('type', 'images');
+    
+    // Append all images
+    for (const imageFile of imageFiles) {
+      formData.append('images', {
+        uri: imageFile.uri,
+        name: imageFile.name || 'image.jpg',
+        type: imageFile.mimeType || 'image/jpeg',
+      } as any);
+    }
+
+    onProgress?.('Uploading images...', 50);
+
+    // Send to backend
+    const response = await fetch(PARSE_DOC_URL, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        // Don't set Content-Type - let React Native set it with boundary
+      },
+    });
+
+    // Handle non-OK responses
+    if (!response.ok) {
+      let errorMessage = `Server error (${response.status})`;
+      
+      try {
+        const errorData = await response.json();
+        // Prefer message over error code for user-facing messages
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch {
+        // If JSON parsing fails, try text
+        try {
+          const errorText = await response.text();
+          if (errorText) {
+            errorMessage = errorText;
+          }
+        } catch {
+          // Use default error message
+        }
+      }
+
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
+
+    // Parse response
+    let data: any;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      return {
+        success: false,
+        error: 'Invalid server response format',
+      };
+    }
+
+    // Validate response structure
+    if (!data.items || !Array.isArray(data.items)) {
+      return {
+        success: false,
+        error: 'Invalid response format: missing items array',
+      };
+    }
+
+    // Transform and validate items
+    const items: ParsedItem[] = data.items
+      .map((raw: any, index: number) => {
+        const product = typeof raw.product === 'string' ? raw.product.trim() : '';
+        const supplier = typeof raw.supplier === 'string' ? raw.supplier.trim() : '';
+
+        // Skip items without product name
+        if (!product) {
+          return null;
+        }
+
+        return {
+          id: raw.id || `parsed-${Date.now()}-${index}`,
+          product,
+          supplier,
+        };
+      })
+      .filter((item: ParsedItem | null): item is ParsedItem => item !== null);
+
+    // Check if we got any valid items
+    if (items.length === 0) {
+      return {
+        success: false,
+        error: 'No items found in document',
+      };
+    }
+
+    return {
+      success: true,
+      items,
+    };
+  } catch (error: any) {
+    console.error('parseImages error:', error);
+
+    // Handle network errors
+    if (error.message?.includes('network') || error.message?.includes('fetch')) {
+      return {
+        success: false,
+        error: 'Network error. Please check your connection and try again.',
+      };
+    }
+
+    // Handle other errors
+    return {
+      success: false,
+      error: error.message || 'Failed to parse images',
     };
   }
 }

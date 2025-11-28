@@ -53,9 +53,14 @@ export async function handleParseDoc(
       const textResult = await extractPdfText(arrayBuffer);
 
       if (!textResult || !textResult.text) {
+        // Scanned PDF (no text layer): Client should have converted to images
+        // If we receive a PDF with no text, return error asking client to convert
+        console.log(`[parse-doc:handler] PDF has no text layer`);
+        console.log(`[parse-doc:handler] This PDF appears to be scanned. Client should convert to images first.`);
         const { response } = createError(
-          "Could not extract text from PDF. The PDF may be scanned or corrupted. Please ensure the PDF has a text layer.",
-          400
+          "PDF appears to be scanned. Please convert to images first.",
+          400,
+          "NO_TEXT_FOUND"
         );
         return response;
       }
@@ -176,6 +181,125 @@ export async function handleParseDoc(
     );
   } catch (err) {
     console.error("parse-doc handler error:", err);
+    const errorMessage = err instanceof Error ? err.message : "Unexpected error";
+    const { response } = createError(errorMessage, 500);
+    return response;
+  }
+}
+
+/**
+ * Handles parsing of pre-converted images from client (for scanned PDFs)
+ * Client converts PDF pages to JPEG images before uploading
+ */
+export async function handleParseImages(
+  images: File[],
+  env: Env
+): Promise<Response> {
+  // Validate images
+  const MAX_IMAGES = 10;
+  if (images.length > MAX_IMAGES) {
+    const { response } = createError(`Too many images (limit ${MAX_IMAGES})`, 400);
+    return response;
+  }
+
+  const MAX_TOTAL_SIZE = 10 * 1024 * 1024; // 10 MB total
+  const totalSize = images.reduce((sum, img) => sum + img.size, 0);
+  if (totalSize > MAX_TOTAL_SIZE) {
+    const { response } = createError("Total image size too large (limit 10 MB)", 413);
+    return response;
+  }
+
+  // Validate all files are images
+  for (const image of images) {
+    const mimeType = image.type || "";
+    if (!mimeType.startsWith("image/")) {
+      const { response } = createError("All files must be images", 400);
+      return response;
+    }
+  }
+
+  try {
+    // Process all images and collect items
+    let allItems: Array<{ supplier?: string; product: string; quantity?: number }> = [];
+
+    for (const image of images) {
+      const arrayBuffer = await image.arrayBuffer();
+      const mimeType = image.type || "image/jpeg";
+      const base64DataUrl = imageToBase64DataUrl(arrayBuffer, mimeType);
+
+      // Send to Groq Vision API
+      const visionResponse = await groqVision(
+        {
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "image_url",
+                  image_url: { url: base64DataUrl },
+                },
+                {
+                  type: "text",
+                  text: buildVisionPrompt(),
+                },
+              ],
+            },
+          ],
+          model: "meta-llama/llama-4-scout-17b-16e-instruct", // Groq vision model
+          temperature: 0.1,
+          response_format: { type: "json_object" },
+        },
+        env.GROQ_API_KEY
+      );
+
+      if (!visionResponse.ok) {
+        console.error(`Failed to parse image ${image.name}:`, visionResponse.error);
+        // Continue with other images instead of failing completely
+        continue;
+      }
+
+      // Parse and validate vision response
+      try {
+        const parsed = JSON.parse(visionResponse.content!);
+        const validated = validateParsedDoc(parsed);
+        allItems.push(...validated.items);
+      } catch (parseErr) {
+        console.error(`Failed to parse vision JSON for ${image.name}:`, parseErr);
+        // Continue with other images
+        continue;
+      }
+    }
+
+    if (allItems.length === 0) {
+      const { response } = createError("Could not extract any items from images", 400);
+      return response;
+    }
+
+    // Normalize items
+    const normalizedItems = allItems
+      .map((item, idx) => {
+        const product = normalizeProduct(item.product);
+        if (!product) return null;
+
+        return {
+          id: `parsed-${Date.now()}-${idx}`,
+          supplier: item.supplier ? normalizeSupplier(item.supplier) : "",
+          product,
+          quantity: item.quantity,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+
+    // Return results
+    return new Response(
+      JSON.stringify({ items: normalizedItems }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  } catch (err) {
+    console.error("parse-images handler error:", err);
     const errorMessage = err instanceof Error ? err.message : "Unexpected error";
     const { response } = createError(errorMessage, 500);
     return response;
