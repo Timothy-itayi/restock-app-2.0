@@ -250,16 +250,19 @@ ${senderProfile?.name || 'Customer'}`;
 
   const handleSuccessClose = () => {
     setShowSuccess(false);
+    // Navigate to sessions list, clearing the stack to avoid "back" loop
+    router.dismissAll();
     router.replace('/sessions');
   };
 
   // Handle back navigation - prevent going back after session is completed
   const handleBackPress = () => {
     if (session?.status === 'completed') {
-      // If session is completed, navigate to sessions list instead of going back
+      // If session is completed, go to list
+      router.dismissAll();
       router.replace('/sessions');
     } else {
-      // Normal back navigation for active/pending sessions
+      // Normal back navigation
       router.back();
     }
   };

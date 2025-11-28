@@ -34,8 +34,10 @@ export function formatEmailHtml(body: string): string {
     }
 
     // Regular paragraph: convert single newlines to <br>
-    const withBreaks = trimmed.replace(/\n/g, "<br>");
-    return `<p>${escapeHtml(withBreaks)}</p>`;
+    // Escape HTML first, then add <br> tags so they aren't escaped
+    const escapedText = escapeHtml(trimmed);
+    const withBreaks = escapedText.replace(/\n/g, "<br>");
+    return `<p>${withBreaks}</p>`;
   });
 
   return formattedParagraphs.join("");
@@ -89,15 +91,23 @@ export function formatEmailWithItems(
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.5; color: #333; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.5; color: #333; margin: 0; padding: 0; }
           .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { text-align: center; margin-bottom: 30px; padding-top: 20px; }
+          .logo { width: 64px; height: 64px; border-radius: 12px; }
           .order-table { width: 100%; border-collapse: collapse; margin: 20px 0; border: 1px solid #eee; border-radius: 8px; overflow: hidden; }
-          .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #888; font-size: 12px; }
+          .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #888; font-size: 12px; text-align: center; }
           p { margin-bottom: 1em; }
         </style>
       </head>
       <body>
         <div class="container">
+          <div class="header">
+            <!-- Replace with your hosted image URL -->
+            <img src="https://round-sunset-fc34.parse-doc.workers.dev/" alt="Restock" class="logo" />
+            <div style="color: #6B7F6B; font-weight: bold; margin-top: 8px; font-size: 18px;">Restock App</div>
+          </div>
+
           <div class="content">
             ${bodyHtml}
           </div>
@@ -117,7 +127,7 @@ export function formatEmailWithItems(
           ` : ""}
           
           <div class="footer">
-            Sent via Restock App for <strong>${escapeHtml(storeName)}</strong>
+            <p>Sent via <strong>Restock App</strong> for <strong>${escapeHtml(storeName)}</strong></p>
           </div>
         </div>
       </body>
