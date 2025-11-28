@@ -62,25 +62,35 @@ Rules:
  * Uses the specific prompt format for product list extraction
  */
 export function buildVisionPrompt(): string {
-  return `Look at this image and extract every product name you can see.
+  return `You are a precise OCR system. Extract product names EXACTLY as written in this image.
 
-This is a product catalog or order list. Extract each line item as a product.
+This appears to be a stock/sales report or product catalog. Look for:
+- Supplier/brand headers (e.g., "SHER WAGYU", "BELLCO - Box EMail", "BLUE PUMPKIN")
+- Product names with codes (e.g., "19303 Careme - Puff Pastry", "27437 Mario - Butter Salted 250g")
 
-For each product, identify:
-1. The product name (the main text)
-2. The supplier/brand name if visible (often shown as a header or prefix)
+CRITICAL RULES:
+1. Extract text EXACTLY as written - do not correct spelling or interpret
+2. Copy the exact product name from the document
+3. DO NOT invent, guess, or hallucinate products that are not clearly visible
+4. If text is unclear, skip that item rather than guess
+5. Supplier names appear as section headers in CAPS or bold
+6. Product codes (numbers) at the start of lines can be ignored
 
-Return JSON in this exact format:
+For each visible product line, extract:
+- supplier: The section header it appears under (e.g., "BELLCO", "BLUE PUMPKIN")
+- product: The exact product name as written (e.g., "Careme - Puff Pastry", "CoYo - 500g Greek")
+
+Return ONLY valid JSON:
 {
   "items": [
-    {"supplier": "SUPPLIER NAME", "product": "Product Name Here"}
+    {"supplier": "BELLCO", "product": "Careme - Puff Pastry"},
+    {"supplier": "BELLCO", "product": "Carmans - Bars Choc Cranberry"},
+    {"supplier": "BLUE PUMPKIN", "product": "Babushka - Coconut Kefir 500g"}
   ]
 }
 
-Important:
-- Include EVERY product line you can read
-- If no supplier is visible, use ""
-- Just extract what you see, don't skip any items
-- Even partial or unclear text should be included`;
+ACCURACY IS MORE IMPORTANT THAN COMPLETENESS.
+If you cannot clearly read a product name, DO NOT include it.
+Never make up products that are not in the image.`;
 }
 
