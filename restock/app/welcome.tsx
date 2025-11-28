@@ -141,7 +141,8 @@ export default function WelcomeScreen() {
                   bottom: 0,
                   left: 0,
                   right: 0,
-                  height: '50%',
+                  height: '25%',
+                  opacity: 0.8,
                   backgroundColor: 'rgba(0,0,0,0.4)', // Semi-transparent black fade for text readability
                 }} />
               </View>
