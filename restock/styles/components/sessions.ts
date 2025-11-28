@@ -413,6 +413,8 @@ export const getSessionsStyles = (t: AppColors) => StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
     marginTop: 16,
   },
   primaryButtonText: {
@@ -429,6 +431,8 @@ export const getSessionsStyles = (t: AppColors) => StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
     marginTop: 12,
   },
   secondaryButtonText: {

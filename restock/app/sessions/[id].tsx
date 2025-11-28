@@ -33,9 +33,6 @@ export default function SessionDetailScreen() {
     return groupBySupplier(session.items, suppliers);
   }, [session, suppliers]);
 
-  // Removed auto-navigation to allow users to edit products in pendingEmails sessions
-  // Users can navigate to email preview manually via the button
-
   if (!session) {
     return (
       <SafeAreaView style={styles.container}>
@@ -47,7 +44,7 @@ export default function SessionDetailScreen() {
     );
   }
 
-  const isLocked = session.status !== 'active' && session.status !== 'pendingEmails'; // Allow pendingEmails to access email preview
+  const isLocked = session.status !== 'active' && session.status !== 'pendingEmails';
 
   const statusColor =
     session.status === 'active'
@@ -56,15 +53,11 @@ export default function SessionDetailScreen() {
 
   const handleComplete = () => {
     try {
-      // Move session to pending-email state
       updateSession(session.id, { status: 'pendingEmails' });
-  
-      // Navigate to email preview
       router.push({
         pathname: `/sessions/${session.id}/email-preview`,
         params: { id: session.id }
       });
-      
     } catch (err) {
       console.error('Failed finishing session', err);
       Alert.alert('Error', 'Could not proceed to email preview.');
@@ -79,13 +72,22 @@ export default function SessionDetailScreen() {
   };
       
   const handleCancel = () => {
-    updateSession(session.id, { status: 'cancelled' });
-    router.back();
+    Alert.alert('Cancel Session?', 'This will mark the session as cancelled.', [
+      { text: 'Keep Session', style: 'cancel' },
+      {
+        text: 'Cancel Session',
+        style: 'destructive',
+        onPress: () => {
+          updateSession(session.id, { status: 'cancelled' });
+          router.back();
+        }
+      }
+    ]);
   };
 
   const handleDelete = () => {
     Alert.alert('Delete Session?', 'This action cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
+      { text: 'Keep', style: 'cancel' },
       {
         text: 'Delete',
         style: 'destructive',
@@ -97,14 +99,13 @@ export default function SessionDetailScreen() {
     ]);
   };
 
-  // Disable edit if locked
   const renderItem = ({ item }: any) => (
     <TouchableOpacity
       style={[
         styles.itemRow,
-        isLocked && { opacity: 0.5 } // visual cue that it's disabled
+        isLocked && { opacity: 0.5 }
       ]}
-      disabled={isLocked} // <-- BLOCK EDIT TAP
+      disabled={isLocked}
       onPress={() =>
         router.push(`/sessions/${session.id}/edit-product/${item.id}`)
       }
@@ -121,10 +122,8 @@ export default function SessionDetailScreen() {
     </TouchableOpacity>
   );
 
-  // Render supplier group with header
   const renderSupplierGroup = ({ item: group }: any) => (
     <View style={{ marginBottom: 16 }}>
-      {/* Supplier Header */}
       <View style={{ 
         paddingHorizontal: 16, 
         paddingVertical: 8, 
@@ -151,7 +150,6 @@ export default function SessionDetailScreen() {
         ) : null}
       </View>
 
-      {/* Items for this supplier */}
       <FlatList
         data={group.items}
         keyExtractor={(i) => i.id}
@@ -161,6 +159,9 @@ export default function SessionDetailScreen() {
       />
     </View>
   );
+
+  const itemCount = session.items.length;
+  const supplierCount = supplierGroups.length;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -172,19 +173,80 @@ export default function SessionDetailScreen() {
         <Text style={styles.stickyHeaderTitle}>Session Details</Text>
       </View>
 
-      {/* SESSION INFO */}
-      <View style={styles.contentContainer}>
-        <Text style={styles.sessionTitle}>
-          Session {new Date(session.createdAt).toLocaleDateString()}
-        </Text>
+      {/* Sticky Action Bar */}
+      <View style={{ 
+        paddingHorizontal: 16, 
+        paddingVertical: 12, 
+        backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+      }}>
+        {/* Session Info */}
+        <View style={{ marginBottom: 12 }}>
+          <Text style={styles.sessionTitle}>
+            Session {new Date(session.createdAt).toLocaleDateString()}
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+            <Text style={{ fontSize: 14, color: '#6B7F6B', fontWeight: '600' }}>
+              {itemCount} {itemCount === 1 ? 'item' : 'items'}
+            </Text>
+            <Text style={{ fontSize: 14, color: '#999', marginHorizontal: 8 }}>•</Text>
+            <Text style={{ fontSize: 14, color: '#6B7F6B', fontWeight: '600' }}>
+              {supplierCount} {supplierCount === 1 ? 'supplier' : 'suppliers'}
+            </Text>
+            <Text style={{ fontSize: 14, color: '#999', marginHorizontal: 8 }}>•</Text>
+            <Text style={[{ fontSize: 14, fontWeight: '500' }, { color: statusColor }]}>
+              {session.status}
+            </Text>
+          </View>
+        </View>
 
-        <Text style={[styles.sessionSubtitle, { color: statusColor }]}>
-          {session.items.length} items • {session.status}
-        </Text>
+        {/* Primary Action Button */}
+        {session.status === 'active' && itemCount > 0 && (
+          <TouchableOpacity 
+            style={[styles.primaryButton, { marginBottom: 0 }]} 
+            onPress={handleComplete}
+          >
+            <Ionicons name="mail-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.primaryButtonText}>Create Emails for Review</Text>
+          </TouchableOpacity>
+        )}
 
-        {/* ITEM LIST - GROUPED BY SUPPLIER */}
+        {session.status === 'pendingEmails' && (
+          <TouchableOpacity 
+            style={[styles.primaryButton, { marginBottom: 0 }]} 
+            onPress={handleViewEmailPreview}
+          >
+            <Ionicons name="mail-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.primaryButtonText}>View Email Preview</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Add Product Button for active sessions */}
+        {session.status === 'active' && (
+          <TouchableOpacity 
+            style={[styles.secondaryButton, { marginTop: 8, marginBottom: 0 }]} 
+            onPress={() => router.push(`/sessions/${session.id}/add-product`)}
+          >
+            <Ionicons name="add-circle-outline" size={20} color="#6B7F6B" style={{ marginRight: 8 }} />
+            <Text style={styles.secondaryButtonText}>Add More Products</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* ITEM LIST - GROUPED BY SUPPLIER */}
+      <View style={{ flex: 1, paddingHorizontal: 16 }}>
         {session.items.length === 0 ? (
-          <Text style={styles.emptyStateText}>No items in this session yet.</Text>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <Ionicons name="cube-outline" size={48} color="#ccc" />
+            <Text style={[styles.emptyStateText, { marginTop: 12 }]}>No items in this session yet.</Text>
+            <TouchableOpacity 
+              style={[styles.primaryButton, { marginTop: 16 }]} 
+              onPress={() => router.push(`/sessions/${session.id}/add-product`)}
+            >
+              <Text style={styles.primaryButtonText}>Add First Product</Text>
+            </TouchableOpacity>
+          </View>
         ) : supplierGroups.length === 0 ? (
           <Text style={styles.emptyStateText}>No items to display.</Text>
         ) : (
@@ -192,52 +254,31 @@ export default function SessionDetailScreen() {
             data={supplierGroups}
             keyExtractor={(group) => group.supplierId}
             renderItem={renderSupplierGroup}
-            contentContainerStyle={{ paddingTop: 12 }}
+            contentContainerStyle={{ paddingTop: 12, paddingBottom: 100 }}
+            ListFooterComponent={() => (
+              <View style={{ paddingVertical: 20, borderTopWidth: 1, borderTopColor: '#eee', marginTop: 20 }}>
+                {/* Secondary Actions */}
+                {session.status === 'active' && (
+                  <TouchableOpacity 
+                    style={[styles.secondaryButton, { borderColor: '#999' }]} 
+                    onPress={handleCancel}
+                  >
+                    <Text style={[styles.secondaryButtonText, { color: '#666' }]}>Cancel Session</Text>
+                  </TouchableOpacity>
+                )}
+                
+                <TouchableOpacity
+                  style={[styles.secondaryButton, { borderColor: '#CC0000', marginTop: 12 }]}
+                  onPress={handleDelete}
+                >
+                  <Text style={[styles.secondaryButtonText, { color: '#CC0000' }]}>
+                    Delete Session
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           />
         )}
-
-        {/* ADD PRODUCT BUTTON - ONLY IF ACTIVE */}
-        {!isLocked && (
-          <View style={{ marginTop: 14 }}>
-            <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={() => router.push(`/sessions/${session.id}/add-product`)}
-            >
-              <Text style={styles.primaryButtonText}>Add Product</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* SESSION ACTIONS */}
-        {session.status === 'active' && (
-          <>
-            <TouchableOpacity style={styles.primaryButton} onPress={handleComplete}>
-              <Text style={styles.primaryButtonText}>View Email Preview</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.secondaryButton} onPress={handleCancel}>
-              <Text style={styles.secondaryButtonText}>Cancel Session</Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {/* EMAIL PREVIEW BUTTON FOR PENDING EMAILS */}
-        {session.status === 'pendingEmails' && (
-          <TouchableOpacity style={styles.primaryButton} onPress={handleViewEmailPreview}>
-            <Text style={styles.primaryButtonText}>View Email Preview</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* DELETE ALWAYS AVAILABLE */}
-        <TouchableOpacity
-          style={[styles.secondaryButton, { borderColor: '#CC0000', marginTop: 20 }]}
-          onPress={handleDelete}
-        >
-          <Text style={[styles.secondaryButtonText, { color: '#CC0000' }]}>
-            Delete Session
-          </Text>
-        </TouchableOpacity>
-
       </View>
     </SafeAreaView>
   );

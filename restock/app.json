@@ -1,5 +1,8 @@
 {
   "ios": {
     "bundleIdentifier": "com.timothy-itayi.restock"
+  },
+  "android": {
+    "package": "com.timothyitayi.restock"
   }
 }

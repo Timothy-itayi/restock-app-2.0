@@ -62,29 +62,25 @@ Rules:
  * Uses the specific prompt format for product list extraction
  */
 export function buildVisionPrompt(): string {
-  return `Take an image of a printed product list
-Extract text
-Infer supplier groupings
-Remove pricing/quantities
-Reformat into a clean grouped PDF/table
+  return `Look at this image and extract every product name you can see.
 
-Return ONLY this JSON shape (no markdown, no comments, no extra text):
+This is a product catalog or order list. Extract each line item as a product.
 
+For each product, identify:
+1. The product name (the main text)
+2. The supplier/brand name if visible (often shown as a header or prefix)
+
+Return JSON in this exact format:
 {
   "items": [
-    { "supplier": "<string or empty>", "product": "<string>", "quantity": <number or omit> }
+    {"supplier": "SUPPLIER NAME", "product": "Product Name Here"}
   ]
 }
 
-Rules:
-- No extra text outside the JSON
-- No markdown formatting
-- No comments or explanations
-- Ignore empty rows
-- Ignore prices, totals, discounts, metadata
-- Supplier may be empty string if not identifiable
-- Product must be a readable product name
-- Quantity is optional, only include if clearly stated
-- Return empty array if no items found`;
+Important:
+- Include EVERY product line you can read
+- If no supplier is visible, use ""
+- Just extract what you see, don't skip any items
+- Even partial or unclear text should be included`;
 }
 

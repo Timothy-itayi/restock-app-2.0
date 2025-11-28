@@ -96,3 +96,33 @@ export async function hasTextLayer(buffer: ArrayBuffer): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * @deprecated DO NOT USE IN CLOUDFLARE WORKERS
+ * 
+ * This function attempts to render PDF pages to JPEG images, but it fundamentally
+ * cannot work in Cloudflare Workers because:
+ * 
+ * 1. **No Canvas API**: Workers don't support Canvas rendering
+ * 2. **No Web Workers**: PDF.js threading requires Web Workers (not available)
+ * 3. **WASM limitations**: PDFium WASM requires features not available in Workers
+ * 4. **No native modules**: node-canvas, sharp, etc. don't work in Workers
+ * 
+ * **Architecture Solution**: PDF-to-image conversion must happen on the client (Expo app)
+ * where native device APIs are available. The client should convert scanned PDFs to
+ * JPEG images and send them to the Worker with type="images".
+ * 
+ * This function is kept for reference only and will always throw an error.
+ */
+export async function renderPdfPagesToImages(
+  buffer: ArrayBuffer,
+  scale: number = 2.0,
+  maxPages: number = 10
+): Promise<string[]> {
+  // This function cannot work in Cloudflare Workers - always throw
+  throw new Error(
+    "PDF rendering is not supported in Cloudflare Workers. " +
+    "PDF-to-image conversion must be performed on the client (Expo app) using native device APIs. " +
+    "Convert scanned PDFs to JPEG images client-side and send them with type='images'."
+  );
+}

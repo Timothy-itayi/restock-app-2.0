@@ -15,6 +15,7 @@ export interface GroqVisionPayload {
   }>;
   model: string;
   temperature?: number;
+  max_tokens?: number;
   response_format?: { type: "json_object" };
 }
 
@@ -49,6 +50,7 @@ export async function groqVision(
       model: payload.model,
       messages: payload.messages as any, // SDK handles the content array format
       temperature: payload.temperature ?? 0.1,
+      max_tokens: payload.max_tokens ?? 4096, // Ensure enough tokens for large responses
       response_format: payload.response_format,
     });
 

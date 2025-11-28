@@ -6,7 +6,8 @@ import {
   ActivityIndicator,
   Alert,
   SafeAreaView,
-  ScrollView
+  ScrollView,
+  FlatList
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,12 +27,10 @@ import { useProductsStore } from '../../store/useProductsStore';
 
 import type { SessionItem } from '../../lib/helpers/storage/sessions';
 import {
-  normalizeSupplierName,
-  normalizeProductName,
   safeString,
   ensureId
 } from '../../lib/utils/normalise';
-import { parseDocument, type ParsedItem, type DocumentFile } from '../../lib/api/parseDoc';
+import { parseImages, type ParsedItem, type DocumentFile } from '../../lib/api/parseDoc';
 
 export default function UploadScreen() {
   const styles = useThemedStyles(getUploadStyles);
@@ -41,6 +40,7 @@ export default function UploadScreen() {
   // ---------------------------------------------------------------------------
   const [file, setFile] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState<string>('');
   const [parsingError, setParsingError] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParsedItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -80,34 +80,48 @@ export default function UploadScreen() {
   }, [productsHydrated, loadProducts]);
 
   // ---------------------------------------------------------------------------
-  // File picker
+  // File picker - images only
   // ---------------------------------------------------------------------------
   const pickFile = async () => {
     const res = await pickDocuments({ multiple: false });
     if (res.canceled || res.assets.length === 0) return;
 
-    setFile(res.assets[0]);
+    const asset = res.assets[0];
+    
+    // Validate it's an image
+    const mimeType = asset.mimeType || '';
+    if (!mimeType.startsWith('image/')) {
+      Alert.alert('Invalid file', 'Please select an image file (photo of your catalog).');
+      return;
+    }
+
+    setFile(asset);
     setParsed([]);
     setSelectedItems(new Set());
     setParsingError(null);
   };
 
   // ---------------------------------------------------------------------------
-  // Send file to backend for parsing
+  // Send image to backend for parsing
   // ---------------------------------------------------------------------------
   const sendForParsing = async () => {
     if (!file) return;
 
     setLoading(true);
     setParsingError(null);
+    setLoadingMessage('Uploading image...');
 
     try {
-      const result = await parseDocument({
+      const imageFile: DocumentFile = {
         uri: file.uri,
-        name: file.name,
-        mimeType: file.mimeType,
+        name: file.name || 'catalog.jpg',
+        mimeType: file.mimeType || 'image/jpeg',
         size: file.size,
-      } as DocumentFile);
+      };
+
+      const result = await parseImages([imageFile], (message) => {
+        setLoadingMessage(message);
+      });
 
       if (!result.success) {
         setParsingError(result.error);
@@ -119,10 +133,11 @@ export default function UploadScreen() {
     } catch (e: any) {
       console.warn('parse-doc error', e);
       setParsingError(
-        e instanceof Error ? e.message : 'Failed to parse document'
+        e instanceof Error ? e.message : 'Failed to parse image'
       );
     } finally {
       setLoading(false);
+      setLoadingMessage('');
     }
   };
 
@@ -172,8 +187,15 @@ export default function UploadScreen() {
       addItemToSession(session.id, sessionItem);
     }
 
-    Alert.alert('Imported', `${itemsToImport.length} item(s) added.`);
-    router.push(`/sessions/${session.id}`);
+    Alert.alert('Imported', `${itemsToImport.length} item(s) added.`, [
+      {
+        text: 'View Session',
+        onPress: () => {
+          // Replace upload screen so back button goes to previous screen (dashboard/sessions list)
+          router.replace(`/sessions/${session.id}`);
+        },
+      },
+    ]);
   };
 
   // ---------------------------------------------------------------------------
@@ -191,6 +213,112 @@ export default function UploadScreen() {
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
+
+  // Render item for FlatList
+  const renderItem = ({ item }: { item: ParsedItem }) => {
+    const isSelected = selectedItems.has(item.id);
+    return (
+      <TouchableOpacity
+        onPress={() => toggleItemSelection(item.id)}
+        style={{
+          padding: 12,
+          marginBottom: 4,
+          marginHorizontal: 16,
+          borderRadius: 8,
+          backgroundColor: isSelected ? '#E8F5E8' : '#fff',
+          borderWidth: 1,
+          borderColor: isSelected ? '#4CAF50' : '#ddd'
+        }}
+      >
+        <Text style={{ fontWeight: '500' }}>{item.product}</Text>
+        {!!item.supplier && (
+          <Text style={{ color: '#666', fontSize: 13 }}>
+            {item.supplier}
+          </Text>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  // If we have parsed items, show the selection view
+  if (parsed.length > 0) {
+    return (
+      <SafeAreaView style={styles.sessionContainer}>
+        {/* Sticky Header */}
+        <View style={styles.stickyHeader}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.stickyBackButton}>
+            <Ionicons name="chevron-back" size={24} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.stickyHeaderTitle}>Upload Catalog</Text>
+        </View>
+
+        {/* Sticky Action Bar */}
+        <View style={{ 
+          backgroundColor: '#fff', 
+          padding: 16,
+          borderBottomWidth: 1,
+          borderBottomColor: '#eee',
+        }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <View>
+              <Text style={{ fontSize: 18, fontWeight: '700' }}>
+                {parsed.length} items found
+              </Text>
+              <Text style={{ fontSize: 14, color: '#6B7F6B', fontWeight: '500' }}>
+                {selectedItems.size} selected
+              </Text>
+            </View>
+          </View>
+          
+          <TouchableOpacity
+            onPress={saveToSession}
+            style={[styles.saveButton, { marginTop: 0 }]}
+          >
+            <Text style={styles.saveButtonText}>
+              Import {selectedItems.size} item(s) to Session
+            </Text>
+          </TouchableOpacity>
+
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
+            <TouchableOpacity
+              onPress={() => setSelectedItems(new Set(parsed.map(p => p.id)))}
+              style={{ padding: 8 }}
+            >
+              <Text style={{ color: '#6B7F6B', fontWeight: '600' }}>Select All</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setSelectedItems(new Set())}
+              style={{ padding: 8 }}
+            >
+              <Text style={{ color: '#666' }}>Deselect All</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                setFile(null);
+                setParsed([]);
+                setSelectedItems(new Set());
+                setParsingError(null);
+              }}
+              style={{ padding: 8 }}
+            >
+              <Text style={{ color: '#CC0000' }}>Start Over</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Item List using FlatList for better performance */}
+        <FlatList
+          data={parsed}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={{ paddingVertical: 12 }}
+          showsVerticalScrollIndicator={true}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // Default view: file selection or parsing
   return (
     <SafeAreaView style={styles.sessionContainer}>
       {/* Sticky Header */}
@@ -203,12 +331,17 @@ export default function UploadScreen() {
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
         {!file && (
-          <TouchableOpacity onPress={pickFile} style={styles.saveButton}>
-            <Text style={styles.saveButtonText}>Choose File</Text>
-          </TouchableOpacity>
+          <View>
+            <TouchableOpacity onPress={pickFile} style={styles.saveButton}>
+              <Text style={styles.saveButtonText}>Choose Image</Text>
+            </TouchableOpacity>
+            <Text style={{ color: '#666', marginTop: 12, textAlign: 'center', fontSize: 14 }}>
+              Take a photo of your product catalog or order list
+            </Text>
+          </View>
         )}
 
-        {file && !parsed.length && (
+        {file && (
           <View style={{ marginTop: 20 }}>
             <Text>{file.name}</Text>
             <TouchableOpacity
@@ -217,7 +350,14 @@ export default function UploadScreen() {
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="#fff" />
+                <View style={{ alignItems: 'center' }}>
+                  <ActivityIndicator color="#fff" />
+                  {loadingMessage && (
+                    <Text style={{ color: '#fff', marginTop: 8, fontSize: 12 }}>
+                      {loadingMessage}
+                    </Text>
+                  )}
+                </View>
               ) : (
                 <Text style={styles.saveButtonText}>Parse</Text>
               )}
@@ -228,45 +368,17 @@ export default function UploadScreen() {
                 {parsingError}
               </Text>
             )}
-          </View>
-        )}
-
-        {parsed.length > 0 && (
-          <ScrollView style={{ marginTop: 16 }}>
-            {parsed.map((item) => {
-              const isSelected = selectedItems.has(item.id);
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  onPress={() => toggleItemSelection(item.id)}
-                  style={{
-                    padding: 12,
-                    marginBottom: 4,
-                    borderRadius: 8,
-                    backgroundColor: isSelected ? '#E8F5E8' : '#fff',
-                    borderWidth: 1,
-                    borderColor: '#ddd'
-                  }}
-                >
-                  <Text>{item.product}</Text>
-                  {!!item.supplier && (
-                    <Text style={{ color: '#666', fontSize: 13 }}>
-                      {item.supplier}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
 
             <TouchableOpacity
-              onPress={saveToSession}
-              style={[styles.saveButton, { marginTop: 20 }]}
+              onPress={() => {
+                setFile(null);
+                setParsingError(null);
+              }}
+              style={{ marginTop: 16, alignItems: 'center' }}
             >
-              <Text style={styles.saveButtonText}>
-                Import {selectedItems.size} item(s)
-              </Text>
+              <Text style={{ color: '#666' }}>Choose different image</Text>
             </TouchableOpacity>
-          </ScrollView>
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>

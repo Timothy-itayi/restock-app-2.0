@@ -18,6 +18,7 @@ export default function SenderSetupScreen() {
   const [email, setEmail] = useState('');
   const [storeName, setStoreName] = useState('');
   const setSenderProfile = useSenderProfileStore((state) => state.setSenderProfile);
+  const saveProfileToStorage = useSenderProfileStore((state) => state.saveProfileToStorage);
 
   const validateEmail = (email: string): boolean => {
     return email.includes('@') && email.trim().length > 0;
@@ -46,8 +47,10 @@ export default function SenderSetupScreen() {
 
     try {
       setSenderProfile(senderProfile);
+      await saveProfileToStorage(); // Persist to AsyncStorage
       router.replace('/');
     } catch (err) {
+      console.error('Failed to save sender profile:', err);
       Alert.alert('Error', 'Failed to save your information. Please try again.');
     }
   };
