@@ -36,7 +36,7 @@ export default function SessionDetailScreen() {
   if (!session) {
     return (
       <SafeAreaView style={styles.container}>
-        <TouchableOpacity style={{ padding: 16 }} onPress={() => router.back()}>
+        <TouchableOpacity style={{ padding: 16 }} onPress={() => router.replace('/')}>
           <Ionicons name="chevron-back" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={styles.emptyStateText}>Session not found.</Text>
@@ -79,7 +79,8 @@ export default function SessionDetailScreen() {
         style: 'destructive',
         onPress: () => {
           updateSession(session.id, { status: 'cancelled' });
-          router.back();
+          router.dismissAll();
+          router.replace('/');
         }
       }
     ]);
@@ -93,7 +94,8 @@ export default function SessionDetailScreen() {
         style: 'destructive',
         onPress: () => {
           deleteSession(session.id);
-          router.back();
+          router.dismissAll();
+          router.replace('/');
         }
       }
     ]);

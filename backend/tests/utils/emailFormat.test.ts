@@ -61,10 +61,10 @@ describe('Email formatting utilities', () => {
       expect(text).toContain('Please send these items:');
       expect(text).toContain('10 x Product A');
       expect(text).toContain('5 x Product B');
-      expect(text).toContain('Sent on behalf of Test Store');
+      expect(text).toContain('Sent via Restock App for Test Store');
 
       // HTML format
-      expect(html).toContain('<ul>');
+      expect(html).toContain('<table');
       expect(html).toContain('Product A');
       expect(html).toContain('Product B');
       expect(html).toContain('Test Store');
@@ -74,7 +74,7 @@ describe('Email formatting utilities', () => {
       const { text, html } = formatEmailWithItems('Body', [], 'Store');
       
       expect(text).toContain('Body');
-      expect(html).not.toContain('<ul>');
+      expect(html).not.toContain('<table');
     });
 
     it('should escape HTML in product names', () => {

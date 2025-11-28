@@ -18,29 +18,30 @@ Context references: `README.md` (MVP scope), `restcok-app.md` (category + comps)
    - **Work**: ✅ `groupBySupplier.ts` implemented and used in `[id].tsx` and `email-preview.tsx`.
    - **Status**: ✅ Completed.
 
-3. **Client Error Handling + Toast UX**
+3. **✅ Client Error Handling + Toast UX** - COMPLETE
    - **Why**: Retail staff need immediate, friendly feedback (per UX spec).
-   - **Work**: Implement shared `useErrorToast` hook + boundary components.
-   - **Status**: ⚠️ Pending. Basic alerts used currently.
+   - **Work**: ✅ `useToast` hook implemented. ✅ Integrated into Email Preview for success/error states.
+   - **Status**: ✅ Completed.
 
 4. **✅ Finalize Sender Profile Screen (UI polish + validation)** - COMPLETE
    - **Why**: Store identity powers email subjects.
-   - **Work**: ✅ Validation added. ✅ Persistence fixed.
+   - **Work**: ✅ Validation added. ✅ Persistence fixed. ✅ UI polished (Back button outside scroll, centered layout).
    - **Status**: ✅ Completed.
 
 ### Moderate Priority
 
-1. **✅ Sessions Dashboard Enhancements** - MOSTLY COMPLETE
+1. **✅ Sessions Dashboard Enhancements** - COMPLETE
    - **Status**: ✅ Active sessions gauge added. ✅ Quick actions available.
 
-2. **Supplier Autocomplete UX**
-   - **Status**: ⚠️ Pending.
+2. **✅ Onboarding & Welcome UX** - COMPLETE
+   - **Work**: ✅ Full-screen immersive images. ✅ Modern text overlays. ✅ Smooth transition to Setup.
+   - **Status**: ✅ Completed.
 
 3. **Settings → “Reset All Data” Confirmation Flow**
    - **Status**: ✅ Basic reset flow implemented in Settings.
 
 4. **Unit Tests for Stores + Hooks**
-   - **Status**: ⚠️ Pending.
+   - **Status**: ⚠️ Pending (Next Step).
 
 ### Low Priority
 
@@ -57,6 +58,7 @@ Context references: `README.md` (MVP scope), `restcok-app.md` (category + comps)
 
 1. **✅ Define Cloudflare Worker for `/send-email`** - COMPLETE
    - **Status**: ✅ Deployed and ready.
+   - **Update**: ✅ Added HTML branding (Logo, Banner) and professional Table layout.
 
 2. **✅ Cloudflare Worker for `/parse-doc` backed by Groq LLM** - COMPLETE
    - **Why**: Document parsing is the core magic.
@@ -65,7 +67,7 @@ Context references: `README.md` (MVP scope), `restcok-app.md` (category + comps)
      - ✅ Implemented **image-only workflow** (removed flaky PDF conversion).
      - ✅ Refined prompts for strict JSON extraction without hallucinations.
      - ✅ Added validation to filter metadata/garbage.
-   - **Status**: ✅ Deployed and working (tested with direct image upload).
+   - **Status**: ✅ Deployed and working.
 
 3. **✅ Shared Storage Utils** - COMPLETE
    - **Status**: ✅ Complete.
@@ -85,11 +87,15 @@ Context references: `README.md` (MVP scope), `restcok-app.md` (category + comps)
 ### UI Polish & Color Correct
 
 1. **✅ Session Details UX** - COMPLETE
-   - **Work**: ✅ Sticky action bar. ✅ Item/Supplier summaries. ✅ "Create Emails" button prominent at top.
+   - **Work**: ✅ Sticky action bar. ✅ Indented supplier grouping with color-coded headers (`[ SUPPLIER ]`).
    - **Status**: ✅ Complete.
 
 2. **✅ Upload Flow UX** - COMPLETE
    - **Work**: ✅ Image-only flow. ✅ "Found X items" summary. ✅ Selection UI improved.
+   - **Status**: ✅ Complete.
+
+3. **✅ Navigation Resilience** - COMPLETE
+   - **Work**: ✅ Fixed "Zombie Back Button" issues. Deleting/Completing a session now clears the stack and routes to Dashboard.
    - **Status**: ✅ Complete.
 
 ### Testing & Build
@@ -115,3 +121,8 @@ Context references: `README.md` (MVP scope), `restcok-app.md` (category + comps)
 - **Reality**: Hallucinated products ("Pesto & Garlic") that didn't exist.
 - **Pivot**: Upgraded to **Llama 4 Maverick**.
 - **Why**: 128-expert model provides the precision needed for dense inventory lists.
+
+### 3. Navigation Architecture
+- **Initial Plan**: Standard `router.push` / `router.back`.
+- **Reality**: Deleting a session left the user in a state where "Back" went to the deleted session.
+- **Fix**: Implemented `router.dismissAll()` + `router.replace('/')` for "destructive" or "completing" actions to ensure a clean stack.
