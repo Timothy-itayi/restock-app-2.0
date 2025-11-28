@@ -7,11 +7,14 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
-  Alert
+  Alert,
+  SafeAreaView
 } from 'react-native';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { signUpStyles } from '../../styles/components/sign-up';
 import { useSenderProfileStore } from '../../store/useSenderProfileStore';
+import colors from '../../lib/theme/colors';
 
 export default function SenderSetupScreen() {
   const [name, setName] = useState('');
@@ -56,51 +59,72 @@ export default function SenderSetupScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.neutral.lighter }}>
+      {/* Back Button (Fixed Header) */}
+      <View style={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10, zIndex: 10 }}>
+         <TouchableOpacity 
+           onPress={() => router.back()} 
+           style={{ 
+             width: 40, 
+             height: 40, 
+             justifyContent: 'center', 
+             alignItems: 'flex-start'
+           }}
+         >
+           <Ionicons name="arrow-back" size={28} color={colors.neutral.darkest} />
+         </TouchableOpacity>
+      </View>
+
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={signUpStyles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
       >
-        <View style={signUpStyles.titleContainer}>
-          <Text style={signUpStyles.title}>Set up your details</Text>
-          <Text style={signUpStyles.subtitle}>
-            These details will be used when sending restock emails
-          </Text>
-        </View>
-
-        <TextInput
-          style={signUpStyles.input}
-          placeholder="Your Name"
-          placeholderTextColor="#666"
-          value={name}
-          onChangeText={setName}
-        />
-
-        <TextInput
-          style={signUpStyles.input}
-          placeholder="Email Address"
-          placeholderTextColor="#666"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-
-        <TextInput
-          style={signUpStyles.input}
-          placeholder="Store Name (optional)"
-          placeholderTextColor="#666"
-          value={storeName}
-          onChangeText={setStoreName}
-        />
-
-        <TouchableOpacity
-          style={signUpStyles.button}
-          onPress={handleContinue}
+        <ScrollView 
+          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 20, justifyContent: 'center', paddingBottom: 100 }}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
         >
-          <Text style={signUpStyles.buttonText}>Continue</Text>
-        </TouchableOpacity>
+          <View style={signUpStyles.titleContainer}>
+            <Text style={signUpStyles.title}>Set up your details</Text>
+            <Text style={signUpStyles.subtitle}>
+              These details will be used when sending restock emails
+            </Text>
+          </View>
+
+          <TextInput
+            style={signUpStyles.input}
+            placeholder="Your Name"
+            placeholderTextColor={colors.neutral.medium}
+            value={name}
+            onChangeText={setName}
+          />
+
+          <TextInput
+            style={signUpStyles.input}
+            placeholder="Email Address"
+            placeholderTextColor={colors.neutral.medium}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+
+          <TextInput
+            style={signUpStyles.input}
+            placeholder="Store Name (optional)"
+            placeholderTextColor={colors.neutral.medium}
+            value={storeName}
+            onChangeText={setStoreName}
+          />
+
+          <TouchableOpacity
+            style={[signUpStyles.button, { marginTop: 20 }]}
+            onPress={handleContinue}
+          >
+            <Text style={signUpStyles.buttonText}>Continue</Text>
+          </TouchableOpacity>
+        </ScrollView>
       </KeyboardAvoidingView>
-    </ScrollView>
+    </SafeAreaView>
   );
 }

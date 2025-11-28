@@ -26,19 +26,19 @@ const walkthroughSlides: WalkthroughSlide[] = [
     id: 1,
     title: 'Walk',
     subtitle: 'Move through your store easily',
-    image: require('../assets/images/placeholder.jpeg')
+    image: require('../assets/images/onboarding/walk.jpeg')
   },
   {
     id: 2,
     title: 'Log',
     subtitle: 'Capture products as you go',
-    image: require('../assets/images/placeholder.jpeg')
+    image: require('../assets/images/onboarding/Log.jpeg')
   },
   {
     id: 3,
     title: 'Send',
     subtitle: 'Generate emails instantly',
-    image: require('../assets/images/placeholder.jpeg')
+    image: require('../assets/images/onboarding/send.jpeg')
   }
 ];
 
@@ -113,18 +113,7 @@ export default function WelcomeScreen() {
 
   return (
     <View style={welcomeStyles.container}>
-      {/* Header */}
-      <View style={welcomeStyles.header}>
-        <Text style={welcomeStyles.appTitle}>Restock</Text>
-      </View>
-
-      {/* Main Title */}
-      <View style={welcomeStyles.titleContainer}>
-        <Text style={welcomeStyles.mainTitle}>Walk. Log. Send.</Text>
-        <Text style={welcomeStyles.mainSubtitle}>
-          A simpler way to restock your store
-        </Text>
-      </View>
+    
 
       {/* Carousel */}
       <View style={welcomeStyles.carouselContainer}>
@@ -144,8 +133,17 @@ export default function WelcomeScreen() {
                 <Image
                   source={slide.image}
                   style={welcomeStyles.slideImage}
-                  resizeMode="contain"
+                  resizeMode="cover"
                 />
+                {/* Gradient Scrim (Simulated with absolute view) */}
+                <View style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: '50%',
+                  backgroundColor: 'rgba(0,0,0,0.4)', // Semi-transparent black fade for text readability
+                }} />
               </View>
 
               <View style={welcomeStyles.textContainer}>
@@ -177,7 +175,7 @@ export default function WelcomeScreen() {
                   }),
                   backgroundColor: paginationAnimations[index].interpolate({
                     inputRange: [0, 1],
-                    outputRange: ['#DEE2E6', '#6B7F6B']
+                    outputRange: ['rgba(255, 255, 255, 0.5)', '#FFFFFF']
                   })
                 }
               ]}

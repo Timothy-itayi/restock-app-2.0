@@ -23,7 +23,7 @@ export const welcomeStyles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: colours.background,
+    backgroundColor: colours.textDark,
   },
   content: {
     flex: 1,
@@ -33,47 +33,33 @@ export const welcomeStyles = StyleSheet.create({
 
   // Header styles
   header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     paddingTop: 60,
     paddingBottom: 20,
     paddingHorizontal: 20,
     alignItems: 'center',
-    backgroundColor: colours.background,
+    zIndex: 10,
   },
   appTitle: {
-    fontFamily: fontFamily.satoshiBlack,
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colours.brandPrimary,
-    textAlign: 'center',
-  },
-
-  // Fixed Title styles
-  titleContainer: {
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  mainTitle: {
-    fontFamily: fontFamily.satoshiBlack,
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colours.textDark,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  mainSubtitle: {
+    backgroundColor: 'white',
+    padding: 5,
+    borderRadius: 100,
+    opacity: 1,
     fontFamily: fontFamily.satoshiBold,
-    fontSize: 16,
-    color: colours.brandSecondary,
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: colours.textDark, // Dark bold color as requested
     textAlign: 'center',
-    fontWeight: '600',
+    // Removed text shadow to keep it clean/flat as per "modern"
   },
 
   // Carousel styles
   carouselContainer: {
     flex: 1,
     width: screenWidth,
-    marginBottom: -70,
   },
   carouselScrollView: {
     flex: 1,
@@ -81,93 +67,103 @@ export const welcomeStyles = StyleSheet.create({
   slideContainer: {
     width: screenWidth,
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
+    position: 'relative',
   },
   imageContainer: {
-    width: screenWidth * 0.5,
-    height: screenWidth * 0.5,
-    justifyContent: 'center',
-    alignItems: 'center',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: screenWidth,
+    height: '100%',
+    zIndex: 0,
   },
   slideImage: {
     width: '100%',
     height: '100%',
   },
+  
+  // Text overlay (Modern, Clean, No Cards)
   textContainer: {
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    flex: 1,
-    justifyContent: 'center',
+    position: 'absolute',
+    bottom: 140, // Give space for pagination and button
+    left: 0,
+    right: 0,
+    alignItems: 'flex-start', // Left align for modern feel, or center
+    paddingHorizontal: 32,
+    zIndex: 1,
+    backgroundColor: 'transparent', // No background card
   },
   slideTitle: {
     fontFamily: fontFamily.satoshiBlack,
-    fontSize: 24,
+    fontSize: 42, // Larger, hierarchical
     fontWeight: 'bold',
-    color: colours.textDark,
+    color: '#FFFFFF', // White text for contrast on images
     marginBottom: 8,
-    textAlign: 'center',
+    textAlign: 'left',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)', // Soft shadow for readability
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   slideSubtitle: {
     fontFamily: fontFamily.satoshiBold,
-    fontSize: 16,
-    color: colours.brandSecondary,
-    marginBottom: 12,
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  slideDescription: {
-    fontFamily: fontFamily.satoshi,
-    fontSize: 14,
-    color: colours.neutralDark,
-    textAlign: 'center',
-    lineHeight: 20,
-    paddingHorizontal: 10,
+    fontSize: 18,
+    color: '#FFFFFF',
+    marginBottom: 0,
+    textAlign: 'left',
+    opacity: 0.9,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
 
   // Pagination styles
   paginationContainer: {
+    position: 'absolute',
+    bottom: 100,
+    left: 32, // Left align to match text
     flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginVertical: 50,
-    paddingHorizontal: 20,
+    zIndex: 2,
   },
   paginationDotContainer: {
-    padding: 4,
+    paddingRight: 8, // Spacing
   },
   paginationDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colours.paginationInactive,
-    marginHorizontal: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)', // Semi-transparent white
   },
   paginationDotActive: {
-    backgroundColor: colours.brandPrimary,
+    backgroundColor: '#FFFFFF', // Solid white
     width: 24,
   },
 
   // Auth buttons styles
   authButtonsContainer: {
-    width: '100%',
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingBottom: 40,
+    position: 'absolute',
+    bottom: 40,
+    left: 20,
+    right: 20,
+    zIndex: 2,
   },
   signUpButton: {
     backgroundColor: colours.brandPrimary,
-    borderRadius: 8,
-    padding: 14,
+    borderRadius: 100, // Pill shape
+    paddingVertical: 16,
     alignItems: 'center',
-    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   signUpButtonText: {
     fontFamily: fontFamily.satoshiBold,
-    color: colours.neutralLight,
-    fontSize: 16,
+    color: '#FFFFFF',
+    fontSize: 18,
     fontWeight: '600',
   },
   signInButton: {
