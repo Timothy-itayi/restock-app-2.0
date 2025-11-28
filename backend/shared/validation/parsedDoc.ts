@@ -21,6 +21,7 @@ export type ParsedDoc = z.infer<typeof ParsedDocSchema>;
 /**
  * Validates parsed document response
  * Returns validated items or empty array on failure
+ * Filters out likely hallucinated or invalid items
  */
 export function validateParsedDoc(
   input: unknown
@@ -31,7 +32,44 @@ export function validateParsedDoc(
       console.warn("Parsed doc validation failed:", result.error.errors);
       return { items: [] };
     }
-    return result.data;
+    
+    // Filter out suspicious items
+    const filteredItems = result.data.items.filter(item => {
+      const product = item.product?.trim() || '';
+      
+      // Must have a product name of at least 3 characters
+      if (product.length < 3) {
+        console.log(`[validation] Filtered out item with short product name: "${product}"`);
+        return false;
+      }
+      
+      // Filter out items that are just numbers or codes
+      if (/^\d+$/.test(product)) {
+        console.log(`[validation] Filtered out numeric-only product: "${product}"`);
+        return false;
+      }
+      
+      // Filter out items that look like headers or metadata
+      const lowerProduct = product.toLowerCase();
+      const suspiciousPatterns = [
+        'total', 'subtotal', 'tax', 'discount', 'page', 'printed',
+        'location', 'sales report', 'stock item', 'unit price',
+        'quantity', 'nett', 'gross'
+      ];
+      
+      for (const pattern of suspiciousPatterns) {
+        if (lowerProduct.includes(pattern)) {
+          console.log(`[validation] Filtered out metadata item: "${product}"`);
+          return false;
+        }
+      }
+      
+      return true;
+    });
+    
+    console.log(`[validation] Validated ${filteredItems.length} items (filtered ${result.data.items.length - filteredItems.length})`);
+    
+    return { items: filteredItems };
   } catch (err) {
     console.warn("Parsed doc validation error:", err);
     return { items: [] };
