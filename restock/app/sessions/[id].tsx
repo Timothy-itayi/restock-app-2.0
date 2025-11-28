@@ -36,7 +36,7 @@ export default function SessionDetailScreen() {
   if (!session) {
     return (
       <SafeAreaView style={styles.container}>
-        <TouchableOpacity style={{ padding: 16 }} onPress={() => router.back()}>
+        <TouchableOpacity style={{ padding: 16 }} onPress={() => router.replace('/')}>
           <Ionicons name="chevron-back" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={styles.emptyStateText}>Session not found.</Text>
@@ -79,7 +79,8 @@ export default function SessionDetailScreen() {
         style: 'destructive',
         onPress: () => {
           updateSession(session.id, { status: 'cancelled' });
-          router.back();
+          router.dismissAll();
+          router.replace('/');
         }
       }
     ]);
@@ -93,7 +94,8 @@ export default function SessionDetailScreen() {
         style: 'destructive',
         onPress: () => {
           deleteSession(session.id);
-          router.back();
+          router.dismissAll();
+          router.replace('/');
         }
       }
     ]);
@@ -123,31 +125,33 @@ export default function SessionDetailScreen() {
   );
 
   const renderSupplierGroup = ({ item: group }: any) => (
-    <View style={{ marginBottom: 16 }}>
+    <View style={{ marginBottom: 24 }}>
       <View style={{ 
-        paddingHorizontal: 16, 
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        paddingHorizontal: 0, 
         paddingVertical: 8, 
-        backgroundColor: '#f5f5f5',
-        borderLeftWidth: 3,
-        borderLeftColor: '#6B7F6B',
-        marginBottom: 8
+        marginBottom: 4,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee'
       }}>
         <Text style={{ 
-          fontSize: 16, 
-          fontWeight: '600', 
-          color: '#333' 
+          fontSize: 12, 
+          fontWeight: '800', 
+          color: '#a3a695', // Secondary color
+          marginRight: 8,
+          letterSpacing: 0.5
+        }}>
+          [ SUPPLIER ]
+        </Text>
+        <Text style={{ 
+          fontSize: 18, 
+          fontWeight: '700', 
+          color: '#6B7F6B', // Primary color
+          flex: 1
         }}>
           {group.supplierName}
         </Text>
-        {group.supplierEmail ? (
-          <Text style={{ 
-            fontSize: 13, 
-            color: '#666', 
-            marginTop: 2 
-          }}>
-            {group.supplierEmail}
-          </Text>
-        ) : null}
       </View>
 
       <FlatList
@@ -155,7 +159,7 @@ export default function SessionDetailScreen() {
         keyExtractor={(i) => i.id}
         renderItem={renderItem}
         scrollEnabled={false}
-        contentContainerStyle={{ paddingHorizontal: 0 }}
+        contentContainerStyle={{ paddingHorizontal: 8 }} // Indent items
       />
     </View>
   );

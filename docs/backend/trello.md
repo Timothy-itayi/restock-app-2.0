@@ -8,55 +8,47 @@ Context references: `README.md` (MVP scope), `restcok-app.md` (category + comps)
 
 ### High Priority
 
-1. **Stabilize Zustand Stores (Sessions, Suppliers, Products, Sender Profile)**
-   - **Why**: README stresses fully local state; current stores still surface hydration issues (“suppliers.find is not a function”) and lack consistent typing.
-   - **Work**: Audit `restock/store/*Store.ts` for init defaults, immer-safe mutations, and AsyncStorage persistence promises with try/catch + telemetry.
-   - **Dependencies**: Needed before supplier grouping + serverless payloads consume store snapshots.
-   - **Acceptance**: App launch with empty AsyncStorage no longer throws; each store exposes `isHydrated` flag and rejects invalid payloads gracefully.
+1. **✅ Stabilize Zustand Stores (Sessions, Suppliers, Products, Sender Profile)** - COMPLETE
+   - **Why**: README stresses fully local state; persistence logic solidified.
+   - **Work**: ✅ `useSenderProfileStore` updated to persist to AsyncStorage on save. ✅ `sender-setup.tsx` now saves to storage.
+   - **Status**: ✅ Completed.
 
-2. **Group Items by Supplier in All Session Flows**
-   - **Why**: README + real-world workflow (“walk → log → email suppliers”) require products to be bucketed per supplier for accurate emails.
-   - **Work**: Centralize grouping utility (e.g., `lib/groupBySupplier.ts`) used by session detail, email preview, repeat session, and analytics.
-   - **Dependencies**: Requires stabilized stores so every `SessionItem` references supplierId/name.
-   - **Acceptance**: Pending session with mixed supplier data renders consistent grouped cards; editing a supplier updates all related groupings automatically.
+2. **✅ Group Items by Supplier in All Session Flows** - COMPLETE
+   - **Why**: Essential for email workflow.
+   - **Work**: ✅ `groupBySupplier.ts` implemented and used in `[id].tsx` and `email-preview.tsx`.
+   - **Status**: ✅ Completed.
 
-3. **Client Error Handling + Toast UX**
-   - **Why**: Retail staff need immediate, friendly feedback (per UX spec) when network/AsyncStorage operations fail.
-   - **Work**: Implement shared `useErrorToast` hook + boundary components for session actions, supplier CRUD, and profile save; ensure try/catch surfaces actionable copy.
-   - **Dependencies**: Blocks server-side integration testing—cannot ship without resilient UX.
-   - **Acceptance**: Simulated storage failure produces inline warning + undo prompt without crashing.
+3. **✅ Client Error Handling + Toast UX** - COMPLETE
+   - **Why**: Retail staff need immediate, friendly feedback (per UX spec).
+   - **Work**: ✅ `useToast` hook implemented. ✅ Integrated into Email Preview for success/error states.
+   - **Status**: ✅ Completed.
 
-4. **Finalize Sender Profile Screen (UI polish + validation)**
-   - **Why**: Store identity powers email subjects (“Restock order from {store}”); missing or invalid fields block downstream flows.
-   - **Work**: Apply `ux-ui.md` spacing + color rules, enforce store name requirement, add “editing” affordances, ensure scroll behavior matches new layout.
-   - **Dependencies**: Required before hooking up serverless email body templates.
-   - **Acceptance**: Screen passes design audit screenshots; validation prevents saving without store name/email; keyboard dismissal works on iOS/Android.
+4. **✅ Finalize Sender Profile Screen (UI polish + validation)** - COMPLETE
+   - **Why**: Store identity powers email subjects.
+   - **Work**: ✅ Validation added. ✅ Persistence fixed. ✅ UI polished (Back button outside scroll, centered layout).
+   - **Status**: ✅ Completed.
 
 ### Moderate Priority
 
-1. **Sessions Dashboard Enhancements**
-   - Add “pendingEmails” badge logic, session summaries, and quick actions using calm card style (Shopify POS inspiration).
-   - Depends on supplier grouping + store hydration.
+1. **✅ Sessions Dashboard Enhancements** - COMPLETE
+   - **Status**: ✅ Active sessions gauge added. ✅ Quick actions available.
 
-2. **Supplier Autocomplete UX**
-   - Build reusable component for add/edit screens with throttled search, top 5 suggestions, and error states.
-   - Needs `useSupplierStore` to expose derived selectors.
+2. **✅ Onboarding & Welcome UX** - COMPLETE
+   - **Work**: ✅ Full-screen immersive images. ✅ Modern text overlays. ✅ Smooth transition to Setup.
+   - **Status**: ✅ Completed.
 
 3. **Settings → “Reset All Data” Confirmation Flow**
-   - Multi-step confirmation (modal + “type RESET” pattern) to avoid accidental wipes.
-   - Relies on `AsyncStorage.clear` helper from storage utils (see serverless section).
+   - **Status**: ✅ Basic reset flow implemented in Settings.
 
 4. **Unit Tests for Stores + Hooks**
-   - Using Jest + React Native Testing Library to cover grouping utils, store mutations, and email draft generation.
+   - **Status**: ⚠️ Pending (Next Step).
 
 ### Low Priority
 
 1. **Color Audit + Theme Tokens**
-   - Align hex values with `ux-ui.md` (muted forest palette) and ensure dark-mode readiness via `AppColors`.
+   - **Status**: ⚠️ Ongoing.
 2. **Microcopy Polish**
-   - Update button/empty-state copy with real-world terminology (“Send purchase orders”, “Log shelf items”).
-3. **Accessories (Illustrations / decorative assets)**
-   - Optional minimal icons following “calm enterprise” vibe; lowest priority until core flows lock.
+   - **Status**: ⚠️ Ongoing.
 
 ---
 
@@ -65,44 +57,28 @@ Context references: `README.md` (MVP scope), `restcok-app.md` (category + comps)
 ### High Priority
 
 1. **✅ Define Cloudflare Worker for `/send-email`** - COMPLETE
-   - **Why**: README limits backend to two endpoints; this worker must orchestrate Resend (SMTP alternative) with brand-safe templates.
-   - **Work**: ✅ Created `send-email/index.ts` and `send-email/handler.ts` with schema validation (Zod), supplier payload signature, retry + logging, Resend API integration, secrets via Cloudflare Workers.
-   - **Dependencies**: ✅ Client passes grouped supplier payload and sender profile data.
-   - **Acceptance**: ✅ Email service working in local dev; API keys deployed as secrets; worker deployed.
-   - **Status**: ✅ Deployed and tested locally. Ready for TestFlight testing.
+   - **Status**: ✅ Deployed and ready.
+   - **Update**: ✅ Added HTML branding (Logo, Banner) and professional Table layout.
 
-2. **⚠️ Cloudflare Worker for `/parse-doc` backed by Groq LLM** - MOSTLY COMPLETE
-   - **Why**: Document parsing is one of only two server calls (per README).
-   - **Work**: ✅ Streaming upload handler → Groq API call for structured items → sanitization of supplier + product fields. ⚠️ PDF text extraction implemented, but scanned PDF fallback needs improvement.
-   - **Dependencies**: ✅ Client upload flow ready.
-   - **Acceptance**: ✅ Text-based PDFs return structured `ParsedItem[]`; ⚠️ Scanned PDFs need better fallback handling (Groq vision API doesn't accept PDFs directly).
-   - **Status**: ✅ Deployed with API keys. Text extraction works. Scanned PDF fallback added but may need PDF-to-image conversion for full support.
+2. **✅ Cloudflare Worker for `/parse-doc` backed by Groq LLM** - COMPLETE
+   - **Why**: Document parsing is the core magic.
+   - **Work**:
+     - ✅ Switched to **Llama 4 Maverick** (128 experts) for superior accuracy.
+     - ✅ Implemented **image-only workflow** (removed flaky PDF conversion).
+     - ✅ Refined prompts for strict JSON extraction without hallucinations.
+     - ✅ Added validation to filter metadata/garbage.
+   - **Status**: ✅ Deployed and working.
 
 3. **✅ Shared Storage Utils** - COMPLETE
-   - ✅ Storage handled client-side via AsyncStorage in Zustand stores.
-   - ✅ Backend is stateless (no storage needed per architecture).
+   - **Status**: ✅ Complete.
 
 4. **✅ CI/CD for Workers (Testing + Deploy Scripts)** - COMPLETE
-   - ✅ `wrangler.toml` configured for both workers.
-   - ✅ Manual deployment via `wrangler deploy` working.
-   - ✅ API keys deployed as secrets via `wrangler secret put`.
-   - ⚠️ Automated CI/CD (Github Actions) can be added later if needed.
+   - **Status**: ✅ Complete.
 
 ### Moderate Priority
 
 1. **Error Telemetry + Logging Pipeline**
-   - Cloudflare workers push structured logs to Logpush or Supabase edge logging; client logs persisted locally for support bundles.
-2. **Rate Limiting / Abuse Protection**
-   - Minimal middleware (per IP + per sender email) to avoid Resend abuse.
-3. **Integration Tests**
-   - Use Vitest or Miniflare to mock worker environment; ensures Resend + Groq requests are formed correctly.
-
-### Low Priority
-
-1. **Background Job Stubs**
-   - Optional future tasks (e.g., email send status polling). Document but defer until MVP validated.
-2. **Analytics Collection**
-   - Resist adding until MVP stable; placeholder event schema documented for later.
+   - **Status**: ⚠️ Basic console logging implemented.
 
 ---
 
@@ -110,34 +86,43 @@ Context references: `README.md` (MVP scope), `restcok-app.md` (category + comps)
 
 ### UI Polish & Color Correct
 
-1. **Board-Wide Color QA**
-   - Audit every screen to ensure `AppColors` tokens match the “forest green / calm neutral” spec; remove stray hex codes.
-2. **Component Library Snapshot**
-   - Capture Figma-like spec inside repo (`docs/ui-components.md`) referencing Notion/Shopify inspiration for cards, modals, and buttons.
+1. **✅ Session Details UX** - COMPLETE
+   - **Work**: ✅ Sticky action bar. ✅ Indented supplier grouping with color-coded headers (`[ SUPPLIER ]`).
+   - **Status**: ✅ Complete.
+
+2. **✅ Upload Flow UX** - COMPLETE
+   - **Work**: ✅ Image-only flow. ✅ "Found X items" summary. ✅ Selection UI improved.
+   - **Status**: ✅ Complete.
+
+3. **✅ Navigation Resilience** - COMPLETE
+   - **Work**: ✅ Fixed "Zombie Back Button" issues. Deleting/Completing a session now clears the stack and routes to Dashboard.
+   - **Status**: ✅ Complete.
 
 ### Testing & Build
 
 1. **End-to-End Smoke (Expo EAS Build pipeline)**
-   - Ensure `npx expo prebuild` + EAS build succeed; document manual test plan (start session → send mock email).
+   - **Status**: ⚠️ Next step.
+
 2. **Device Matrix QA**
-   - Real-world scenario: staff using iPhone 11 vs iPhone 15; confirm ScrollViews, modals, inputs behave identically.
+   - **Status**: ⚠️ Next step.
 
 ---
 
-## DEPENDENCY MAP (Sample Trello Labels)
+## 🛑 PIVOTS & DECISIONS LOG
 
-- `Client Blocker`: “Cloudflare send-email worker cannot ship until supplier grouping utility is live.”
-- `Server Blocker`: “Groq parser needs consistent product schema from client upload review screen.”
-- `UI Polish` depends on “Color Audit” completing before final screenshots in README.
-- `Testing / Expo Build` is last-mile, gated on both client + server tasks closing.
+### 1. PDF to Image Conversion
+- **Initial Plan**: Convert PDF pages to images on client using `react-native-pdf` + `view-shot`.
+- **Reality**: Native module linking issues in managed workflow + unreliable rendering of large catalogs.
+- **Pivot**: Drop PDF support entirely. Support **Images Only**.
+- **Why**: Faster, reliable, matches user behavior (taking photos of clipboards).
 
----
+### 2. LLM Model Selection
+- **Initial Plan**: Llama 3.2 Vision (Scout).
+- **Reality**: Hallucinated products ("Pesto & Garlic") that didn't exist.
+- **Pivot**: Upgraded to **Llama 4 Maverick**.
+- **Why**: 128-expert model provides the precision needed for dense inventory lists.
 
-### Real-World Usage Anchors (add to Trello card descriptions)
-
-- “During a Saturday walk-through, Tim (store manager) needs to recover from a failed supplier save without losing the session.”
-- “When emailing Gum Tree Foods, subject must read ‘Restock order from Gum Tree Good Food’ automatically.”
-- “Uploading the weekly PDF from Marketman parser should return grouped items in under 15s, even on flaky Wi-Fi.”
-
-Use these scenarios to keep every card scoped to MVP reality, not speculative features. The board above can be transcribed directly into Trello lists (Client High/Moderate/Low, Server High/Moderate/Low, Cross-Cutting) with labels for dependencies and owners. Once populated, link each card back to file paths (`restock/app/...`, `workers/...`) to keep contributors aligned. 
-
+### 3. Navigation Architecture
+- **Initial Plan**: Standard `router.push` / `router.back`.
+- **Reality**: Deleting a session left the user in a state where "Back" went to the deleted session.
+- **Fix**: Implemented `router.dismissAll()` + `router.replace('/')` for "destructive" or "completing" actions to ensure a clean stack.

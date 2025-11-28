@@ -1,376 +1,128 @@
-# restock-app-2.0
-scaled down version of restock app
-# Restock MVP
+# Restock App 2.0 (MVP)
 
-A Clean Rebuild of the Restock Application (╯°□°）╯︵ ┻━┻
+A Clean, Offline-First Rebuild of the Restock Application (╯°□°）╯︵ ┻━┻
 
+<img src="restock2.0.png" alt="Restock App Icon" width="200"/>
 
-<img src="dashboard.png" alt="Restock App Icon" width="200"/> 
-<img src="pic3.png" alt="Restock App Icon" width="200"/> 
-<img src="pic2.png" alt="Restock App Icon" width="200"/> 
+This MVP rebuild focuses on the core value: helping small retailers restock efficiently through a simple **Walk → Log → Send** workflow.
 
-<img src="restock2.0.png" alt="Restock App Icon" width="200"/> 
-
-This document introduces the new, simplified Restock architecture and explains why the previous project was retired. The original repository had grown into a large, complex system far beyond the needs of the real workflow. This MVP rebuild focuses on the core value: helping small retailers restock efficiently through a simple **Walk → Log → Send** workflow.
-
-The original ReadMe outlined an ambitious multi-layer hexagonal architecture with Clerk authentication, Supabase persistence, dependency injection, RLS, OAuth flows, DI-driven React hooks, domain-driven entities, and a full stack of backend services.
-While technically impressive (and sometimes heroic), that system became fragile, difficult to debug, and nearly impossible to ship. (ಠ_ಠ)
-
-This new version is intentionally minimal, maintainable, and practical.
-It discards everything that created instability in the previous codebase and focuses solely on the features that deliver real value to store owners.
-
-All state is fully local.
-All complexity is reduced.
-Only two serverless functions remain.
-
-Below is the complete, updated MVP specification.
+We discarded the bloated hexagonal architecture, cloud databases, and complex auth flows of v1 in favor of a **Client-Heavy, Serverless-Light** approach.
 
 ---
 
-# Why This Rebuild Was Necessary
+## 🚀 Key Features
 
-### Problems Identified in the Original Project (from the previous ReadMe)
-
-The earlier architecture used:
-
-* Clerk for multi-provider authentication
-* Supabase for real-time synced data
-* A 6-table relational schema
-* Fully implemented hexagonal architecture (Domain → Application → Infrastructure → UI)
-* Dependency injection container
-* Edge functions
-* Custom AI email generation layer
-* 80+ domain tests
-* Production security (RLS, JWT bridging, audit logs, retries, etc.)
-
-These components introduced several issues:
-
-* **High architectural weight** for a mobile-first MVP
-* **Multiple external services** required to be healthy simultaneously
-* **Auth and DB failures** blocked basic screens (user couldn’t even open the app offline)
-* **Excessive boilerplate** caused long development cycles
-* **Difficult debugging** due to DI layers, abstracted repositories, and mapped domain entities
-* **Unnecessary complexity** for a tool meant for single-device use by small retailers
-
-Although the original build demonstrated strong engineering ability, it no longer aligned with the real-world usage of the app.
-
-The target users—store owners doing weekly restocks—do not need:
-
-* Cloud sync
-* User accounts
-* OAuth
-* Real-time data
-* RLS policies
-* Edge database logic
-
-The rebuild removes everything that wasn’t contributing directly to restocking tasks.
+- **Offline-First**: All data lives on your device (AsyncStorage + Zustand). No login required.
+- **Image-Only Parsing**: Snap a photo of a clipboard or invoice. Llama 4 Maverick extracts the items instantly.
+- **Professional Emails**: Sends branded HTML emails with tables and logos via Resend.
+- **Zero Latency**: No database round-trips for UI interactions.
 
 ---
 
-# What Changed in This New Version (￣︶￣;)
+## 🏗️ Architecture
 
-### The new Restock MVP:
+### Frontend (Expo / React Native)
+- **Framework**: Expo (Managed -> Prebuild).
+- **State**: `Zustand` for global state (Sessions, Suppliers, Profile).
+- **Navigation**: `Expo Router` (File-based).
+- **Styling**: Custom theme tokens (Forest Green / Cream palette).
 
-* Has **no authentication**
-* Has **no remote database**
-* Stores everything **locally on device**
-* Uses **only two serverless endpoints**
-
-  * One for AI document parsing
-  * One for email delivery
-* Removes Clerk, Supabase, OAuth, DI, RLS, and all associated plumbing
-* Eliminates the hexagonal architecture overhead
-* Uses simple Zustand stores instead of repository abstractions
-* Uses a clear Expo Router project structure
-* Matches the actual workflow in kitchens, delis, and grocery stores
-* Ensures offline-first reliability
-* Ships faster, breaks less, and is maintainable by a single developer
-
-This rebuild takes everything learned from the original project and applies it to a workflow-first, user-centered design.
+### Backend (Cloudflare Workers)
+Two stateless endpoints:
+1. **`/parse-doc`**:
+   - Accepts `multipart/form-data` (Images).
+   - Uses **Groq Vision (Llama 4 Maverick)** for high-accuracy OCR.
+   - Returns structured JSON: `{ items: [{ product, quantity, supplier }] }`.
+2. **`/send-email`**:
+   - Accepts JSON payload.
+   - Generates professional HTML templates (Tables, Logo, Banner).
+   - Sends via **Resend API**.
 
 ---
 
-# Screen Map & User Flow
+## 🔄 User Flows
 
-All persistent data is stored locally. Only document parsing and email sending use serverless endpoints.
+### 1. Onboarding (The "Cold Start")
+- **Welcome**: Full-screen immersive slider.
+- **Setup**: Enter Name/Store once. Saved locally.
+- **Result**: Instant access to Dashboard.
 
----
+### 2. Document Upload (The "Magic" Flow)
+- **Action**: Take photo of stock sheet.
+- **Process**: Cloudflare Worker extracts text -> JSON.
+- **Review**: User selects items -> Imports to Session.
+- **Pivot**: We dropped PDF support to ensure 100% reliability with native camera flows.
 
-## 1. App Entry
-
-### 1.1 Splash
-
-* Shows logo
-* Loads local stores (sender profile, suppliers, sessions, products)
-
-### 1.2 Onboarding
-
-Shown once:
-
-* Welcome
-* Explanation of Restock
-* Continue
-
-### 1.3 Sender Setup
-
-Form fields:
-
-* Name
-* Email
-* Optional store name
-  Saved locally and editable later.
+### 3. Emailing
+- **Grouping**: Items automatically grouped by Supplier.
+- **Preview**: Review drafts before sending.
+- **Delivery**: Emails sent from `noreply@restockapp.email` with `Reply-To` set to the user.
 
 ---
 
-## 2. Dashboard
+## 🛠️ Development
 
-Contains:
+### Prerequisites
+- Node.js & npm
+- Expo CLI
+- Cloudflare Wrangler (for backend)
 
-* Start New Restock Session
-* Recent Sessions
-* Suppliers
-* Settings
+### Commands
+```bash
+# Frontend
+cd restock
+npm install
+npx expo start --clear
 
-This reflects the original UX but without any authentication requirements.
+# Backend (Parse Worker)
+cd backend/parse-doc
+npm install
+wrangler dev
 
----
-
-## 3. Restock Session Flow
-
-### 3.1 Start Session
-
-Creates a session:
-
-```
-{
-  id,
-  createdAt,
-  items: [],
-  status: "active"
-}
+# Backend (Email Worker)
+cd backend/send-email
+npm install
+wrangler dev
 ```
 
-### 3.2 Session Menu
-
-Entry points:
-
-* Add Product Manually
-* Upload Supplier Document (AI parser)
-* View Current Items
-
-Also displays totals and supplier summaries.
-
----
-
-## 3.3 Add Product (Manual)
-
-Includes:
-
-* Product name
-* Quantity
-* Supplier picker (optional)
-* Category (optional)
-
----
-
-## 3.4 Upload Supplier Document
-
-### Document Upload
-
-* Accepts PDF or image
-* Sends file to `/parse-doc`
-* Receives structured product list
-
-### Review Screen
-
-Users confirm or adjust:
-
-* Product names
-* Quantities
-* Supplier assignment
-* Categories
-
-Approved items are added to the session.
-
----
-
-## 3.5 Session Items Screen
-
-Displays:
-
-```
-Category
-  - Product
-  - Quantity
-  - Supplier
-  - Edit/Delete
+### Running Tests
+```bash
+cd restock
+npm run test
 ```
 
-Users can make bulk or individual changes and then finish the session.
-
 ---
 
-## 4. Email Flow
+## 📦 Data Model (Local)
 
-### 4.1 Supplier Grouping
-
-Groups items by supplier.
-Users confirm suppliers and fill missing emails.
-
-### 4.2 Email Preview
-
-AI generates email bodies for each supplier.
-Users can edit:
-
-* Subject
-* Body
-* Reply-to
-* Supplier email
-
-Sending all emails completes the session.
-
----
-
-## 5. Session History
-
-### 5.1 Past Sessions List
-
-Shows date, item count, status.
-
-### 5.2 Session Detail
-
-Includes items, suppliers, email text, and “Repeat Session.”
-
-### 5.3 Repeat Session
-
-Clones items into a new active session.
-
----
-
-## 6. Suppliers Management
-
-### 6.1 Suppliers List
-
-Names, emails, and optional frequently used items.
-
-### 6.2 Add/Edit Supplier
-
-Manual or auto-generated from parsed documents.
-
----
-
-## 7. Settings
-
-Includes:
-
-* Edit sender profile
-* Clear all data
-* Export JSON (debugging)
-* About
-
-No sign-in. No cloud sync. No external auth.
-
----
-
-# User Flows
-
-## Flow A: Manual Restock
-
-1. Dashboard → Start Session
-2. Add Product Manually
-3. Add more items
-4. Finish Session
-5. Email Preview
-6. Send Emails
-7. Session saved locally
-
-## Flow B: Document-Based Restock
-
-1. Dashboard → Start Session
-2. Upload Document
-3. AI Parsing
-4. Review Items
-5. Finalize suppliers
-6. Finish Session
-7. Send Emails
-8. Session saved locally
-
-## Flow C: Repeat Session
-
-1. Dashboard → Past Sessions
-2. Select session
-3. Repeat Session
-4. Adjust quantities
-5. Send
-
----
-
-# Minimal Local Data Model
-
+**Session**:
 ```ts
-type SenderProfile = {
-  name: string;
-  email: string;
-  storeName?: string;
-};
-
-type Supplier = {
-  id: string;
-  name: string;
-  email?: string;
-};
-
-type Session = {
+{
   id: string;
   createdAt: number;
   items: SessionItem[];
-  status: "active" | "completed";
-};
+  status: 'active' | 'pendingEmails' | 'completed' | 'cancelled';
+}
+```
 
-type SessionItem = {
+**SessionItem**:
+```ts
+{
   id: string;
   productName: string;
   quantity: number;
-  supplierId?: string;
-  category?: string;
-};
-
-type ProductHistory = {
-  id: string;
-  name: string;
-  lastSupplierId?: string;
-  lastQty?: number;
-};
+  supplierId?: string; // Auto-grouped
+}
 ```
-
-Everything persists locally via AsyncStorage.
 
 ---
 
-# Serverless Endpoints Required
+## 🛑 Pivots & Lessons Learned
 
-```
-POST /parse-doc
-  input: { file }
-  output: { items: ParsedItem[] }
-
-POST /send-email
-  input: { supplierEmail, replyTo, items[] }
-  output: { success: true }
-```
-
-These endpoints are stateless and replace the entire Supabase + Clerk + Edge functions architecture.
+1.  **PDF vs Images**: Parsing PDFs on the edge is hard. Users prefer taking photos of clipboards anyway. We optimized for **Images**.
+2.  **Auth vs Local**: Small business owners don't want another password. Local-first removes 90% of the friction.
+3.  **Model Selection**: Llama 3.2 hallucinated products. **Llama 4 Maverick** (128-expert MoE) is precise enough for inventory lists.
 
 ---
 
-# MVP Summary (ノಠ益ಠ)ノ
-
-This rebuild achieves the true goal of the project:
-
-* Simple, stable, local-first
-* Zero authentication overhead
-* Zero cloud database dependencies
-* Only two lightweight endpoints
-* Architecture aligned with real-world user behavior
-* Faster development, easier maintenance, and more reliable operation
-
+*(Old v1 architecture with Clerk/Supabase/Hexagonal/DI is officially retired in favor of this shipping product.)*

@@ -34,8 +34,10 @@ export function formatEmailHtml(body: string): string {
     }
 
     // Regular paragraph: convert single newlines to <br>
-    const withBreaks = trimmed.replace(/\n/g, "<br>");
-    return `<p>${escapeHtml(withBreaks)}</p>`;
+    // Escape HTML first, then add <br> tags so they aren't escaped
+    const escapedText = escapeHtml(trimmed);
+    const withBreaks = escapedText.replace(/\n/g, "<br>");
+    return `<p>${withBreaks}</p>`;
   });
 
   return formattedParagraphs.join("");
@@ -43,6 +45,7 @@ export function formatEmailHtml(body: string): string {
 
 /**
  * Formats email body with items list
+ * Creates a professional order table
  */
 export function formatEmailWithItems(
   body: string,
@@ -50,29 +53,83 @@ export function formatEmailWithItems(
   storeName: string
 ): { text: string; html: string } {
   const formattedBody = body.trim();
+  
+  // Plain text version
   const itemsText = items
-    .map((i) => `- ${i.quantity} x ${i.productName}`)
+    .map((i) => `${i.quantity} x ${i.productName}`)
     .join("\n");
-  const itemsHtml = items
-    .map((i) => `<li>${i.quantity} × ${escapeHtml(i.productName)}</li>`)
-    .join("");
-
+    
   const text = [
     formattedBody,
     "",
-    "Items:",
+    "Order Items:",
+    "----------------------------------------",
     itemsText,
+    "----------------------------------------",
     "",
-    `Sent on behalf of ${storeName}`,
+    `Sent via Restock App for ${storeName}`,
   ].join("\n");
 
+  // HTML version
   const bodyHtml = formatEmailHtml(formattedBody);
+  
+  // Generate items table
+  const tableRows = items
+    .map(
+      (i) => `
+      <tr>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #eee; font-weight: bold; width: 60px; text-align: center;">${i.quantity}</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #eee;">${escapeHtml(i.productName)}</td>
+      </tr>
+    `
+    )
+    .join("");
+
   const html = `
+    <!DOCTYPE html>
     <html>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.5; color: #333; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { text-align: center; margin-bottom: 30px; padding-top: 20px; }
+          .logo { width: 64px; height: 64px; border-radius: 12px; }
+          .order-table { width: 100%; border-collapse: collapse; margin: 20px 0; border: 1px solid #eee; border-radius: 8px; overflow: hidden; }
+          .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #888; font-size: 12px; text-align: center; }
+          p { margin-bottom: 1em; }
+        </style>
+      </head>
       <body>
-        ${bodyHtml}
-        ${items.length > 0 ? `<ul>${itemsHtml}</ul>` : ""}
-        <p>Sent on behalf of ${escapeHtml(storeName)}</p>
+        <div class="container">
+          <div class="header">
+            <!-- Replace with your hosted image URL -->
+            <img src="https://round-sunset-fc34.parse-doc.workers.dev/" alt="Restock" class="logo" />
+            <div style="color: #6B7F6B; font-weight: bold; margin-top: 8px; font-size: 18px;">Restock App</div>
+          </div>
+
+          <div class="content">
+            ${bodyHtml}
+          </div>
+          
+          ${items.length > 0 ? `
+            <table class="order-table">
+              <thead style="background-color: #f9f9f9;">
+                <tr>
+                  <th style="padding: 8px 12px; text-align: center; border-bottom: 1px solid #eee;">Qty</th>
+                  <th style="padding: 8px 12px; text-align: left; border-bottom: 1px solid #eee;">Item</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${tableRows}
+              </tbody>
+            </table>
+          ` : ""}
+          
+          <div class="footer">
+            <p>Sent via <strong>Restock App</strong> for <strong>${escapeHtml(storeName)}</strong></p>
+          </div>
+        </div>
       </body>
     </html>
   `.trim();
