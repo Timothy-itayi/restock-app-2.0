@@ -19,13 +19,10 @@ export type PickOptions = {
   types?: string[];
 };
 
+// Only accept images - PDF conversion is unreliable on mobile
+// Users should take photos of their catalogs
 const DEFAULT_TYPES = [
-  'application/pdf',
-  'text/csv',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.ms-excel',
   'image/*',
-  'application/*'
 ];
 
 export async function pickDocuments(options: PickOptions = {}): Promise<PickResult> {

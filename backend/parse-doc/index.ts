@@ -71,9 +71,12 @@ export default {
         const images: File[] = [];
         for (const [key, value] of formData.entries()) {
           if (key === "images" && value instanceof File) {
+            console.log(`[parse-doc:index] Found image: ${value.name} (${value.size} bytes, ${value.type})`);
             images.push(value);
           }
         }
+        
+        console.log(`[parse-doc:index] Total images collected: ${images.length}`);
         
         if (images.length === 0) {
           const { response } = createError("No images uploaded", 400);

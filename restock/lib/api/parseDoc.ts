@@ -59,13 +59,11 @@ export async function parseDocument(
 
     const isPdf = file.mimeType?.includes('pdf') || file.name?.endsWith('.pdf');
   
-    // For PDFs: Client should convert to images first (since PDF.js doesn't work in Workers)
-    // This function should NOT be called with PDFs - the upload component handles conversion
+    // PDFs are not supported - only images
     if (isPdf) {
       return {
         success: false,
-        error: 'PDF files must be converted to images client-side before calling parseDocument. ' +
-          'Use the upload component which handles PDF conversion automatically.',
+        error: 'PDF files are not supported. Please take a photo of your catalog instead.',
       };
     }
 

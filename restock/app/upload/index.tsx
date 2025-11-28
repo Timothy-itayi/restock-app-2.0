@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,11 +6,11 @@ import {
   ActivityIndicator,
   Alert,
   SafeAreaView,
-  ScrollView
+  ScrollView,
+  FlatList
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
 
 import pickDocuments from '../../lib/utils/pickDocuments';
 import { useThemedStyles } from '@styles/useThemedStyles';
@@ -27,29 +27,10 @@ import { useProductsStore } from '../../store/useProductsStore';
 
 import type { SessionItem } from '../../lib/helpers/storage/sessions';
 import {
-  normalizeSupplierName,
-  normalizeProductName,
   safeString,
   ensureId
 } from '../../lib/utils/normalise';
-import { parseDocument, parseImages, type ParsedItem, type DocumentFile } from '../../lib/api/parseDoc';
-
-// Try to import PDF conversion libraries (may not be available in Expo managed workflow)
-let PDF: any = null;
-let captureRef: any = null;
-let PDF_AVAILABLE = false;
-
-try {
-  // @ts-ignore - react-native-pdf may not have types
-  PDF = require('react-native-pdf').default;
-  // @ts-ignore - react-native-view-shot may not have types
-  const viewShot = require('react-native-view-shot');
-  captureRef = viewShot.captureRef;
-  PDF_AVAILABLE = true;
-} catch (e) {
-  // Silently fail - PDF conversion will be disabled
-  PDF_AVAILABLE = false;
-}
+import { parseImages, type ParsedItem, type DocumentFile } from '../../lib/api/parseDoc';
 
 export default function UploadScreen() {
   const styles = useThemedStyles(getUploadStyles);
@@ -60,29 +41,9 @@ export default function UploadScreen() {
   const [file, setFile] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState<string>('');
-  const [loadingProgress, setLoadingProgress] = useState<number>(0);
   const [parsingError, setParsingError] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParsedItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  
-  // PDF conversion state
-  const pdfRef = useRef<any>(null);
-  const pdfViewRef = useRef<View>(null);
-  const [pdfPage, setPdfPage] = useState<number | null>(null);
-  const [pdfTotalPages, setPdfTotalPages] = useState<number>(1);
-  const pdfConversionRef = useRef<{
-    resolve: (value: string[]) => void;
-    reject: (error: Error) => void;
-    imageUris: string[];
-    maxPages: number;
-  } | null>(null);
-  const [pdfConversionState, setPdfConversionState] = useState<{
-    isConverting: boolean;
-    currentPage: number;
-    totalPages: number;
-    pdfUri: string | null;
-    cacheDir: string;
-  } | null>(null);
 
   // ---------------------------------------------------------------------------
   // Stores
@@ -119,201 +80,64 @@ export default function UploadScreen() {
   }, [productsHydrated, loadProducts]);
 
   // ---------------------------------------------------------------------------
-  // File picker
+  // File picker - images only
   // ---------------------------------------------------------------------------
   const pickFile = async () => {
     const res = await pickDocuments({ multiple: false });
     if (res.canceled || res.assets.length === 0) return;
 
-    setFile(res.assets[0]);
+    const asset = res.assets[0];
+    
+    // Validate it's an image
+    const mimeType = asset.mimeType || '';
+    if (!mimeType.startsWith('image/')) {
+      Alert.alert('Invalid file', 'Please select an image file (photo of your catalog).');
+      return;
+    }
+
+    setFile(asset);
     setParsed([]);
     setSelectedItems(new Set());
     setParsingError(null);
   };
 
   // ---------------------------------------------------------------------------
-  // Convert PDF to images
-  // ---------------------------------------------------------------------------
-  const convertPdfToImages = async (pdfUri: string, maxPages: number = 10): Promise<string[]> => {
-    if (!PDF_AVAILABLE || !PDF || !captureRef) {
-      throw new Error('PDF conversion libraries not available. Please install react-native-pdf and react-native-view-shot.');
-    }
-
-    return new Promise((resolve, reject) => {
-      const cacheDir = `${FileSystem.cacheDirectory}pdf-conversion/`;
-      const imageUris: string[] = [];
-      
-      pdfConversionRef.current = {
-        resolve,
-        reject,
-        imageUris,
-        maxPages,
-      };
-
-      setPdfConversionState({
-        isConverting: true,
-        currentPage: 0,
-        totalPages: 1,
-        pdfUri,
-        cacheDir,
-      });
-
-      // Ensure cache directory exists
-      FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true })
-        .then(() => {
-          setPdfPage(1);
-        })
-        .catch((err) => {
-          console.error('Failed to create cache directory:', err);
-          reject(new Error('Failed to create cache directory for PDF conversion'));
-        });
-    });
-  };
-
-  // Handle PDF page rendering and capture
-  useEffect(() => {
-    if (!PDF_AVAILABLE || !pdfPage || !pdfConversionRef.current || !pdfViewRef.current || !captureRef) return;
-
-    const conversion = pdfConversionRef.current;
-    const currentPage = pdfPage;
-    const maxPages = Math.min(pdfTotalPages, conversion.maxPages);
-    
-    const timeout = setTimeout(() => {
-      if (!pdfViewRef.current || !pdfConversionRef.current) return;
-
-      captureRef(pdfViewRef.current, {
-        format: 'jpg',
-        quality: 0.85,
-      })
-        .then((uri: string) => {
-          if (!pdfConversionRef.current) return;
-          
-          const conv = pdfConversionRef.current;
-          conv.imageUris.push(uri);
-          const progress = (conv.imageUris.length / maxPages) * 100;
-          setLoadingProgress(progress);
-          setLoadingMessage(`Converted page ${conv.imageUris.length} of ${maxPages}...`);
-
-          // Move to next page or finish
-          if (conv.imageUris.length >= maxPages) {
-            // Done converting
-            const uris = [...conv.imageUris];
-            conv.resolve(uris);
-            pdfConversionRef.current = null;
-            setPdfConversionState(null);
-            setPdfPage(null);
-          } else {
-            // Move to next page
-            setPdfPage(conv.imageUris.length + 1);
-          }
-        })
-        .catch((err: Error) => {
-          console.error('Failed to capture PDF page:', err);
-          if (pdfConversionRef.current) {
-            pdfConversionRef.current.reject(new Error(`Failed to capture PDF page ${currentPage}: ${err.message}`));
-            pdfConversionRef.current = null;
-          }
-          setPdfConversionState(null);
-          setPdfPage(null);
-        });
-    }, 1000); // Wait for PDF to render (increased timeout)
-
-    return () => clearTimeout(timeout);
-  }, [pdfPage, pdfTotalPages]);
-
-  // ---------------------------------------------------------------------------
-  // Send file to backend for parsing
+  // Send image to backend for parsing
   // ---------------------------------------------------------------------------
   const sendForParsing = async () => {
     if (!file) return;
 
     setLoading(true);
     setParsingError(null);
-    setLoadingMessage('');
-    setLoadingProgress(0);
+    setLoadingMessage('Uploading image...');
 
     try {
-      const isPdf = file.mimeType?.includes('pdf') || file.name?.endsWith('.pdf');
+      const imageFile: DocumentFile = {
+        uri: file.uri,
+        name: file.name || 'catalog.jpg',
+        mimeType: file.mimeType || 'image/jpeg',
+        size: file.size,
+      };
 
-      if (isPdf) {
-        // Convert PDF to images first
-        setLoadingMessage('Converting PDF to images...');
-        setLoadingProgress(0);
+      const result = await parseImages([imageFile], (message) => {
+        setLoadingMessage(message);
+      });
 
-        try {
-          const imageUris = await convertPdfToImages(file.uri, 10);
-          
-          if (imageUris.length === 0) {
-            setParsingError('Failed to convert PDF to images. No pages were converted.');
-            return;
-          }
-
-          setLoadingMessage(`Uploading ${imageUris.length} image(s)...`);
-          setLoadingProgress(50);
-
-          // Convert image URIs to DocumentFile format
-          const imageFiles: DocumentFile[] = imageUris.map((uri, index) => ({
-            uri,
-            name: `page-${index + 1}.jpg`,
-            mimeType: 'image/jpeg',
-            size: null,
-          }));
-
-          // Parse images
-          const result = await parseImages(imageFiles, (message, progress) => {
-            setLoadingMessage(message);
-            if (progress !== undefined) {
-              setLoadingProgress(50 + (progress * 0.5)); // Second half of progress
-            }
-          });
-
-          if (!result.success) {
-            setParsingError(result.error);
-            return;
-          }
-
-          setParsed(result.items);
-          setSelectedItems(new Set(result.items.map((x) => x.id)));
-        } catch (conversionError: any) {
-          console.error('PDF conversion error:', conversionError);
-          setParsingError(
-            conversionError instanceof Error 
-              ? conversionError.message 
-              : 'Failed to convert PDF to images. Please ensure react-native-pdf and react-native-view-shot are installed.'
-          );
-          return;
-        }
-      } else {
-        // Direct image upload
-        const result = await parseDocument({
-          uri: file.uri,
-          name: file.name,
-          mimeType: file.mimeType,
-          size: file.size,
-        } as DocumentFile, (message, progress) => {
-          setLoadingMessage(message);
-          if (progress !== undefined) {
-            setLoadingProgress(progress);
-          }
-        });
-
-        if (!result.success) {
-          setParsingError(result.error);
-          return;
-        }
-
-        setParsed(result.items);
-        setSelectedItems(new Set(result.items.map((x) => x.id)));
+      if (!result.success) {
+        setParsingError(result.error);
+        return;
       }
+
+      setParsed(result.items);
+      setSelectedItems(new Set(result.items.map((x) => x.id)));
     } catch (e: any) {
       console.warn('parse-doc error', e);
       setParsingError(
-        e instanceof Error ? e.message : 'Failed to parse document'
+        e instanceof Error ? e.message : 'Failed to parse image'
       );
     } finally {
       setLoading(false);
       setLoadingMessage('');
-      setLoadingProgress(0);
     }
   };
 
@@ -363,8 +187,15 @@ export default function UploadScreen() {
       addItemToSession(session.id, sessionItem);
     }
 
-    Alert.alert('Imported', `${itemsToImport.length} item(s) added.`);
-    router.push(`/sessions/${session.id}`);
+    Alert.alert('Imported', `${itemsToImport.length} item(s) added.`, [
+      {
+        text: 'View Session',
+        onPress: () => {
+          // Replace upload screen so back button goes to previous screen (dashboard/sessions list)
+          router.replace(`/sessions/${session.id}`);
+        },
+      },
+    ]);
   };
 
   // ---------------------------------------------------------------------------
@@ -382,6 +213,112 @@ export default function UploadScreen() {
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
+
+  // Render item for FlatList
+  const renderItem = ({ item }: { item: ParsedItem }) => {
+    const isSelected = selectedItems.has(item.id);
+    return (
+      <TouchableOpacity
+        onPress={() => toggleItemSelection(item.id)}
+        style={{
+          padding: 12,
+          marginBottom: 4,
+          marginHorizontal: 16,
+          borderRadius: 8,
+          backgroundColor: isSelected ? '#E8F5E8' : '#fff',
+          borderWidth: 1,
+          borderColor: isSelected ? '#4CAF50' : '#ddd'
+        }}
+      >
+        <Text style={{ fontWeight: '500' }}>{item.product}</Text>
+        {!!item.supplier && (
+          <Text style={{ color: '#666', fontSize: 13 }}>
+            {item.supplier}
+          </Text>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  // If we have parsed items, show the selection view
+  if (parsed.length > 0) {
+    return (
+      <SafeAreaView style={styles.sessionContainer}>
+        {/* Sticky Header */}
+        <View style={styles.stickyHeader}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.stickyBackButton}>
+            <Ionicons name="chevron-back" size={24} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.stickyHeaderTitle}>Upload Catalog</Text>
+        </View>
+
+        {/* Sticky Action Bar */}
+        <View style={{ 
+          backgroundColor: '#fff', 
+          padding: 16,
+          borderBottomWidth: 1,
+          borderBottomColor: '#eee',
+        }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <View>
+              <Text style={{ fontSize: 18, fontWeight: '700' }}>
+                {parsed.length} items found
+              </Text>
+              <Text style={{ fontSize: 14, color: '#6B7F6B', fontWeight: '500' }}>
+                {selectedItems.size} selected
+              </Text>
+            </View>
+          </View>
+          
+          <TouchableOpacity
+            onPress={saveToSession}
+            style={[styles.saveButton, { marginTop: 0 }]}
+          >
+            <Text style={styles.saveButtonText}>
+              Import {selectedItems.size} item(s) to Session
+            </Text>
+          </TouchableOpacity>
+
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
+            <TouchableOpacity
+              onPress={() => setSelectedItems(new Set(parsed.map(p => p.id)))}
+              style={{ padding: 8 }}
+            >
+              <Text style={{ color: '#6B7F6B', fontWeight: '600' }}>Select All</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setSelectedItems(new Set())}
+              style={{ padding: 8 }}
+            >
+              <Text style={{ color: '#666' }}>Deselect All</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                setFile(null);
+                setParsed([]);
+                setSelectedItems(new Set());
+                setParsingError(null);
+              }}
+              style={{ padding: 8 }}
+            >
+              <Text style={{ color: '#CC0000' }}>Start Over</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Item List using FlatList for better performance */}
+        <FlatList
+          data={parsed}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={{ paddingVertical: 12 }}
+          showsVerticalScrollIndicator={true}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // Default view: file selection or parsing
   return (
     <SafeAreaView style={styles.sessionContainer}>
       {/* Sticky Header */}
@@ -394,12 +331,17 @@ export default function UploadScreen() {
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
         {!file && (
-          <TouchableOpacity onPress={pickFile} style={styles.saveButton}>
-            <Text style={styles.saveButtonText}>Choose File</Text>
-          </TouchableOpacity>
+          <View>
+            <TouchableOpacity onPress={pickFile} style={styles.saveButton}>
+              <Text style={styles.saveButtonText}>Choose Image</Text>
+            </TouchableOpacity>
+            <Text style={{ color: '#666', marginTop: 12, textAlign: 'center', fontSize: 14 }}>
+              Take a photo of your product catalog or order list
+            </Text>
+          </View>
         )}
 
-        {file && !parsed.length && (
+        {file && (
           <View style={{ marginTop: 20 }}>
             <Text>{file.name}</Text>
             <TouchableOpacity
@@ -415,11 +357,6 @@ export default function UploadScreen() {
                       {loadingMessage}
                     </Text>
                   )}
-                  {loadingProgress > 0 && (
-                    <View style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.3)', height: 4, borderRadius: 2, marginTop: 8 }}>
-                      <View style={{ width: `${loadingProgress}%`, backgroundColor: '#fff', height: 4, borderRadius: 2 }} />
-                    </View>
-                  )}
                 </View>
               ) : (
                 <Text style={styles.saveButtonText}>Parse</Text>
@@ -431,85 +368,17 @@ export default function UploadScreen() {
                 {parsingError}
               </Text>
             )}
-          </View>
-        )}
-
-        {/* Hidden PDF renderer for conversion */}
-        {PDF_AVAILABLE && pdfConversionState && PDF && pdfPage && (
-          <View
-            ref={pdfViewRef}
-            style={{
-              position: 'absolute',
-              left: -10000,
-              top: -10000,
-              width: 800,
-              height: 1200,
-              opacity: 0,
-            }}
-            collapsable={false}
-          >
-            <PDF
-              ref={pdfRef}
-              source={{ uri: pdfConversionState.pdfUri, cache: true }}
-              page={pdfPage}
-              onLoadComplete={(numberOfPages: number) => {
-                if (numberOfPages > 0) {
-                  setPdfTotalPages(numberOfPages);
-                  if (pdfConversionRef.current) {
-                    pdfConversionRef.current.maxPages = Math.min(numberOfPages, pdfConversionRef.current.maxPages);
-                  }
-                }
-              }}
-              onError={(error: Error) => {
-                console.error('PDF load error:', error);
-                if (pdfConversionRef.current) {
-                  pdfConversionRef.current.reject(new Error(`Failed to load PDF: ${error.message}`));
-                  pdfConversionRef.current = null;
-                }
-                setPdfConversionState(null);
-                setPdfPage(null);
-              }}
-              style={{ flex: 1 }}
-            />
-          </View>
-        )}
-
-        {parsed.length > 0 && (
-          <ScrollView style={{ marginTop: 16 }}>
-            {parsed.map((item) => {
-              const isSelected = selectedItems.has(item.id);
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  onPress={() => toggleItemSelection(item.id)}
-                  style={{
-                    padding: 12,
-                    marginBottom: 4,
-                    borderRadius: 8,
-                    backgroundColor: isSelected ? '#E8F5E8' : '#fff',
-                    borderWidth: 1,
-                    borderColor: '#ddd'
-                  }}
-                >
-                  <Text>{item.product}</Text>
-                  {!!item.supplier && (
-                    <Text style={{ color: '#666', fontSize: 13 }}>
-                      {item.supplier}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
 
             <TouchableOpacity
-              onPress={saveToSession}
-              style={[styles.saveButton, { marginTop: 20 }]}
+              onPress={() => {
+                setFile(null);
+                setParsingError(null);
+              }}
+              style={{ marginTop: 16, alignItems: 'center' }}
             >
-              <Text style={styles.saveButtonText}>
-                Import {selectedItems.size} item(s)
-              </Text>
+              <Text style={{ color: '#666' }}>Choose different image</Text>
             </TouchableOpacity>
-          </ScrollView>
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
