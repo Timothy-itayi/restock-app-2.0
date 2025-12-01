@@ -22,7 +22,8 @@
       "buildNumber": "1",
       "infoPlist": {
         "NSCameraUsageDescription": "Restock needs camera access to photograph inventory catalogs for parsing.",
-        "NSPhotoLibraryUsageDescription": "Restock needs photo library access to select catalog images for parsing."
+        "NSPhotoLibraryUsageDescription": "Restock needs photo library access to select catalog images for parsing.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -48,6 +49,12 @@
         "projectId": "855519b7-bda3-4211-ba09-dea4d811f30a"
       }
     },
-    "owner": "timothy-itayi"
+    "owner": "timothy-itayi",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/855519b7-bda3-4211-ba09-dea4d811f30a"
+    }
   }
 }

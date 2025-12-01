@@ -6,6 +6,13 @@ A Clean, Offline-First Rebuild of the Restock Application (╯°□°）╯︵ �
 
 This MVP rebuild focuses on the core value: helping small retailers restock efficiently through a simple **Walk → Log → Send** workflow.
 
+<img src="walk.png" alt="Restock App Icon" width="200"/>
+
+<img src="log.png" alt="Restock App Icon" width="200"/>
+
+<img src="send.png" alt="Restock App Icon" width="200"/>
+
+
 We discarded the bloated hexagonal architecture, cloud databases, and complex auth flows of v1 in favor of a **Client-Heavy, Serverless-Light** approach.
 
 ---
