@@ -7,7 +7,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   SafeAreaView,
   Pressable
 } from 'react-native';
@@ -19,10 +18,13 @@ import { useSessionStore } from '../../../store/useSessionStore';
 import { useSupplierStore } from '../../../store/useSupplierStore';
 import type { SessionItem } from '../../../lib/helpers/storage/sessions';
 import colors from '../../../lib/theme/colors';
+import { AlertModal } from '../../../components/AlertModal';
+import { useAlert } from '../../../lib/hooks/useAlert';
 
 export default function AddProductScreen() {
   const styles = useThemedStyles(getUploadStyles);
   const qtyStyles = addProductScreenStyles;
+  const { alert, hideAlert, showError } = useAlert();
 
   const { id } = useLocalSearchParams<{ id: string }>();
 
@@ -80,7 +82,7 @@ export default function AddProductScreen() {
 
   const handleSave = () => {
     if (!productName.trim()) {
-      Alert.alert('Error', 'Product name is required.');
+      showError('Missing Field', 'Product name is required.');
       return;
     }
 
@@ -262,6 +264,16 @@ export default function AddProductScreen() {
 
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Alert Modal */}
+      <AlertModal
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        actions={alert.actions}
+        onClose={hideAlert}
+      />
     </SafeAreaView>
   );
 }

@@ -7,7 +7,6 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
-  Alert,
   SafeAreaView
 } from 'react-native';
 import { router } from 'expo-router';
@@ -15,6 +14,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { signUpStyles } from '../../styles/components/sign-up';
 import { useSenderProfileStore } from '../../store/useSenderProfileStore';
 import colors from '../../lib/theme/colors';
+import { AlertModal } from '../../components/AlertModal';
+import { useAlert } from '../../lib/hooks/useAlert';
 
 export default function SenderSetupScreen() {
   const [name, setName] = useState('');
@@ -22,23 +23,23 @@ export default function SenderSetupScreen() {
   const [storeName, setStoreName] = useState('');
   const setSenderProfile = useSenderProfileStore((state) => state.setSenderProfile);
   const saveProfileToStorage = useSenderProfileStore((state) => state.saveProfileToStorage);
+  const { alert, hideAlert, showError, showWarning } = useAlert();
 
   const validateEmail = (email: string): boolean => {
     return email.includes('@') && email.trim().length > 0;
   };
 
   const handleContinue = async () => {
-    // Input validation
     if (!name.trim()) {
-      Alert.alert('Missing information', 'Please enter your name.');
+      showWarning('Missing Information', 'Please enter your name.');
       return;
     }
     if (!email.trim()) {
-      Alert.alert('Missing information', 'Please enter your email address.');
+      showWarning('Missing Information', 'Please enter your email address.');
       return;
     }
     if (!validateEmail(email)) {
-      Alert.alert('Invalid email', 'Please enter a valid email address.');
+      showError('Invalid Email', 'Please enter a valid email address.');
       return;
     }
 
@@ -50,11 +51,11 @@ export default function SenderSetupScreen() {
 
     try {
       setSenderProfile(senderProfile);
-      await saveProfileToStorage(); // Persist to AsyncStorage
+      await saveProfileToStorage();
       router.replace('/');
     } catch (err) {
       console.error('Failed to save sender profile:', err);
-      Alert.alert('Error', 'Failed to save your information. Please try again.');
+      showError('Error', 'Failed to save your information. Please try again.');
     }
   };
 
@@ -125,6 +126,16 @@ export default function SenderSetupScreen() {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Alert Modal */}
+      <AlertModal
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        actions={alert.actions}
+        onClose={hideAlert}
+      />
     </SafeAreaView>
   );
 }

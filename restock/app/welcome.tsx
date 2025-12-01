@@ -9,8 +9,10 @@ import {
   Animated
 } from 'react-native';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { welcomeStyles } from '../styles/components/welcome';
 import { useSenderProfileStore, useSenderProfileHydrated } from '../store/useSenderProfileStore';
+import colors from '../lib/theme/colors';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -172,11 +174,11 @@ export default function WelcomeScreen() {
                 {
                   width: paginationAnimations[index].interpolate({
                     inputRange: [0, 1],
-                    outputRange: [8, 24]
+                    outputRange: [8, 28]
                   }),
                   backgroundColor: paginationAnimations[index].interpolate({
                     inputRange: [0, 1],
-                    outputRange: ['rgba(255, 255, 255, 0.5)', '#FFFFFF']
+                    outputRange: ['rgba(255, 255, 255, 0.35)', colors.cypress.pale]
                   })
                 }
               ]}
@@ -190,8 +192,10 @@ export default function WelcomeScreen() {
         <TouchableOpacity
           style={welcomeStyles.signUpButton}
           onPress={handleContinue}
+          activeOpacity={0.8}
         >
-          <Text style={welcomeStyles.signUpButtonText}>Continue</Text>
+          <Text style={welcomeStyles.signUpButtonText}>Get Started</Text>
+          <Ionicons name="arrow-forward" size={18} color="#fff" style={{ marginLeft: 8 }} />
         </TouchableOpacity>
       </View>
     </View>

@@ -85,86 +85,93 @@ export const welcomeStyles = StyleSheet.create({
   // Text overlay (Modern, Clean, No Cards)
   textContainer: {
     position: 'absolute',
-    bottom: 140, // Give space for pagination and button
+    bottom: 160, // Give space for pagination and button
     left: 0,
     right: 0,
-    alignItems: 'flex-start', // Left align for modern feel, or center
+    alignItems: 'center', // Center align
     paddingHorizontal: 32,
     zIndex: 1,
     backgroundColor: 'transparent', // No background card
   },
   slideTitle: {
     fontFamily: fontFamily.satoshiBlack,
-    fontSize: 42, // Larger, hierarchical
-    fontWeight: 'bold',
+    fontSize: 48, // Larger, hierarchical
+    fontWeight: '800',
     color: '#FFFFFF', // White text for contrast on images
-    marginBottom: 8,
-    textAlign: 'left',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)', // Soft shadow for readability
+    marginBottom: 12,
+    textAlign: 'center',
+    letterSpacing: -1,
+    textShadowColor: 'rgba(0, 0, 0, 0.4)', // Soft shadow for readability
     textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    textShadowRadius: 8,
   },
   slideSubtitle: {
-    fontFamily: fontFamily.satoshiBold,
-    fontSize: 18,
-    color: '#FFFFFF',
+    fontFamily: fontFamily.satoshi,
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.85)',
     marginBottom: 0,
-    textAlign: 'left',
-    opacity: 0.9,
+    textAlign: 'center',
+    lineHeight: 22,
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    textShadowRadius: 4,
   },
 
   // Pagination styles
   paginationContainer: {
     position: 'absolute',
-    bottom: 100,
-    left: 32, // Left align to match text
+    bottom: 120,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
+    justifyContent: 'center', // Center the pills
+    alignItems: 'center',
     zIndex: 2,
   },
   paginationDotContainer: {
-    paddingRight: 8, // Spacing
+    paddingHorizontal: 4, // Even spacing
   },
   paginationDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)', // Semi-transparent white
+    backgroundColor: 'rgba(255, 255, 255, 0.4)', // Semi-transparent white
   },
   paginationDotActive: {
-    backgroundColor: '#FFFFFF', // Solid white
-    width: 24,
+    backgroundColor: colors.cypress.pale, // Use app's cypress color
+    width: 28,
   },
 
   // Auth buttons styles
   authButtonsContainer: {
     position: 'absolute',
-    bottom: 40,
-    left: 20,
-    right: 20,
+    bottom: 50,
+    left: 24,
+    right: 24,
     zIndex: 2,
   },
   signUpButton: {
-    backgroundColor: colours.brandPrimary,
-    borderRadius: 100, // Pill shape
-    paddingVertical: 16,
+    backgroundColor: colors.cypress.deep, // Use cypress deep for brand consistency
+    borderRadius: 14, // Rounded but not pill
+    paddingVertical: 18,
     alignItems: 'center',
-    shadowColor: '#000',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    shadowColor: colors.cypress.deep,
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   signUpButtonText: {
     fontFamily: fontFamily.satoshiBold,
     color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   signInButton: {
     backgroundColor: colours.neutralLight,

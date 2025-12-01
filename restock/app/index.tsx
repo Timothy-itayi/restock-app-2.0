@@ -72,7 +72,7 @@ export default function DashboardScreen() {
   const menuItems = [
     {
       id: 'start-session',
-      title: hasActive ? 'Continue Sessions' : 'Start New Session',
+      title: 'Start New Session',
       icon: 'add-circle-outline',
       route: () => {
         const s = createSession();
@@ -127,9 +127,9 @@ export default function DashboardScreen() {
       <ActiveSessionGauge
         count={activeSessions.length}
         colors={{
-          track: colors.neutral.light,
-          fill: colors.analytics.clay,
-          center: colors.brand.secondary,
+          track: colors.status.success,
+          fill: colors.status.warning,
+          center: colors.state.overlay,
         }}
       />
 

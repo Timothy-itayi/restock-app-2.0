@@ -4,8 +4,7 @@ import {
   Text,
   TouchableOpacity,
   FlatList,
-  SafeAreaView,
-  Alert
+  SafeAreaView
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,10 +13,13 @@ import { getSessionsStyles } from '@styles/components/sessions';
 import { useSessionStore } from '../../store/useSessionStore';
 import { useSupplierStore } from '../../store/useSupplierStore';
 import { groupBySupplier } from '../../lib/utils/groupBySupplier';
+import { AlertModal } from '../../components/AlertModal';
+import { useAlert } from '../../lib/hooks/useAlert';
 
 export default function SessionDetailScreen() {
   const styles = useThemedStyles(getSessionsStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { alert, hideAlert, showError, showAlert } = useAlert();
 
   const session = useSessionStore((s) =>
     s.sessions.find((sess) => sess.id === id)
@@ -60,7 +62,7 @@ export default function SessionDetailScreen() {
       });
     } catch (err) {
       console.error('Failed finishing session', err);
-      Alert.alert('Error', 'Could not proceed to email preview.');
+      showError('Error', 'Could not proceed to email preview.');
     }
   };
 
@@ -72,32 +74,32 @@ export default function SessionDetailScreen() {
   };
       
   const handleCancel = () => {
-    Alert.alert('Cancel Session?', 'This will mark the session as cancelled.', [
-      { text: 'Keep Session', style: 'cancel' },
-      {
-        text: 'Cancel Session',
+    showAlert('confirm', 'Cancel Session?', 'This will mark the session as cancelled.', [
+      { 
+        text: 'Cancel Session', 
         style: 'destructive',
         onPress: () => {
           updateSession(session.id, { status: 'cancelled' });
           router.dismissAll();
           router.replace('/');
         }
-      }
+      },
+      { text: 'Keep Session', style: 'cancel' },
     ]);
   };
 
   const handleDelete = () => {
-    Alert.alert('Delete Session?', 'This action cannot be undone.', [
-      { text: 'Keep', style: 'cancel' },
-      {
-        text: 'Delete',
+    showAlert('delete', 'Delete Session?', 'This action cannot be undone.', [
+      { 
+        text: 'Delete', 
         style: 'destructive',
         onPress: () => {
           deleteSession(session.id);
           router.dismissAll();
           router.replace('/');
         }
-      }
+      },
+      { text: 'Keep', style: 'cancel' },
     ]);
   };
 
@@ -138,7 +140,7 @@ export default function SessionDetailScreen() {
         <Text style={{ 
           fontSize: 12, 
           fontWeight: '800', 
-          color: '#a3a695', // Secondary color
+          color: '#a3a695',
           marginRight: 8,
           letterSpacing: 0.5
         }}>
@@ -147,7 +149,7 @@ export default function SessionDetailScreen() {
         <Text style={{ 
           fontSize: 18, 
           fontWeight: '700', 
-          color: '#6B7F6B', // Primary color
+          color: '#6B7F6B',
           flex: 1
         }}>
           {group.supplierName}
@@ -159,7 +161,7 @@ export default function SessionDetailScreen() {
         keyExtractor={(i) => i.id}
         renderItem={renderItem}
         scrollEnabled={false}
-        contentContainerStyle={{ paddingHorizontal: 8 }} // Indent items
+        contentContainerStyle={{ paddingHorizontal: 8 }}
       />
     </View>
   );
@@ -284,6 +286,16 @@ export default function SessionDetailScreen() {
           />
         )}
       </View>
+
+      {/* Alert Modal */}
+      <AlertModal
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        actions={alert.actions}
+        onClose={hideAlert}
+      />
     </SafeAreaView>
   );
 }

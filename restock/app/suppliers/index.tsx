@@ -6,7 +6,6 @@ import {
   TextInput,
   FlatList,
   SafeAreaView,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView
@@ -17,6 +16,8 @@ import { useThemedStyles } from '@styles/useThemedStyles';
 import { getSuppliersStyles } from '@styles/components/suppliers';
 import { useSupplierStore, type Supplier } from '../../store/useSupplierStore';
 import colors from '../../lib/theme/colors';
+import { AlertModal } from '../../components/AlertModal';
+import { useAlert } from '../../lib/hooks/useAlert';
 
 export default function SuppliersScreen() {
   const styles = useThemedStyles(getSuppliersStyles);
@@ -31,6 +32,8 @@ export default function SuppliersScreen() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(true);
 
+  const { alert, hideAlert, showError, showWarning, showDelete } = useAlert();
+
   // Load from storage
   useEffect(() => {
     loadSuppliers().finally(() => setLoading(false));
@@ -38,12 +41,12 @@ export default function SuppliersScreen() {
 
   const saveSupplier = async () => {
     if (!name.trim()) {
-      Alert.alert('Error', 'Supplier name required');
+      showError('Missing Field', 'Supplier name is required');
       return;
     }
 
     if (!email.trim()) {
-      Alert.alert('Error', 'Supplier email required');
+      showError('Missing Field', 'Supplier email is required');
       return;
     }
 
@@ -57,7 +60,7 @@ export default function SuppliersScreen() {
     );
 
     if (duplicate) {
-      Alert.alert(
+      showWarning(
         'Duplicate Supplier',
         `A supplier with the name "${trimmedName}" already exists. Please use a different name.`
       );
@@ -65,13 +68,11 @@ export default function SuppliersScreen() {
     }
 
     if (editing) {
-      // Update existing supplier
       updateSupplier(editing.id, {
         name: trimmedName,
         email: trimmedEmail
       });
     } else {
-      // Add new supplier
       addSupplier(trimmedName, trimmedEmail);
     }
 
@@ -81,31 +82,23 @@ export default function SuppliersScreen() {
   };
 
   const handleDeleteSupplier = (supplier: Supplier) => {
-    Alert.alert(
+    showDelete(
       'Delete Supplier',
       `Are you sure you want to delete "${supplier.name}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            try {
-              deleteSupplier(supplier.id);
+      () => {
+        try {
+          deleteSupplier(supplier.id);
 
-              // If we were editing this supplier, cancel editing
-              if (editing && editing.id === supplier.id) {
-                setEditing(null);
-                setName('');
-                setEmail('');
-              }
-            } catch (error) {
-              console.warn('Error deleting supplier:', error);
-              Alert.alert('Error', 'Failed to delete supplier. Please try again.');
-            }
+          if (editing && editing.id === supplier.id) {
+            setEditing(null);
+            setName('');
+            setEmail('');
           }
+        } catch (error) {
+          console.warn('Error deleting supplier:', error);
+          showError('Delete Failed', 'Failed to delete supplier. Please try again.');
         }
-      ]
+      }
     );
   };
 
@@ -121,9 +114,94 @@ export default function SuppliersScreen() {
     setEmail('');
   };
 
+  const renderSupplierItem = ({ item, index }: { item: Supplier; index: number }) => (
+    <View>
+      <View style={{
+        backgroundColor: colors.neutral.lightest,
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <TouchableOpacity
+            onPress={() => startEdit(item)}
+            style={{ flex: 1 }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+              <Text style={{
+                fontSize: 10,
+                fontWeight: '700',
+                color: colors.cypress.deep,
+                letterSpacing: 1,
+                textTransform: 'uppercase',
+              }}>
+                Supplier
+              </Text>
+              <View style={{
+                width: 6,
+                height: 6,
+                borderRadius: 3,
+                backgroundColor: colors.cypress.muted,
+                marginLeft: 8,
+              }} />
+            </View>
+            
+            <Text style={{
+              fontSize: 18,
+              fontWeight: '700',
+              color: colors.neutral.darkest,
+              marginBottom: 6,
+            }}>
+              {item.name}
+            </Text>
+            
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="mail-outline" size={14} color={colors.neutral.medium} style={{ marginRight: 6 }} />
+              <Text style={{
+                fontSize: 14,
+                color: colors.neutral.medium,
+              }}>
+                {item.email || 'No email'}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <TouchableOpacity
+              onPress={() => startEdit(item)}
+              style={{
+                padding: 10,
+                backgroundColor: colors.cypress.pale,
+                borderRadius: 8,
+              }}
+            >
+              <Ionicons name="pencil" size={18} color={colors.cypress.deep} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => handleDeleteSupplier(item)}
+              style={{
+                padding: 10,
+                backgroundColor: '#FEE2E2',
+                borderRadius: 8,
+              }}
+            >
+              <Ionicons name="trash" size={18} color={colors.status.error} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+      
+      {index < suppliers.length - 1 && (
+        <View style={{
+          height: 1,
+          backgroundColor: colors.neutral.light,
+          marginHorizontal: 16,
+        }} />
+      )}
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Sticky Header */}
       <View style={styles.stickyHeader}>
         <TouchableOpacity onPress={() => router.back()} style={styles.stickyBackButton}>
           <Ionicons name="chevron-back" size={24} color="#333" />
@@ -141,94 +219,196 @@ export default function SuppliersScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={true}
         >
-          {/* Add/Edit Form */}
-          <View style={styles.formCard}>
-        <TextInput
-          placeholder="Supplier name"
-          placeholderTextColor={colors.neutral.medium}
-          value={name}
-          onChangeText={setName}
-          style={styles.textInput}
-        />
+          <View style={{
+            paddingHorizontal: 16,
+            paddingTop: 16,
+            paddingBottom: 8,
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{
+                width: 4,
+                height: 20,
+                backgroundColor: colors.cypress.deep,
+                borderRadius: 2,
+                marginRight: 10,
+              }} />
+              <Text style={{
+                fontSize: 12,
+                fontWeight: '700',
+                color: colors.cypress.deep,
+                letterSpacing: 1,
+                textTransform: 'uppercase',
+              }}>
+                {editing ? 'Edit Supplier' : 'Add New Supplier'}
+              </Text>
+            </View>
+          </View>
 
-        <TextInput
-          placeholder="Email"
-          placeholderTextColor={colors.neutral.medium}
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          style={[styles.textInput, { marginTop: 16 }]}
-        />
+          <View style={[styles.formCard, { marginHorizontal: 16, marginTop: 8 }]}>
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{
+                fontSize: 12,
+                fontWeight: '600',
+                color: colors.neutral.dark,
+                marginBottom: 6,
+                letterSpacing: 0.5,
+              }}>
+                Supplier Name
+              </Text>
+              <TextInput
+                placeholder="Enter supplier name"
+                placeholderTextColor={colors.neutral.medium}
+                value={name}
+                onChangeText={setName}
+                style={styles.textInput}
+              />
+            </View>
 
-        <TouchableOpacity
-          onPress={saveSupplier}
-          style={styles.saveButton}
-        >
-          <Text style={styles.saveButtonText}>
-            {editing ? 'Save Changes' : 'Add Supplier'}
-          </Text>
-        </TouchableOpacity>
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{
+                fontSize: 12,
+                fontWeight: '600',
+                color: colors.neutral.dark,
+                marginBottom: 6,
+                letterSpacing: 0.5,
+              }}>
+                Email Address
+              </Text>
+              <TextInput
+                placeholder="Enter email address"
+                placeholderTextColor={colors.neutral.medium}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                style={styles.textInput}
+              />
+            </View>
 
-        {editing && (
-          <TouchableOpacity
-            onPress={cancel}
-            style={styles.cancelButton}
-          >
-            <Text style={styles.cancelButtonText}>
-              Cancel
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
+            <TouchableOpacity
+              onPress={saveSupplier}
+              style={styles.saveButton}
+            >
+              <Text style={styles.saveButtonText}>
+                {editing ? 'Save Changes' : 'Add Supplier'}
+              </Text>
+            </TouchableOpacity>
 
-      {/* Suppliers List */}
-      {loading ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-          <Text style={styles.sectionSubtitle}>Loading...</Text>
-        </View>
-      ) : suppliers.length === 0 ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-          <Text style={styles.sectionSubtitle}>No suppliers yet</Text>
-          <Text style={[styles.sectionSubtitle, { marginTop: 8, fontSize: 14, color: '#666' }]}>
-            Add suppliers manually or they will be added automatically when you upload documents.
-          </Text>
-        </View>
-      ) : (
-          <FlatList
-            data={suppliers}
-            keyExtractor={i => i.id}
-            renderItem={({ item }) => (
-              <View style={[styles.productItem, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
-                <TouchableOpacity
-                  onPress={() => startEdit(item)}
-                  style={{ flex: 1 }}
-                >
-                  <Text style={styles.productName}>{item.name}</Text>
-                  <Text style={styles.productEmail}>{item.email}</Text>
-                </TouchableOpacity>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TouchableOpacity
-                    onPress={() => startEdit(item)}
-                    style={{ padding: 8 }}
-                  >
-                    <Ionicons name="pencil" size={20} color="#6B7F6B" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => handleDeleteSupplier(item)}
-                    style={{ padding: 8 }}
-                  >
-                    <Ionicons name="trash" size={20} color="#DC3545" />
-                  </TouchableOpacity>
-                </View>
-              </View>
+            {editing && (
+              <TouchableOpacity
+                onPress={cancel}
+                style={styles.cancelButton}
+              >
+                <Text style={styles.cancelButtonText}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
             )}
-            scrollEnabled={false}
-          />
-        )}
+          </View>
+
+          <View style={{
+            paddingHorizontal: 16,
+            paddingTop: 24,
+            paddingBottom: 8,
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{
+                  width: 4,
+                  height: 20,
+                  backgroundColor: colors.brand.primary,
+                  borderRadius: 2,
+                  marginRight: 10,
+                }} />
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '700',
+                  color: colors.brand.primary,
+                  letterSpacing: 1,
+                  textTransform: 'uppercase',
+                }}>
+                  Your Suppliers
+                </Text>
+              </View>
+              <View style={{
+                backgroundColor: colors.cypress.pale,
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: 12,
+              }}>
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '700',
+                  color: colors.cypress.deep,
+                }}>
+                  {suppliers.length}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {loading ? (
+            <View style={{ padding: 40, alignItems: 'center' }}>
+              <Text style={{ color: colors.neutral.medium, fontSize: 14 }}>Loading suppliers...</Text>
+            </View>
+          ) : suppliers.length === 0 ? (
+            <View style={{ 
+              padding: 40, 
+              alignItems: 'center',
+              backgroundColor: colors.cypress.pale,
+              marginHorizontal: 16,
+              borderRadius: 12,
+              marginTop: 8,
+            }}>
+              <Ionicons name="people-outline" size={48} color={colors.neutral.medium} />
+              <Text style={{ 
+                color: colors.neutral.dark, 
+                fontSize: 16, 
+                fontWeight: '600',
+                marginTop: 12,
+              }}>
+                No suppliers yet
+              </Text>
+              <Text style={{ 
+                color: colors.neutral.medium, 
+                fontSize: 14, 
+                textAlign: 'center',
+                marginTop: 6,
+                paddingHorizontal: 20,
+              }}>
+                Add suppliers manually or they will be added automatically when you upload documents.
+              </Text>
+            </View>
+          ) : (
+            <View style={{
+              backgroundColor: colors.neutral.lightest,
+              marginHorizontal: 16,
+              borderRadius: 12,
+              marginTop: 8,
+              overflow: 'hidden',
+              borderWidth: 1,
+              borderColor: colors.neutral.light,
+            }}>
+              <FlatList
+                data={suppliers}
+                keyExtractor={i => i.id}
+                renderItem={renderSupplierItem}
+                scrollEnabled={false}
+              />
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Alert Modal */}
+      <AlertModal
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        actions={alert.actions}
+        onClose={hideAlert}
+      />
     </SafeAreaView>
   );
 }
-

@@ -28,6 +28,14 @@ Context references: `README.md` (MVP scope), `restcok-app.md` (category + comps)
    - **Work**: ✅ Validation added. ✅ Persistence fixed. ✅ UI polished (Back button outside scroll, centered layout).
    - **Status**: ✅ Completed.
 
+5. **✅ Backend API URLs Verified** - COMPLETE
+   - **Why**: Workers.dev URLs must match deployed endpoints.
+   - **Work**: Verified URLs in `lib/api/parseDoc.ts` and `lib/api/sendEmail.ts` match Cloudflare dashboard.
+   - **URLs**:
+     - `https://restock-parse-doc.parse-doc.workers.dev`
+     - `https://restock-send-email.parse-doc.workers.dev`
+   - **Status**: ✅ Verified correct.
+
 ### Moderate Priority
 
 1. **✅ Sessions Dashboard Enhancements** - COMPLETE
@@ -37,7 +45,7 @@ Context references: `README.md` (MVP scope), `restcok-app.md` (category + comps)
    - **Work**: ✅ Full-screen immersive images. ✅ Modern text overlays. ✅ Smooth transition to Setup.
    - **Status**: ✅ Completed.
 
-3. **Settings → “Reset All Data” Confirmation Flow**
+3. **Settings → "Reset All Data" Confirmation Flow**
    - **Status**: ✅ Basic reset flow implemented in Settings.
 
 4. **Unit Tests for Stores + Hooks**
@@ -75,10 +83,67 @@ Context references: `README.md` (MVP scope), `restcok-app.md` (category + comps)
 4. **✅ CI/CD for Workers (Testing + Deploy Scripts)** - COMPLETE
    - **Status**: ✅ Complete.
 
+5. **✅ Production Deployment Verification** - COMPLETE
+   - **Why**: Workers must be deployed with secrets before TestFlight.
+   - **Work**:
+     - [x] Deploy `parse-doc` worker → `https://restock-parse-doc.parse-doc.workers.dev`
+     - [x] Set parse-doc secret: `GROQ_API_KEY` (encrypted)
+     - [x] Deploy `send-email` worker → `https://restock-send-email.parse-doc.workers.dev`
+     - [x] Set send-email secret: `RESEND_API_KEY` (encrypted)
+     - [x] Verified client API URLs match deployed endpoints
+     - [ ] Smoke test both endpoints from curl/Postman (recommended before TestFlight)
+   - **Status**: ✅ Deployed and configured. Smoke test recommended.
+
 ### Moderate Priority
 
 1. **Error Telemetry + Logging Pipeline**
    - **Status**: ⚠️ Basic console logging implemented.
+
+---
+
+## TESTFLIGHT / EAS BUILD READINESS
+
+### High Priority
+
+1. **✅ Create app.json for EAS** - COMPLETE
+   - **Work**: Full Expo config with bundleIdentifier, icon, splash, plugins.
+   - **Status**: ✅ Created.
+
+2. **✅ Create eas.json build profiles** - COMPLETE
+   - **Work**: development (simulator), preview (internal), production (store) profiles.
+   - **Status**: ✅ Created.
+
+3. **✅ EAS Project Setup** - COMPLETE
+   - **Work**:
+     - [x] Run `npx eas-cli login` (authenticate with Expo)
+     - [x] Run `npx eas-cli init` (links project, gets projectId)
+     - [x] Update `app.json` extra.eas.projectId with actual ID (`855519b7-bda3-4211-ba09-dea4d811f30a`)
+     - [x] Run `npx eas-cli build:configure` (optional, validates setup)
+   - **Status**: ✅ Completed.
+
+4. **✅ Apple Developer Account Setup** - COMPLETE
+   - **Work**:
+     - [x] Verify Apple Developer Program membership is active
+     - [x] Create App ID in Apple Developer portal (if not auto-created by EAS)
+     - [x] Update `eas.json` submit section with appleId, ascAppId, appleTeamId
+   - **Status**: ✅ Completed.
+
+5. **🟡 TestFlight Build** - IN PROGRESS
+   - **Work**:
+     - [x] Run `npx expo prebuild` (regenerate native projects)
+     - [ ] Run `npx eas-cli build --platform ios --profile production`
+     - [ ] Submit to TestFlight: `npx eas-cli submit --platform ios`
+     - [ ] Add internal testers in App Store Connect
+   - **Status**: ⚠️ Prebuild running, TestFlight build next.
+
+6. **🟡 UI Polish: Oh Cypress Theme** - IN PROGRESS
+   - **Work**:
+     - [x] Create `docs/theme.md` with design system documentation
+     - [ ] Add `cypress` token group to color files
+     - [ ] Update supplier headers to use deep olive
+     - [ ] Update empty states to use pale/frost tones
+     - [ ] Audit all screens for consistent token usage
+   - **Status**: ⚠️ Theme documented, implementation pending.
 
 ---
 
@@ -126,3 +191,57 @@ Context references: `README.md` (MVP scope), `restcok-app.md` (category + comps)
 - **Initial Plan**: Standard `router.push` / `router.back`.
 - **Reality**: Deleting a session left the user in a state where "Back" went to the deleted session.
 - **Fix**: Implemented `router.dismissAll()` + `router.replace('/')` for "destructive" or "completing" actions to ensure a clean stack.
+
+---
+
+## 🔧 BACKEND PRODUCTION SETUP
+
+### Wrangler Configuration
+Both workers are configured correctly. No changes needed to `wrangler.toml` files for production.
+
+**parse-doc/wrangler.toml:**
+- Name: `restock-parse-doc`
+- Compatibility flags: `nodejs_compat` (required for PDF/image processing)
+- Secrets: `GROQ_API_KEY` (set via `wrangler secret put`)
+
+**send-email/wrangler.toml:**
+- Name: `restock-send-email`
+- Vars: `EMAIL_FROM_ADDRESS`, `EMAIL_PROVIDER_URL` (non-sensitive, in toml)
+- Secrets: `RESEND_API_KEY` (set via `wrangler secret put`)
+
+### Deployment Checklist
+```bash
+# 1. Deploy parse-doc
+cd backend/parse-doc
+wrangler deploy
+# Note the URL: https://restock-parse-doc.<subdomain>.workers.dev
+
+# 2. Set GROQ secret
+wrangler secret put GROQ_API_KEY
+# Paste your Groq API key when prompted
+
+# 3. Deploy send-email
+cd ../send-email
+wrangler deploy
+# Note the URL: https://restock-send-email.<subdomain>.workers.dev
+
+# 4. Set RESEND secret
+wrangler secret put RESEND_API_KEY
+# Paste your Resend API key when prompted
+
+# 5. Smoke test
+curl -X POST https://restock-parse-doc.<subdomain>.workers.dev \
+  -F "type=images" \
+  -F "images=@test-image.jpg"
+
+curl -X POST https://restock-send-email.<subdomain>.workers.dev \
+  -H "Content-Type: application/json" \
+  -d '{"to":"test@example.com","replyTo":"you@example.com","subject":"Test","text":"Hello"}'
+```
+
+### URL Configuration
+After deployment, update the client files:
+- `restock/lib/api/parseDoc.ts` line 22
+- `restock/lib/api/sendEmail.ts` line 75
+
+Replace the placeholder URLs with actual deployed worker URLs.

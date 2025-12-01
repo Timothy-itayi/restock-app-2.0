@@ -5,9 +5,9 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  SafeAreaView
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +15,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useThemedStyles } from '@styles/useThemedStyles';
 import { getSettingsStyles } from '@styles/components/settings';
 import { useSafeTheme } from '../../lib/store/useThemeStore';
+import colors from '../../lib/theme/colors';
+import { ResetConfirmationModal } from '../../components/ResetConfirmationModal';
+import { AlertModal } from '../../components/AlertModal';
+import { useAlert } from '../../lib/hooks/useAlert';
 
 import {
   useSenderProfileStore,
@@ -24,6 +28,7 @@ import {
 export default function SettingsScreen() {
   const styles = useThemedStyles(getSettingsStyles);
   const { theme } = useSafeTheme();
+  const { alert, hideAlert, showError, showSuccess, showWarning } = useAlert();
 
   const senderProfile = useSenderProfileStore((s) => s.senderProfile);
   const updateProfile = useSenderProfileStore((s) => s.updateProfile);
@@ -46,6 +51,7 @@ export default function SettingsScreen() {
 
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showResetModal, setShowResetModal] = useState(false);
 
   // Check if form has unsaved changes
   const hasUnsavedChanges = 
@@ -53,9 +59,6 @@ export default function SettingsScreen() {
     form.email !== originalForm.email ||
     form.storeName !== originalForm.storeName;
 
-  //----------------------------------------------------------------------
-  // HYDRATE AND SYNC FORM
-  //----------------------------------------------------------------------
   useEffect(() => {
     if (!isHydrated) {
       loadProfileFromStorage();
@@ -64,7 +67,6 @@ export default function SettingsScreen() {
 
     setLoading(false);
 
-    // Sync form with profile whenever profile changes
     if (senderProfile) {
       const newForm = {
         name: senderProfile.name || '',
@@ -72,36 +74,25 @@ export default function SettingsScreen() {
         storeName: senderProfile.storeName ?? ''
       };
       setForm(newForm);
-      setOriginalForm(newForm); // Track original values
+      setOriginalForm(newForm);
     } else {
-      // If no profile, initialize with empty form
-      const emptyForm = {
-        name: '',
-        email: '',
-        storeName: ''
-      };
+      const emptyForm = { name: '', email: '', storeName: '' };
       setForm(emptyForm);
       setOriginalForm(emptyForm);
     }
   }, [isHydrated, senderProfile, loadProfileFromStorage]);
 
-  //----------------------------------------------------------------------
-  // VALIDATION
-  //----------------------------------------------------------------------
   const isValidEmail = (email: string) =>
     email.includes('@') && email.trim().length > 2;
 
-  //----------------------------------------------------------------------
-  // SAVE ACTION
-  //----------------------------------------------------------------------
   const handleSave = async () => {
     if (!form.name.trim() || !form.email.trim() || !form.storeName.trim()) {
-      Alert.alert('Missing fields', 'Name, email, and store name are required.');
+      showWarning('Missing Fields', 'Name, email, and store name are required.');
       return;
     }
 
     if (!isValidEmail(form.email)) {
-      Alert.alert('Invalid email', 'Please provide a valid email address.');
+      showError('Invalid Email', 'Please provide a valid email address.');
       return;
     }
 
@@ -113,263 +104,431 @@ export default function SettingsScreen() {
 
     await saveProfileToStorage();
 
-    // Update original form to reflect saved state
     setOriginalForm({
       name: form.name.trim(),
       email: form.email.trim(),
       storeName: form.storeName.trim() || ''
     });
 
-    Alert.alert('Saved', 'Your profile has been updated.');
+    showSuccess('Profile Saved', 'Your profile has been updated.');
   };
 
-  //----------------------------------------------------------------------
-  // RESET ALL - Multi-step confirmation
-  //----------------------------------------------------------------------
-  const handleReset = async () => {
-    // Step 1: Initial warning
-    Alert.alert(
-      'Reset All Data',
-      'This will permanently delete:\n\n• All sessions\n• All suppliers\n• All products\n• Your sender profile\n\nThis action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Continue',
-          style: 'destructive',
-          onPress: () => {
-            // Step 2: Final confirmation
-            Alert.alert(
-              'Final Confirmation',
-              'Type "RESET" to confirm you want to delete all data.',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Confirm Reset',
-                  style: 'destructive',
-                  onPress: async () => {
-                    try {
-                      await AsyncStorage.clear();
-                      useSenderProfileStore.getState().clearProfile();
-                      Alert.alert(
-                        'Reset Complete',
-                        'All data has been cleared. You will be redirected to setup.',
-                        [
-                          {
-                            text: 'OK',
-                            onPress: () => router.replace('/auth/sender-setup')
-                          }
-                        ]
-                      );
-                    } catch (error) {
-                      Alert.alert(
-                        'Reset Failed',
-                        'An error occurred while resetting data. Please try again.'
-                      );
-                    }
-                  }
-                }
-              ]
-            );
-          }
-        }
-      ]
-    );
+  const handleResetConfirm = async () => {
+    setShowResetModal(false);
+    try {
+      await AsyncStorage.clear();
+      useSenderProfileStore.getState().clearProfile();
+      router.replace('/auth/sender-setup');
+    } catch (error) {
+      showError('Reset Failed', 'An error occurred while resetting data. Please try again.');
+    }
   };
 
-  //----------------------------------------------------------------------
-  // UI
-  //----------------------------------------------------------------------
   if (loading) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.headerSubtitle}>Loading...</Text>
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.neutral.lighter }}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ color: colors.neutral.medium, fontSize: 14 }}>Loading...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={{ flex: 1 }}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-    >
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.neutral.lighter }}>
       {/* Sticky Header */}
-      <View style={styles.stickyHeader}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={theme.neutral.darkest} />
+      <View style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: colors.neutral.lighter,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.neutral.light,
+      }}>
+        <TouchableOpacity onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
+          <Ionicons name="chevron-back" size={24} color={colors.neutral.darkest} />
         </TouchableOpacity>
-        <Text style={styles.stickyHeaderTitle}>Settings</Text>
+        <Text style={{
+          fontSize: 20,
+          fontWeight: '700',
+          color: colors.neutral.darkest,
+        }}>Settings</Text>
       </View>
 
-      <ScrollView 
-        style={styles.container}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 40 }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={true}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        {/* Sender Identity Preview */}
-        {senderProfile && !hasUnsavedChanges && (
-          <View style={styles.previewContainer}>
-            <View style={styles.previewHeader}>
-              <Ionicons name="person-circle" size={20} color={theme.brand.primary} />
-              <Text style={styles.previewTitle}>Current Sender Identity</Text>
+        <ScrollView 
+          contentContainerStyle={{ paddingBottom: 40 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Current Identity Section */}
+          {senderProfile && !hasUnsavedChanges && (
+            <>
+              <View style={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{
+                    width: 4,
+                    height: 20,
+                    backgroundColor: colors.brand.primary,
+                    borderRadius: 2,
+                    marginRight: 10,
+                  }} />
+                  <Ionicons name="person-circle-outline" size={16} color={colors.brand.primary} style={{ marginRight: 6 }} />
+                  <Text style={{
+                    fontSize: 12,
+                    fontWeight: '700',
+                    color: colors.brand.primary,
+                    letterSpacing: 1,
+                    textTransform: 'uppercase',
+                  }}>
+                    Current Identity
+                  </Text>
+                </View>
+              </View>
+
+              <View style={{
+                backgroundColor: colors.neutral.lightest,
+                marginHorizontal: 16,
+                borderRadius: 12,
+                overflow: 'hidden',
+                borderWidth: 1,
+                borderColor: colors.neutral.light,
+              }}>
+                {/* Name */}
+                <View style={{ paddingVertical: 14, paddingHorizontal: 16 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                    <Ionicons name="person-outline" size={14} color={colors.neutral.medium} style={{ marginRight: 6 }} />
+                    <Text style={{ fontSize: 11, color: colors.neutral.medium, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      Name
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: colors.neutral.darkest, marginLeft: 20 }}>
+                    {senderProfile.name || 'Not set'}
+                  </Text>
+                </View>
+                <View style={{ height: 1, backgroundColor: colors.neutral.light, marginHorizontal: 16 }} />
+
+                {/* Email */}
+                <View style={{ paddingVertical: 14, paddingHorizontal: 16 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                    <Ionicons name="mail-outline" size={14} color={colors.neutral.medium} style={{ marginRight: 6 }} />
+                    <Text style={{ fontSize: 11, color: colors.neutral.medium, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      Email
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: colors.neutral.darkest, marginLeft: 20 }}>
+                    {senderProfile.email || 'Not set'}
+                  </Text>
+                </View>
+                <View style={{ height: 1, backgroundColor: colors.neutral.light, marginHorizontal: 16 }} />
+
+                {/* Store */}
+                <View style={{ paddingVertical: 14, paddingHorizontal: 16 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                    <Ionicons name="storefront-outline" size={14} color={colors.neutral.medium} style={{ marginRight: 6 }} />
+                    <Text style={{ fontSize: 11, color: colors.neutral.medium, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      Store
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: colors.neutral.darkest, marginLeft: 20 }}>
+                    {senderProfile.storeName || 'Not set'}
+                  </Text>
+                </View>
+              </View>
+            </>
+          )}
+
+          {/* Unsaved Changes Banner */}
+          {hasUnsavedChanges && (
+            <View style={{
+              marginHorizontal: 16,
+              marginTop: 16,
+              padding: 12,
+              backgroundColor: colors.analytics.clay + '30',
+              borderRadius: 8,
+              flexDirection: 'row',
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: colors.analytics.clay,
+            }}>
+              <Ionicons name="alert-circle" size={18} color={colors.analytics.olive} style={{ marginRight: 8 }} />
+              <Text style={{ fontSize: 13, color: colors.analytics.olive, fontWeight: '600' }}>
+                You have unsaved changes
+              </Text>
             </View>
-            <View style={styles.previewContent}>
-              <Text style={styles.previewLabel}>Name:</Text>
-              <Text style={styles.previewValue}>{senderProfile.name || 'Not set'}</Text>
-            </View>
-            <View style={styles.previewContent}>
-              <Text style={styles.previewLabel}>Email:</Text>
-              <Text style={styles.previewValue}>{senderProfile.email || 'Not set'}</Text>
-            </View>
-            <View style={styles.previewContent}>
-              <Text style={styles.previewLabel}>Store:</Text>
-              <Text style={styles.previewValue}>{senderProfile.storeName || 'Not set'}</Text>
+          )}
+
+          {/* Edit Profile Section */}
+          <View style={{ paddingHorizontal: 16, paddingTop: 24, paddingBottom: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{
+                width: 4,
+                height: 20,
+                backgroundColor: colors.cypress.deep,
+                borderRadius: 2,
+                marginRight: 10,
+              }} />
+              <Ionicons name="create-outline" size={16} color={colors.cypress.deep} style={{ marginRight: 6 }} />
+              <Text style={{
+                fontSize: 12,
+                fontWeight: '700',
+                color: colors.cypress.deep,
+                letterSpacing: 1,
+                textTransform: 'uppercase',
+              }}>
+                Edit Profile
+              </Text>
             </View>
           </View>
-        )}
 
-        {/* Unsaved Changes Indicator */}
-        {hasUnsavedChanges && (
-          <View style={styles.unsavedChangesBanner}>
-            <Ionicons name="information-circle" size={20} color={theme.status.warning} />
-            <Text style={styles.unsavedChangesText}>
-              You have unsaved changes
+          <View style={{
+            backgroundColor: colors.neutral.lightest,
+            marginHorizontal: 16,
+            borderRadius: 12,
+            overflow: 'hidden',
+            borderWidth: 1,
+            borderColor: colors.neutral.light,
+          }}>
+            {/* Name Input */}
+            <View style={{ paddingVertical: 12, paddingHorizontal: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '600',
+                  color: colors.neutral.dark,
+                  letterSpacing: 0.5,
+                }}>
+                  Name
+                </Text>
+                {form.name !== originalForm.name && (
+                  <View style={{
+                    backgroundColor: colors.cypress.pale,
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 4,
+                  }}>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: colors.cypress.deep }}>MODIFIED</Text>
+                  </View>
+                )}
+              </View>
+              <TextInput
+                style={{
+                  backgroundColor: colors.neutral.lighter,
+                  paddingVertical: 12,
+                  paddingHorizontal: 14,
+                  borderRadius: 8,
+                  fontSize: 16,
+                  color: colors.neutral.darkest,
+                  borderWidth: focusedField === 'name' ? 2 : 1,
+                  borderColor: focusedField === 'name' ? colors.brand.primary : colors.neutral.light,
+                }}
+                value={form.name}
+                onChangeText={(v) => setForm({ ...form, name: v })}
+                onFocus={() => setFocusedField('name')}
+                onBlur={() => setFocusedField(null)}
+                placeholder="Your name"
+                placeholderTextColor={colors.neutral.medium}
+              />
+            </View>
+            <View style={{ height: 1, backgroundColor: colors.neutral.light, marginHorizontal: 16 }} />
+
+            {/* Email Input */}
+            <View style={{ paddingVertical: 12, paddingHorizontal: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '600',
+                  color: colors.neutral.dark,
+                  letterSpacing: 0.5,
+                }}>
+                  Email
+                </Text>
+                {form.email !== originalForm.email && (
+                  <View style={{
+                    backgroundColor: colors.cypress.pale,
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 4,
+                  }}>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: colors.cypress.deep }}>MODIFIED</Text>
+                  </View>
+                )}
+              </View>
+              <TextInput
+                style={{
+                  backgroundColor: colors.neutral.lighter,
+                  paddingVertical: 12,
+                  paddingHorizontal: 14,
+                  borderRadius: 8,
+                  fontSize: 16,
+                  color: colors.neutral.darkest,
+                  borderWidth: focusedField === 'email' ? 2 : 1,
+                  borderColor: focusedField === 'email' ? colors.brand.primary : colors.neutral.light,
+                }}
+                value={form.email}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                onChangeText={(v) => setForm({ ...form, email: v })}
+                onFocus={() => setFocusedField('email')}
+                onBlur={() => setFocusedField(null)}
+                placeholder="your@email.com"
+                placeholderTextColor={colors.neutral.medium}
+              />
+            </View>
+            <View style={{ height: 1, backgroundColor: colors.neutral.light, marginHorizontal: 16 }} />
+
+            {/* Store Name Input */}
+            <View style={{ paddingVertical: 12, paddingHorizontal: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '600',
+                  color: colors.neutral.dark,
+                  letterSpacing: 0.5,
+                }}>
+                  Store Name
+                </Text>
+                {form.storeName !== originalForm.storeName && (
+                  <View style={{
+                    backgroundColor: colors.cypress.pale,
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 4,
+                  }}>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: colors.cypress.deep }}>MODIFIED</Text>
+                  </View>
+                )}
+              </View>
+              <TextInput
+                style={{
+                  backgroundColor: colors.neutral.lighter,
+                  paddingVertical: 12,
+                  paddingHorizontal: 14,
+                  borderRadius: 8,
+                  fontSize: 16,
+                  color: colors.neutral.darkest,
+                  borderWidth: focusedField === 'storeName' ? 2 : 1,
+                  borderColor: focusedField === 'storeName' ? colors.brand.primary : colors.neutral.light,
+                }}
+                value={form.storeName}
+                onChangeText={(v) => setForm({ ...form, storeName: v })}
+                onFocus={() => setFocusedField('storeName')}
+                onBlur={() => setFocusedField(null)}
+                placeholder="Your store name"
+                placeholderTextColor={colors.neutral.medium}
+              />
+            </View>
+          </View>
+
+          {/* Actions Section */}
+          <View style={{ paddingHorizontal: 16, paddingTop: 24, paddingBottom: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{
+                width: 4,
+                height: 20,
+                backgroundColor: colors.neutral.medium,
+                borderRadius: 2,
+                marginRight: 10,
+              }} />
+              <Ionicons name="settings-outline" size={16} color={colors.neutral.medium} style={{ marginRight: 6 }} />
+              <Text style={{
+                fontSize: 12,
+                fontWeight: '700',
+                color: colors.neutral.medium,
+                letterSpacing: 1,
+                textTransform: 'uppercase',
+              }}>
+                Actions
+              </Text>
+            </View>
+          </View>
+
+          <View style={{ paddingHorizontal: 16 }}>
+            {/* Save Button */}
+            <TouchableOpacity 
+              style={{
+                backgroundColor: hasUnsavedChanges ? colors.brand.primary : colors.cypress.soft,
+                paddingVertical: 16,
+                borderRadius: 12,
+                alignItems: 'center',
+                flexDirection: 'row',
+                justifyContent: 'center',
+                opacity: hasUnsavedChanges ? 1 : 0.7,
+              }} 
+              onPress={handleSave}
+              disabled={!hasUnsavedChanges}
+            >
+              <Ionicons 
+                name={hasUnsavedChanges ? "checkmark-circle" : "ellipse-outline"} 
+                size={20} 
+                color="#fff" 
+                style={{ marginRight: 8 }} 
+              />
+              <Text style={{
+                color: '#fff',
+                fontSize: 16,
+                fontWeight: '700',
+              }}>
+                {hasUnsavedChanges ? 'Save Changes' : 'No Changes'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Reset Button */}
+            <TouchableOpacity 
+              style={{
+                backgroundColor: colors.neutral.lightest,
+                paddingVertical: 16,
+                borderRadius: 12,
+                alignItems: 'center',
+                flexDirection: 'row',
+                justifyContent: 'center',
+                marginTop: 12,
+                borderWidth: 1,
+                borderColor: colors.status.error,
+              }} 
+              onPress={() => setShowResetModal(true)}
+            >
+              <Ionicons name="trash-outline" size={20} color={colors.status.error} style={{ marginRight: 8 }} />
+              <Text style={{
+                color: colors.status.error,
+                fontSize: 16,
+                fontWeight: '600',
+              }}>
+                Reset All Data
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* App Info */}
+          <View style={{ paddingHorizontal: 16, paddingTop: 32, alignItems: 'center' }}>
+            <Text style={{ fontSize: 12, color: colors.neutral.medium }}>
+              Restock App v1.0.0
             </Text>
           </View>
-        )}
+        </ScrollView>
+      </KeyboardAvoidingView>
 
-      <View style={styles.formContainer}>
-        <View style={styles.settingsSection}>
-        {/* NAME */}
-        <View style={[
-          styles.settingItem,
-          focusedField === 'name' ? styles.formFieldContainerEditing : styles.formFieldContainer
-        ]}>
-          <View style={styles.formFieldLabelRow}>
-            <Text style={styles.formFieldLabel}>Name</Text>
-            {focusedField === 'name' && (
-              <View style={styles.editingBadge}>
-                <Text style={styles.editingBadgeText}>EDITING</Text>
-              </View>
-            )}
-            {form.name !== originalForm.name && (
-              <Ionicons 
-                name="pencil" 
-                size={16} 
-                color={theme.brand.primary} 
-                style={styles.modifiedIndicator} 
-              />
-            )}
-          </View>
-          <TextInput
-            style={[
-              styles.formFieldInput,
-              focusedField === 'name' && styles.formFieldInputEditing
-            ]}
-            value={form.name}
-            onChangeText={(v) => setForm({ ...form, name: v })}
-            onFocus={() => setFocusedField('name')}
-            onBlur={() => setFocusedField(null)}
-            placeholder="Your Name"
-            placeholderTextColor={styles.settingDescription.color}
-          />
-        </View>
+      {/* Reset Confirmation Modal */}
+      <ResetConfirmationModal
+        visible={showResetModal}
+        onConfirm={handleResetConfirm}
+        onCancel={() => setShowResetModal(false)}
+      />
 
-        {/* EMAIL */}
-        <View style={[
-          styles.settingItem,
-          focusedField === 'email' ? styles.formFieldContainerEditing : styles.formFieldContainer
-        ]}>
-          <View style={styles.formFieldLabelRow}>
-            <Text style={styles.formFieldLabel}>Email</Text>
-            {focusedField === 'email' && (
-              <View style={styles.editingBadge}>
-                <Text style={styles.editingBadgeText}>EDITING</Text>
-              </View>
-            )}
-            {form.email !== originalForm.email && (
-              <Ionicons 
-                name="pencil" 
-                size={16} 
-                color={theme.brand.primary} 
-                style={styles.modifiedIndicator} 
-              />
-            )}
-          </View>
-          <TextInput
-            style={[
-              styles.formFieldInput,
-              focusedField === 'email' && styles.formFieldInputEditing
-            ]}
-            value={form.email}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            onChangeText={(v) => setForm({ ...form, email: v })}
-            onFocus={() => setFocusedField('email')}
-            onBlur={() => setFocusedField(null)}
-            placeholder="Email Address"
-            placeholderTextColor={styles.settingDescription.color}
-          />
-        </View>
-
-        {/* STORE NAME */}
-        <View style={[
-          styles.settingItem,
-          focusedField === 'storeName' ? styles.formFieldContainerEditing : styles.formFieldContainer,
-          { borderBottomWidth: 0 }
-        ]}>
-          <View style={styles.formFieldLabelRow}>
-            <Text style={styles.formFieldLabel}>Store Name</Text>
-            {focusedField === 'storeName' && (
-              <View style={styles.editingBadge}>
-                <Text style={styles.editingBadgeText}>EDITING</Text>
-              </View>
-            )}
-            {form.storeName !== originalForm.storeName && (
-              <Ionicons 
-                name="pencil" 
-                size={16} 
-                color={theme.brand.primary} 
-                style={styles.modifiedIndicator} 
-              />
-            )}
-          </View>
-          <TextInput
-            style={[
-              styles.formFieldInput,
-              focusedField === 'storeName' && styles.formFieldInputEditing
-            ]}
-            value={form.storeName}
-            onChangeText={(v) => setForm({ ...form, storeName: v })}
-            onFocus={() => setFocusedField('storeName')}
-            onBlur={() => setFocusedField(null)}
-            placeholder="Store Name"
-            placeholderTextColor={styles.settingDescription.color}
-          />
-        </View>
-      </View>
-      </View>
-
-      <View style={styles.actionsContainer}>
-      <TouchableOpacity 
-        style={[
-          styles.saveButton, 
-          !hasUnsavedChanges && { opacity: 0.5 }
-        ]} 
-        onPress={handleSave}
-        disabled={!hasUnsavedChanges}
-      >
-        <Text style={styles.saveButtonText}>
-          {hasUnsavedChanges ? 'Save Changes' : 'No Changes'}
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
-        <Text style={styles.resetButtonText}>Reset All Data</Text>
-      </TouchableOpacity>
-      </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      {/* Alert Modal */}
+      <AlertModal
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        actions={alert.actions}
+        onClose={hideAlert}
+      />
+    </SafeAreaView>
   );
 }

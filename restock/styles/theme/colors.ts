@@ -6,6 +6,13 @@ const light = {
     secondary: '#a3a695',
     accent: '#e2ad5d',
   },
+  cypress: {
+    deep: '#545b32',      // Supplier headers, emphasis
+    muted: '#687a4e',     // Secondary buttons
+    soft: '#acc9a0',      // Selected items, highlights
+    pale: '#c1ebd5',      // Empty state backgrounds
+    frost: '#ddfffb',     // Lightest overlays
+  },
   neutral: {
     lightest: '#ffffff',
     lighter: '#f0eee4',
@@ -28,14 +35,13 @@ const light = {
     active: '#6d9f72',
     inactive: '#DEE2E6',
   },
-    // NEW: Analytics palette
-    analytics: {
-      mint: '#8BBF9F',
-      sage: '#BAC8A5',
-      olive: '#9A8F54',
-      clay: '#D8C4A1',
-      moss: '#5E745E',
-    },
+  analytics: {
+    mint: '#8BBF9F',
+    sage: '#BAC8A5',
+    olive: '#9A8F54',
+    clay: '#D8C4A1',
+    moss: '#5E745E',
+  },
 } as const;
 
 const dark = {
@@ -44,8 +50,13 @@ const dark = {
     secondary: '#b6c2a1',
     accent: '#f2c46d',
   },
-
-  
+  cypress: {
+    deep: '#a8b87a',      // Lifted olive for dark bg visibility
+    muted: '#8fa878',     // Lifted muted green
+    soft: '#3d4a38',      // Darkened for selection on dark bg
+    pale: '#2a3328',      // Dark surface with green tint
+    frost: '#1f2a24',     // Darkest overlay with subtle green
+  },
   neutral: {
     lightest: '#1a1a1a',
     lighter: '#222522',
@@ -68,14 +79,13 @@ const dark = {
     active: '#8fcca0',
     inactive: '#555a52',
   },
-    // NEW: Analytics palette
-    analytics: {
-      mint: '#A9E3C1',
-      sage: '#D4E2BF',
-      olive: '#C7B878',
-      clay: '#E8D8BA',
-      moss: '#7FA486',
-    },
+  analytics: {
+    mint: '#A9E3C1',
+    sage: '#D4E2BF',
+    olive: '#C7B878',
+    clay: '#E8D8BA',
+    moss: '#7FA486',
+  },
 } as const;
 
 // Backward-compatible default export that exposes light at the top-level
@@ -86,5 +96,3 @@ export type AppColors = typeof light;
 export type ThemeModes = { light: typeof light; dark: typeof dark };
 export { light, dark };
 export default colors;
-
-

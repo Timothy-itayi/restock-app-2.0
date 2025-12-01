@@ -288,7 +288,7 @@ ${senderProfile?.name || 'Customer'}`;
       <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 }}>
         <TouchableOpacity
           style={[sessionStyles.secondaryButton, { marginBottom: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
-          onPress={() => router.push(`/sessions/${id}`)}
+          onPress={() => router.back()}
         >
           <Ionicons name="create-outline" size={18} color="#666" style={{ marginRight: 8 }} />
           <Text style={sessionStyles.secondaryButtonText}>Edit Products</Text>
