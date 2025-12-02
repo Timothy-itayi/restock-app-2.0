@@ -2,7 +2,7 @@
   "expo": {
     "name": "Restock",
     "slug": "restock",
-    "version": "2.0.0",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/restock-icon-adjusted.png",
     "scheme": "restock",
@@ -19,7 +19,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.timothy-itayi.restock",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "infoPlist": {
         "NSCameraUsageDescription": "Restock needs camera access to photograph inventory catalogs for parsing.",
         "NSPhotoLibraryUsageDescription": "Restock needs photo library access to select catalog images for parsing.",
