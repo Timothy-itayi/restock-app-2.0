@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, ActivityIndicator } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useThemedStyles } from '../../../styles/useThemedStyles';
@@ -23,6 +23,7 @@ import { SuccessModal } from '../../../components/emails/SuccessModal';
 import { EmailDetailModal } from '../../../components/emails/EmailEditModal';
 import { Toast } from '../../../components/Toast';
 import { useToast } from '../../../lib/hooks/useToast';
+import { useSessionNavigation } from '../../../lib/hooks/useSessionNavigation';
 
 export default function EmailPreviewScreen() {
   const styles = useThemedStyles(getEmailsStyles);
@@ -42,14 +43,14 @@ export default function EmailPreviewScreen() {
   const [sending, setSending] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const { toast, showError, hideToast } = useToast();
+  const { goToSessionList, goBack } = useSessionNavigation();
 
   // Handle session deletion - navigate away if session is deleted
   useEffect(() => {
     if (!session && id) {
-      // Session was deleted, navigate back to sessions list
-      router.replace('/sessions');
+      goToSessionList();
     }
-  }, [session, id]);
+  }, [session, id, goToSessionList]);
 
   // Build supplier → items grouping using centralized utility
   const emailDrafts = useMemo(() => {
@@ -108,7 +109,7 @@ ${senderProfile?.name || 'Customer'}`;
     return (
       <SafeAreaView style={styles.container}>
         <View style={sessionStyles.stickyHeader}>
-          <TouchableOpacity onPress={() => router.back()} style={sessionStyles.stickyBackButton}>
+          <TouchableOpacity onPress={goBack} style={sessionStyles.stickyBackButton}>
             <Ionicons name="chevron-back" size={24} color="#333" />
           </TouchableOpacity>
           <Text style={sessionStyles.stickyHeaderTitle}>Email Preview</Text>
@@ -250,20 +251,15 @@ ${senderProfile?.name || 'Customer'}`;
 
   const handleSuccessClose = () => {
     setShowSuccess(false);
-    // Navigate to sessions list, clearing the stack to avoid "back" loop
-    router.dismissAll();
-    router.replace('/sessions');
+    goToSessionList();
   };
 
   // Handle back navigation - prevent going back after session is completed
   const handleBackPress = () => {
     if (session?.status === 'completed') {
-      // If session is completed, go to list
-      router.dismissAll();
-      router.replace('/sessions');
+      goToSessionList();
     } else {
-      // Normal back navigation
-      router.back();
+      goBack();
     }
   };
 
@@ -288,7 +284,7 @@ ${senderProfile?.name || 'Customer'}`;
       <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 }}>
         <TouchableOpacity
           style={[sessionStyles.secondaryButton, { marginBottom: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
-          onPress={() => router.back()}
+          onPress={goBack}
         >
           <Ionicons name="create-outline" size={18} color="#666" style={{ marginRight: 8 }} />
           <Text style={sessionStyles.secondaryButtonText}>Edit Products</Text>

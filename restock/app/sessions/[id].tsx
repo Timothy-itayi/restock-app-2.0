@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,28 +6,40 @@ import {
   FlatList,
   SafeAreaView
 } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemedStyles } from '@styles/useThemedStyles';
 import { getSessionsStyles } from '@styles/components/sessions';
-import { useSessionStore } from '../../store/useSessionStore';
+import { useSessionHydrated, useSessionStore } from '../../store/useSessionStore';
 import { useSupplierStore } from '../../store/useSupplierStore';
 import { groupBySupplier } from '../../lib/utils/groupBySupplier';
 import { AlertModal } from '../../components/AlertModal';
 import { useAlert } from '../../lib/hooks/useAlert';
+import { useSessionNavigation } from '../../lib/hooks/useSessionNavigation';
 
 export default function SessionDetailScreen() {
   const styles = useThemedStyles(getSessionsStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { alert, hideAlert, showError, showAlert } = useAlert();
+  const sessionNavigation = useSessionNavigation();
 
   const session = useSessionStore((s) =>
     s.sessions.find((sess) => sess.id === id)
   );
 
+  const isHydrated = useSessionHydrated();
+  const loadSessions = useSessionStore((s) => s.loadSessionsFromStorage);
   const suppliers = useSupplierStore((s) => s.suppliers);
   const deleteSession = useSessionStore((s) => s.deleteSession);
   const updateSession = useSessionStore((s) => s.updateSession);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      loadSessions().catch((error) =>
+        console.warn('Failed to hydrate sessions before detail screen', error)
+      );
+    }
+  }, [isHydrated, loadSessions]);
 
   // Group items by supplier
   const supplierGroups = useMemo(() => {
@@ -35,10 +47,18 @@ export default function SessionDetailScreen() {
     return groupBySupplier(session.items, suppliers);
   }, [session, suppliers]);
 
+  if (!isHydrated) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Text style={styles.emptyStateText}>Loading session...</Text>
+      </SafeAreaView>
+    );
+  }
+
   if (!session) {
     return (
       <SafeAreaView style={styles.container}>
-        <TouchableOpacity style={{ padding: 16 }} onPress={() => router.replace('/')}>
+        <TouchableOpacity style={{ padding: 16 }} onPress={sessionNavigation.goToDashboard}>
           <Ionicons name="chevron-back" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={styles.emptyStateText}>Session not found.</Text>
@@ -56,10 +76,7 @@ export default function SessionDetailScreen() {
   const handleComplete = () => {
     try {
       updateSession(session.id, { status: 'pendingEmails' });
-      router.push({
-        pathname: `/sessions/${session.id}/email-preview`,
-        params: { id: session.id }
-      });
+      sessionNavigation.openEmailPreview(session.id);
     } catch (err) {
       console.error('Failed finishing session', err);
       showError('Error', 'Could not proceed to email preview.');
@@ -67,10 +84,7 @@ export default function SessionDetailScreen() {
   };
 
   const handleViewEmailPreview = () => {
-    router.push({
-      pathname: `/sessions/${session.id}/email-preview`,
-      params: { id: session.id }
-    });
+    sessionNavigation.openEmailPreview(session.id);
   };
       
   const handleCancel = () => {
@@ -80,8 +94,7 @@ export default function SessionDetailScreen() {
         style: 'destructive',
         onPress: () => {
           updateSession(session.id, { status: 'cancelled' });
-          router.dismissAll();
-          router.replace('/');
+          sessionNavigation.goToSessionList();
         }
       },
       { text: 'Keep Session', style: 'cancel' },
@@ -95,8 +108,7 @@ export default function SessionDetailScreen() {
         style: 'destructive',
         onPress: () => {
           deleteSession(session.id);
-          router.dismissAll();
-          router.replace('/');
+          sessionNavigation.goToSessionList();
         }
       },
       { text: 'Keep', style: 'cancel' },
@@ -111,7 +123,7 @@ export default function SessionDetailScreen() {
       ]}
       disabled={isLocked}
       onPress={() =>
-        router.push(`/sessions/${session.id}/edit-product/${item.id}`)
+        sessionNavigation.openEditProduct(session.id, item.id)
       }
     >
       <View style={{ flex: 1 }}>
@@ -173,7 +185,7 @@ export default function SessionDetailScreen() {
     <SafeAreaView style={styles.container}>
       {/* Sticky Header */}
       <View style={styles.stickyHeader}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.stickyBackButton}>
+        <TouchableOpacity onPress={sessionNavigation.goBack} style={styles.stickyBackButton}>
           <Ionicons name="chevron-back" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={styles.stickyHeaderTitle}>Session Details</Text>
@@ -232,7 +244,7 @@ export default function SessionDetailScreen() {
         {session.status === 'active' && (
           <TouchableOpacity 
             style={[styles.secondaryButton, { marginTop: 8, marginBottom: 0 }]} 
-            onPress={() => router.push(`/sessions/${session.id}/add-product`)}
+            onPress={() => sessionNavigation.openAddProduct(session.id)}
           >
             <Ionicons name="add-circle-outline" size={20} color="#6B7F6B" style={{ marginRight: 8 }} />
             <Text style={styles.secondaryButtonText}>Add More Products</Text>
@@ -248,7 +260,7 @@ export default function SessionDetailScreen() {
             <Text style={[styles.emptyStateText, { marginTop: 12 }]}>No items in this session yet.</Text>
             <TouchableOpacity 
               style={[styles.primaryButton, { marginTop: 16 }]} 
-              onPress={() => router.push(`/sessions/${session.id}/add-product`)}
+              onPress={() => sessionNavigation.openAddProduct(session.id)}
             >
               <Text style={styles.primaryButtonText}>Add First Product</Text>
             </TouchableOpacity>

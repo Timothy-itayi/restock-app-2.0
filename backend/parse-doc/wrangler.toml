@@ -19,5 +19,5 @@ compatibility_flags = ["nodejs_compat"]
 #
 # For custom domain (later):
 # [routes]
-# pattern = "https://restock.yourdomain.com/parse-doc"
+# pattern = "https://restock.restockapp.email.com/parse-doc"
 # zone_id = "<your-cloudflare-zone-id>"
