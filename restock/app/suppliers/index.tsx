@@ -114,91 +114,183 @@ export default function SuppliersScreen() {
     setEmail('');
   };
 
-  const renderSupplierItem = ({ item, index }: { item: Supplier; index: number }) => (
-    <View>
-      <View style={{
-        backgroundColor: colors.neutral.lightest,
-        paddingVertical: 16,
-        paddingHorizontal: 16,
-      }}>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <TouchableOpacity
-            onPress={() => startEdit(item)}
-            style={{ flex: 1 }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-              <Text style={{
-                fontSize: 10,
-                fontWeight: '700',
-                color: colors.cypress.deep,
-                letterSpacing: 1,
-                textTransform: 'uppercase',
-              }}>
-                Supplier
-              </Text>
-              <View style={{
-                width: 6,
-                height: 6,
-                borderRadius: 3,
-                backgroundColor: colors.cypress.muted,
-                marginLeft: 8,
-              }} />
-            </View>
-            
-            <Text style={{
-              fontSize: 18,
-              fontWeight: '700',
-              color: colors.neutral.darkest,
-              marginBottom: 6,
-            }}>
-              {item.name}
-            </Text>
-            
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Ionicons name="mail-outline" size={14} color={colors.neutral.medium} style={{ marginRight: 6 }} />
-              <Text style={{
-                fontSize: 14,
-                color: colors.neutral.medium,
-              }}>
-                {item.email || 'No email'}
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <TouchableOpacity
-              onPress={() => startEdit(item)}
-              style={{
-                padding: 10,
-                backgroundColor: colors.cypress.pale,
-                borderRadius: 8,
-              }}
-            >
-              <Ionicons name="pencil" size={18} color={colors.cypress.deep} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => handleDeleteSupplier(item)}
-              style={{
-                padding: 10,
-                backgroundColor: '#FEE2E2',
-                borderRadius: 8,
-              }}
-            >
-              <Ionicons name="trash" size={18} color={colors.status.error} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-      
-      {index < suppliers.length - 1 && (
+  const renderSupplierItem = ({ item, index }: { item: Supplier; index: number }) => {
+    const isEditing = editing?.id === item.id;
+    
+    return (
+      <View>
         <View style={{
-          height: 1,
-          backgroundColor: colors.neutral.light,
-          marginHorizontal: 16,
-        }} />
-      )}
-    </View>
-  );
+          backgroundColor: isEditing ? colors.cypress.pale : colors.neutral.lightest,
+          paddingVertical: 16,
+          paddingHorizontal: 16,
+        }}>
+          {isEditing ? (
+            // Inline edit form
+            <View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                <View style={{
+                  width: 4,
+                  height: 16,
+                  backgroundColor: colors.cypress.deep,
+                  borderRadius: 2,
+                  marginRight: 8,
+                }} />
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '700',
+                  color: colors.cypress.deep,
+                  letterSpacing: 1,
+                  textTransform: 'uppercase',
+                }}>
+                  Editing Supplier
+                </Text>
+              </View>
+
+              <View style={{ marginBottom: 12 }}>
+                <Text style={{
+                  fontSize: 11,
+                  fontWeight: '600',
+                  color: colors.neutral.dark,
+                  marginBottom: 4,
+                  letterSpacing: 0.5,
+                }}>
+                  Supplier Name
+                </Text>
+                <TextInput
+                  placeholder="Enter supplier name"
+                  placeholderTextColor={colors.neutral.medium}
+                  value={name}
+                  onChangeText={setName}
+                  style={[styles.textInput, { backgroundColor: colors.neutral.lightest }]}
+                />
+              </View>
+
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{
+                  fontSize: 11,
+                  fontWeight: '600',
+                  color: colors.neutral.dark,
+                  marginBottom: 4,
+                  letterSpacing: 0.5,
+                }}>
+                  Email Address
+                </Text>
+                <TextInput
+                  placeholder="Enter email address"
+                  placeholderTextColor={colors.neutral.medium}
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  style={[styles.textInput, { backgroundColor: colors.neutral.lightest }]}
+                />
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity
+                  onPress={saveSupplier}
+                  style={[styles.saveButton, { flex: 1, paddingVertical: 12 }]}
+                >
+                  <Text style={styles.saveButtonText}>Save Changes</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={cancel}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 12,
+                    backgroundColor: colors.neutral.lightest,
+                    borderRadius: 8,
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: colors.neutral.light,
+                  }}
+                >
+                  <Text style={{ color: colors.neutral.dark, fontWeight: '600', fontSize: 14 }}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            // View mode
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+              <TouchableOpacity
+                onPress={() => startEdit(item)}
+                style={{ flex: 1 }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                  <Text style={{
+                    fontSize: 10,
+                    fontWeight: '700',
+                    color: colors.cypress.deep,
+                    letterSpacing: 1,
+                    textTransform: 'uppercase',
+                  }}>
+                    Supplier
+                  </Text>
+                  <View style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: 3,
+                    backgroundColor: colors.cypress.muted,
+                    marginLeft: 8,
+                  }} />
+                </View>
+                
+                <Text style={{
+                  fontSize: 18,
+                  fontWeight: '700',
+                  color: colors.neutral.darkest,
+                  marginBottom: 6,
+                }}>
+                  {item.name}
+                </Text>
+                
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons name="mail-outline" size={14} color={colors.neutral.medium} style={{ marginRight: 6 }} />
+                  <Text style={{
+                    fontSize: 14,
+                    color: item.email ? colors.neutral.medium : colors.status.error,
+                  }}>
+                    {item.email || 'No email - tap to add'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <TouchableOpacity
+                  onPress={() => startEdit(item)}
+                  style={{
+                    padding: 10,
+                    backgroundColor: colors.cypress.pale,
+                    borderRadius: 8,
+                  }}
+                >
+                  <Ionicons name="pencil" size={18} color={colors.cypress.deep} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => handleDeleteSupplier(item)}
+                  style={{
+                    padding: 10,
+                    backgroundColor: '#FEE2E2',
+                    borderRadius: 8,
+                  }}
+                >
+                  <Ionicons name="trash" size={18} color={colors.status.error} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </View>
+        
+        {index < suppliers.length - 1 && !isEditing && (
+          <View style={{
+            height: 1,
+            backgroundColor: colors.neutral.light,
+            marginHorizontal: 16,
+          }} />
+        )}
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -219,92 +311,84 @@ export default function SuppliersScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={true}
         >
-          <View style={{
-            paddingHorizontal: 16,
-            paddingTop: 16,
-            paddingBottom: 8,
-          }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {/* Add New Supplier Section - only show when not editing */}
+          {!editing && (
+            <>
               <View style={{
-                width: 4,
-                height: 20,
-                backgroundColor: colors.cypress.deep,
-                borderRadius: 2,
-                marginRight: 10,
-              }} />
-              <Text style={{
-                fontSize: 12,
-                fontWeight: '700',
-                color: colors.cypress.deep,
-                letterSpacing: 1,
-                textTransform: 'uppercase',
+                paddingHorizontal: 16,
+                paddingTop: 16,
+                paddingBottom: 8,
               }}>
-                {editing ? 'Edit Supplier' : 'Add New Supplier'}
-              </Text>
-            </View>
-          </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{
+                    width: 4,
+                    height: 20,
+                    backgroundColor: colors.cypress.deep,
+                    borderRadius: 2,
+                    marginRight: 10,
+                  }} />
+                  <Text style={{
+                    fontSize: 12,
+                    fontWeight: '700',
+                    color: colors.cypress.deep,
+                    letterSpacing: 1,
+                    textTransform: 'uppercase',
+                  }}>
+                    Add New Supplier
+                  </Text>
+                </View>
+              </View>
 
-          <View style={[styles.formCard, { marginHorizontal: 16, marginTop: 8 }]}>
-            <View style={{ marginBottom: 16 }}>
-              <Text style={{
-                fontSize: 12,
-                fontWeight: '600',
-                color: colors.neutral.dark,
-                marginBottom: 6,
-                letterSpacing: 0.5,
-              }}>
-                Supplier Name
-              </Text>
-              <TextInput
-                placeholder="Enter supplier name"
-                placeholderTextColor={colors.neutral.medium}
-                value={name}
-                onChangeText={setName}
-                style={styles.textInput}
-              />
-            </View>
+              <View style={[styles.formCard, { marginHorizontal: 16, marginTop: 8 }]}>
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={{
+                    fontSize: 12,
+                    fontWeight: '600',
+                    color: colors.neutral.dark,
+                    marginBottom: 6,
+                    letterSpacing: 0.5,
+                  }}>
+                    Supplier Name
+                  </Text>
+                  <TextInput
+                    placeholder="Enter supplier name"
+                    placeholderTextColor={colors.neutral.medium}
+                    value={name}
+                    onChangeText={setName}
+                    style={styles.textInput}
+                  />
+                </View>
 
-            <View style={{ marginBottom: 20 }}>
-              <Text style={{
-                fontSize: 12,
-                fontWeight: '600',
-                color: colors.neutral.dark,
-                marginBottom: 6,
-                letterSpacing: 0.5,
-              }}>
-                Email Address
-              </Text>
-              <TextInput
-                placeholder="Enter email address"
-                placeholderTextColor={colors.neutral.medium}
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                style={styles.textInput}
-              />
-            </View>
+                <View style={{ marginBottom: 20 }}>
+                  <Text style={{
+                    fontSize: 12,
+                    fontWeight: '600',
+                    color: colors.neutral.dark,
+                    marginBottom: 6,
+                    letterSpacing: 0.5,
+                  }}>
+                    Email Address
+                  </Text>
+                  <TextInput
+                    placeholder="Enter email address"
+                    placeholderTextColor={colors.neutral.medium}
+                    value={email}
+                    onChangeText={setEmail}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    style={styles.textInput}
+                  />
+                </View>
 
-            <TouchableOpacity
-              onPress={saveSupplier}
-              style={styles.saveButton}
-            >
-              <Text style={styles.saveButtonText}>
-                {editing ? 'Save Changes' : 'Add Supplier'}
-              </Text>
-            </TouchableOpacity>
-
-            {editing && (
-              <TouchableOpacity
-                onPress={cancel}
-                style={styles.cancelButton}
-              >
-                <Text style={styles.cancelButtonText}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
+                <TouchableOpacity
+                  onPress={saveSupplier}
+                  style={styles.saveButton}
+                >
+                  <Text style={styles.saveButtonText}>Add Supplier</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
 
           <View style={{
             paddingHorizontal: 16,

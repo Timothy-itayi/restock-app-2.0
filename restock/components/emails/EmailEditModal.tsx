@@ -8,22 +8,28 @@ import {
   SafeAreaView, 
   TextInput,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Pressable
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useThemeStore } from '../../styles/useThemeStore';
+
+interface EmailItem {
+  id: string;
+  productName: string;
+  quantity: number;
+}
 
 interface EmailEditModalProps {
   visible: boolean;
+  sessionId?: string;
   editingEmail: {
     supplierName: string;
     supplierEmail: string;
     subject: string;
     body: string;
-    items?: Array<{
-      productName: string;
-      quantity: number;
-    }>;
+    items?: EmailItem[];
   } | null;
   onSave: (updated: { subject: string; body: string }) => void;
   onCancel: () => void;
@@ -31,6 +37,7 @@ interface EmailEditModalProps {
 
 export function EmailEditModal({
   visible,
+  sessionId,
   editingEmail,
   onSave,
   onCancel
@@ -113,19 +120,47 @@ export function EmailEditModal({
 
             {editingEmail.items && editingEmail.items.length > 0 && (
               <>
-                <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 6, marginTop: 8 }}>Items in this order</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, marginTop: 8 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '600' }}>Items in this order</Text>
+                  {sessionId && (
+                    <Text style={{ fontSize: 11, color: theme.neutral.medium }}>Tap to edit</Text>
+                  )}
+                </View>
                 <View style={{
                   backgroundColor: theme.neutral.lighter,
-                  padding: 12,
                   borderRadius: 8,
                   marginBottom: 16,
                   borderWidth: 1,
-                  borderColor: theme.neutral.light
+                  borderColor: theme.neutral.light,
+                  overflow: 'hidden'
                 }}>
                   {editingEmail.items.map((item, index) => (
-                    <Text key={index} style={{ fontSize: 14, color: theme.neutral.dark, marginBottom: 4 }}>
-                      • {item.productName}{item.quantity > 1 ? ` (x${item.quantity})` : ''}
-                    </Text>
+                    <Pressable
+                      key={item.id}
+                      onPress={() => {
+                        if (sessionId) {
+                          onCancel();
+                          router.push(`/sessions/${sessionId}/edit-product/${item.id}`);
+                        }
+                      }}
+                      disabled={!sessionId}
+                      style={({ pressed }) => ({
+                        padding: 12,
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        backgroundColor: pressed && sessionId ? theme.neutral.light : 'transparent',
+                        borderBottomWidth: index < editingEmail.items!.length - 1 ? 1 : 0,
+                        borderBottomColor: theme.neutral.light,
+                      })}
+                    >
+                      <Text style={{ fontSize: 14, color: theme.neutral.dark, flex: 1 }}>
+                        • {item.productName}{item.quantity > 1 ? ` (x${item.quantity})` : ''}
+                      </Text>
+                      {sessionId && (
+                        <Ionicons name="chevron-forward" size={16} color={theme.neutral.medium} />
+                      )}
+                    </Pressable>
                   ))}
                 </View>
               </>
@@ -174,22 +209,21 @@ export function EmailEditModal({
 
 interface EmailDetailModalProps {
   visible: boolean;
+  sessionId?: string;
   email: {
     supplierName: string;
     supplierEmail: string;
     subject: string;
     body: string;
-    items?: Array<{
-      productName: string;
-      quantity: number;
-    }>;
+    items?: EmailItem[];
   } | null;
   onClose: () => void;
-  onEdit: (email: { supplierName: string; supplierEmail: string; subject: string; body: string; items?: Array<{ productName: string; quantity: number }> }) => void;
+  onEdit: (email: { supplierName: string; supplierEmail: string; subject: string; body: string; items?: EmailItem[] }) => void;
 }
 
 export function EmailDetailModal({
     visible,
+    sessionId,
     email,
     onClose,
     onEdit
@@ -250,19 +284,47 @@ export function EmailDetailModal({
 
             {email.items && email.items.length > 0 && (
               <>
-                <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 6 }}>Items in this order</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '600' }}>Items in this order</Text>
+                  {sessionId && (
+                    <Text style={{ fontSize: 11, color: theme.neutral.medium }}>Tap to edit</Text>
+                  )}
+                </View>
                 <View style={{
                   backgroundColor: theme.neutral.lighter,
-                  padding: 12,
                   borderRadius: 8,
                   marginBottom: 16,
                   borderWidth: 1,
-                  borderColor: theme.neutral.light
+                  borderColor: theme.neutral.light,
+                  overflow: 'hidden'
                 }}>
                   {email.items.map((item, index) => (
-                    <Text key={index} style={{ fontSize: 14, color: theme.neutral.dark, marginBottom: 4 }}>
-                      • {item.productName}{item.quantity > 1 ? ` (x${item.quantity})` : ''}
-                    </Text>
+                    <Pressable
+                      key={item.id}
+                      onPress={() => {
+                        if (sessionId) {
+                          onClose();
+                          router.push(`/sessions/${sessionId}/edit-product/${item.id}`);
+                        }
+                      }}
+                      disabled={!sessionId}
+                      style={({ pressed }) => ({
+                        padding: 12,
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        backgroundColor: pressed && sessionId ? theme.neutral.light : 'transparent',
+                        borderBottomWidth: index < email.items!.length - 1 ? 1 : 0,
+                        borderBottomColor: theme.neutral.light,
+                      })}
+                    >
+                      <Text style={{ fontSize: 14, color: theme.neutral.dark, flex: 1 }}>
+                        • {item.productName}{item.quantity > 1 ? ` (x${item.quantity})` : ''}
+                      </Text>
+                      {sessionId && (
+                        <Ionicons name="chevron-forward" size={16} color={theme.neutral.medium} />
+                      )}
+                    </Pressable>
                   ))}
                 </View>
               </>

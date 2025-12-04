@@ -7,6 +7,7 @@ export type ParsedItem = {
   id: string;
   product: string;
   supplier: string;
+  quantity?: number;
 };
 
 export type ParseDocResponse = {
@@ -140,6 +141,7 @@ export async function parseDocument(
       .map((raw: any, index: number) => {
         const product = typeof raw.product === 'string' ? raw.product.trim() : '';
         const supplier = typeof raw.supplier === 'string' ? raw.supplier.trim() : '';
+        const quantity = typeof raw.quantity === 'number' && raw.quantity > 0 ? raw.quantity : undefined;
 
         // Skip items without product name
         if (!product) {
@@ -150,6 +152,7 @@ export async function parseDocument(
           id: raw.id || `parsed-${Date.now()}-${index}`,
           product,
           supplier,
+          quantity,
         };
       })
       .filter((item: ParsedItem | null): item is ParsedItem => item !== null);
@@ -285,6 +288,7 @@ export async function parseImages(
       .map((raw: any, index: number) => {
         const product = typeof raw.product === 'string' ? raw.product.trim() : '';
         const supplier = typeof raw.supplier === 'string' ? raw.supplier.trim() : '';
+        const quantity = typeof raw.quantity === 'number' && raw.quantity > 0 ? raw.quantity : undefined;
 
         // Skip items without product name
         if (!product) {
@@ -295,6 +299,7 @@ export async function parseImages(
           id: raw.id || `parsed-${Date.now()}-${index}`,
           product,
           supplier,
+          quantity,
         };
       })
       .filter((item: ParsedItem | null): item is ParsedItem => item !== null);

@@ -165,12 +165,15 @@ export default function UploadScreen() {
         supplierId = supplier.id;
       }
 
-      addOrUpdateProduct(productNameRaw, supplierId, 1);
+      // Use parsed quantity, default to 1 if not extracted
+      const quantity = p.quantity && p.quantity > 0 ? p.quantity : 1;
+
+      addOrUpdateProduct(productNameRaw, supplierId, quantity);
 
       const sessionItem: SessionItem = {
         id: ensureId('item'),
         productName: productNameRaw,
-        quantity: 1,
+        quantity,
         supplierId
       };
 
@@ -240,17 +243,37 @@ export default function UploadScreen() {
             }}>
               {item.product}
             </Text>
-            {!!item.supplier && (
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="business-outline" size={12} color={colors.neutral.medium} style={{ marginRight: 4 }} />
-                <Text style={{
-                  fontSize: 13,
-                  color: colors.neutral.medium,
+            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+              {!!item.supplier && (
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons name="business-outline" size={12} color={colors.neutral.medium} style={{ marginRight: 4 }} />
+                  <Text style={{
+                    fontSize: 13,
+                    color: colors.neutral.medium,
+                  }}>
+                    {item.supplier}
+                  </Text>
+                </View>
+              )}
+              {item.quantity && item.quantity > 1 && (
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: colors.brand.primary + '15',
+                  paddingHorizontal: 6,
+                  paddingVertical: 2,
+                  borderRadius: 4,
                 }}>
-                  {item.supplier}
-                </Text>
-              </View>
-            )}
+                  <Text style={{
+                    fontSize: 12,
+                    fontWeight: '600',
+                    color: colors.brand.primary,
+                  }}>
+                    Qty: {item.quantity}
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
         </TouchableOpacity>
 
@@ -524,6 +547,37 @@ export default function UploadScreen() {
       >
         {!file && (
           <>
+            {/* Beta Notice */}
+            <View style={{
+              backgroundColor: colors.status.warning + '20',
+              borderRadius: 10,
+              padding: 12,
+              marginBottom: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: colors.status.warning + '40',
+            }}>
+              <Ionicons name="flask-outline" size={20} color={colors.status.warning} style={{ marginRight: 10 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{
+                  fontSize: 13,
+                  fontWeight: '700',
+                  color: colors.neutral.darkest,
+                  marginBottom: 2,
+                }}>
+                  Beta Testing
+                </Text>
+                <Text style={{
+                  fontSize: 12,
+                  color: colors.neutral.dark,
+                  lineHeight: 16,
+                }}>
+                  Help us test the AI parsing! Upload an image of your Stock Item Sales Report and let us know if items are extracted correctly.
+                </Text>
+              </View>
+            </View>
+
             {/* Upload Section */}
             <View style={{ paddingBottom: 12 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -534,7 +588,7 @@ export default function UploadScreen() {
                   borderRadius: 2,
                   marginRight: 10,
                 }} />
-                <Ionicons name="camera-outline" size={16} color={colors.brand.primary} style={{ marginRight: 6 }} />
+                <Ionicons name="image-outline" size={16} color={colors.brand.primary} style={{ marginRight: 6 }} />
                 <Text style={{
                   fontSize: 12,
                   fontWeight: '700',
@@ -542,7 +596,7 @@ export default function UploadScreen() {
                   letterSpacing: 1,
                   textTransform: 'uppercase',
                 }}>
-                  Select Image
+                  Upload Image
                 </Text>
               </View>
             </View>
@@ -565,7 +619,7 @@ export default function UploadScreen() {
                 alignItems: 'center',
                 marginBottom: 16,
               }}>
-                <Ionicons name="image-outline" size={32} color={colors.cypress.deep} />
+                <Ionicons name="document-text-outline" size={32} color={colors.cypress.deep} />
               </View>
 
               <Text style={{
@@ -575,17 +629,27 @@ export default function UploadScreen() {
                 marginBottom: 8,
                 textAlign: 'center',
               }}>
-                Upload Catalog Photo
+                Select Image from Device
               </Text>
               
               <Text style={{
                 fontSize: 14,
                 color: colors.neutral.medium,
                 textAlign: 'center',
-                marginBottom: 20,
-                paddingHorizontal: 16,
+                marginBottom: 6,
+                paddingHorizontal: 8,
               }}>
-                Take a photo of your product catalog or order list to automatically extract items
+                Choose an image of your product list, order sheet, or catalog from your photo library.
+              </Text>
+
+              <Text style={{
+                fontSize: 12,
+                color: colors.neutral.medium,
+                textAlign: 'center',
+                marginBottom: 20,
+                fontStyle: 'italic',
+              }}>
+                Camera capture coming soon
               </Text>
 
               <TouchableOpacity 
@@ -606,12 +670,12 @@ export default function UploadScreen() {
                   fontSize: 16,
                   fontWeight: '700',
                 }}>
-                  Choose Image
+                  Choose from Photos
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {/* Tips Section */}
+            {/* What We're Testing Section */}
             <View style={{ paddingTop: 24, paddingBottom: 12 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View style={{
@@ -621,7 +685,7 @@ export default function UploadScreen() {
                   borderRadius: 2,
                   marginRight: 10,
                 }} />
-                <Ionicons name="bulb-outline" size={16} color={colors.analytics.olive} style={{ marginRight: 6 }} />
+                <Ionicons name="checkmark-circle-outline" size={16} color={colors.analytics.olive} style={{ marginRight: 6 }} />
                 <Text style={{
                   fontSize: 12,
                   fontWeight: '700',
@@ -629,7 +693,7 @@ export default function UploadScreen() {
                   letterSpacing: 1,
                   textTransform: 'uppercase',
                 }}>
-                  Tips
+                  What We're Testing
                 </Text>
               </View>
             </View>
@@ -642,9 +706,9 @@ export default function UploadScreen() {
               borderColor: colors.neutral.light,
             }}>
               {[
-                { icon: 'sunny-outline', text: 'Ensure good lighting for clear text' },
-                { icon: 'scan-outline', text: 'Keep the document flat and in frame' },
-                { icon: 'text-outline', text: 'Make sure text is readable and not blurry' },
+                { icon: 'eye-outline', text: 'Does the AI correctly read product names?' },
+                { icon: 'business-outline', text: 'Are supplier names detected accurately?' },
+                { icon: 'calculator-outline', text: 'Are quantities extracted correctly?' },
               ].map((tip, index) => (
                 <View key={index}>
                   <View style={{
@@ -681,6 +745,45 @@ export default function UploadScreen() {
                   )}
                 </View>
               ))}
+            </View>
+
+            {/* Image Tips */}
+            <View style={{ paddingTop: 20, paddingBottom: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{
+                  width: 4,
+                  height: 20,
+                  backgroundColor: colors.neutral.medium,
+                  borderRadius: 2,
+                  marginRight: 10,
+                }} />
+                <Ionicons name="bulb-outline" size={16} color={colors.neutral.medium} style={{ marginRight: 6 }} />
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '700',
+                  color: colors.neutral.medium,
+                  letterSpacing: 1,
+                  textTransform: 'uppercase',
+                }}>
+                  For Best Results
+                </Text>
+              </View>
+            </View>
+
+            <View style={{
+              backgroundColor: colors.neutral.lightest,
+              borderRadius: 12,
+              padding: 14,
+              borderWidth: 1,
+              borderColor: colors.neutral.light,
+            }}>
+              <Text style={{
+                fontSize: 13,
+                color: colors.neutral.dark,
+                lineHeight: 20,
+              }}>
+                Use clear, well-lit images where text is readable. The AI works best with typed/printed text rather than handwriting.
+              </Text>
             </View>
           </>
         )}

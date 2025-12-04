@@ -348,12 +348,17 @@ ${senderProfile?.name || 'Customer'}`;
 
       <EmailEditModal
         visible={!!editDraft}
+        sessionId={id}
         editingEmail={editDraft ? {
           supplierName: editDraft.supplierName,
           supplierEmail: editDraft.supplierEmail,
           subject: editDraft.subject,
           body: editDraft.body,
-          items: editDraft.items
+          items: editDraft.items.map(item => ({
+            id: item.id,
+            productName: item.productName,
+            quantity: item.quantity
+          }))
         } : null}
         onSave={(updated) => {
           if (editDraft) {
@@ -372,12 +377,17 @@ ${senderProfile?.name || 'Customer'}`;
 
       <EmailDetailModal
         visible={!!selectedDraft}
+        sessionId={id}
         email={selectedDraft ? {
           supplierName: selectedDraft.supplierName,
           supplierEmail: selectedDraft.supplierEmail,
           subject: selectedDraft.subject,
           body: selectedDraft.body,
-          items: selectedDraft.items
+          items: selectedDraft.items.map(item => ({
+            id: item.id,
+            productName: item.productName,
+            quantity: item.quantity
+          }))
         } : null}
         onClose={() => setSelectedDraft(null)}
         onEdit={(email) => {
