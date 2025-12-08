@@ -73,6 +73,9 @@ export default function UploadScreen() {
   const [manualSupplier, setManualSupplier] = useState('');
   const [manualQuantity, setManualQuantity] = useState('');
 
+  // Session choice state
+  const [showSessionChoice, setShowSessionChoice] = useState(false);
+
   const { alert, hideAlert, showError, showWarning, showSuccess, showAlert } = useAlert();
 
   // Stores
@@ -199,8 +202,8 @@ export default function UploadScreen() {
     }
   };
 
-  // Import into session
-  const saveToSession = async () => {
+  // Handle import button press - show choice if active session exists
+  const handleImportPress = () => {
     if (!isSessionHydrated) {
       showWarning('Please Wait', 'Still loading sessions. Try again in a moment.');
       return;
@@ -213,8 +216,20 @@ export default function UploadScreen() {
       return;
     }
 
-    let session =
-      activeSessions.length > 0 ? activeSessions[0] : createSession();
+    // If there's an active session, show choice modal
+    if (activeSessions.length > 0) {
+      setShowSessionChoice(true);
+    } else {
+      // No active session, create new one directly
+      performImport(createSession());
+    }
+  };
+
+  // Perform the actual import to a specific session
+  const performImport = async (session: ReturnType<typeof createSession>) => {
+    setShowSessionChoice(false);
+    
+    const itemsToImport = parsed.filter((p) => selectedItems.has(p.id));
 
     for (const p of itemsToImport) {
       // Use edited values if available, otherwise use original
@@ -740,7 +755,7 @@ export default function UploadScreen() {
           borderTopColor: colors.neutral.light,
         }}>
           <TouchableOpacity
-            onPress={saveToSession}
+            onPress={handleImportPress}
             disabled={selectedItems.size === 0}
             style={{
               backgroundColor: selectedItems.size === 0 ? colors.neutral.light : colors.brand.primary,
@@ -978,6 +993,131 @@ export default function UploadScreen() {
               </TouchableOpacity>
             </View>
           </KeyboardAvoidingView>
+        </Modal>
+
+        {/* Session Choice Modal */}
+        <Modal
+          visible={showSessionChoice}
+          animationType="fade"
+          transparent={true}
+          onRequestClose={() => setShowSessionChoice(false)}
+        >
+          <TouchableOpacity
+            style={{ 
+              flex: 1, 
+              backgroundColor: 'rgba(0,0,0,0.4)',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: 24,
+            }}
+            activeOpacity={1}
+            onPress={() => setShowSessionChoice(false)}
+          >
+            <View style={{
+              backgroundColor: '#fff',
+              borderRadius: 16,
+              padding: 24,
+              width: '100%',
+              maxWidth: 340,
+            }}>
+              {/* Header */}
+              <Text style={{
+                fontSize: 18,
+                fontWeight: '600',
+                color: colors.neutral.darkest,
+                textAlign: 'center',
+                marginBottom: 8,
+              }}>
+                Import to Session
+              </Text>
+              <Text style={{
+                fontSize: 14,
+                color: colors.neutral.medium,
+                textAlign: 'center',
+                marginBottom: 24,
+              }}>
+                You have an active session. Where would you like to add these items?
+              </Text>
+
+              {/* Add to existing session */}
+              {activeSessions.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => performImport(activeSessions[0])}
+                  style={{
+                    backgroundColor: colors.brand.primary,
+                    paddingVertical: 14,
+                    paddingHorizontal: 16,
+                    borderRadius: 10,
+                    marginBottom: 12,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="add" size={20} color="#fff" style={{ marginRight: 8 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{
+                      color: '#fff',
+                      fontSize: 15,
+                      fontWeight: '600',
+                    }}>
+                      Add to Current Session
+                    </Text>
+                    <Text style={{
+                      color: 'rgba(255,255,255,0.7)',
+                      fontSize: 12,
+                      marginTop: 2,
+                    }}>
+                      {activeSessions[0].items?.length || 0} items already
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+
+              {/* Create new session */}
+              <TouchableOpacity
+                onPress={() => performImport(createSession())}
+                style={{
+                  backgroundColor: colors.neutral.lighter,
+                  paddingVertical: 14,
+                  paddingHorizontal: 16,
+                  borderRadius: 10,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="document-outline" size={18} color={colors.neutral.darkest} style={{ marginRight: 8 }} />
+                <Text style={{
+                  color: colors.neutral.darkest,
+                  fontSize: 15,
+                  fontWeight: '600',
+                }}>
+                  Create New Session
+                </Text>
+              </TouchableOpacity>
+
+              {/* Cancel */}
+              <TouchableOpacity
+                onPress={() => setShowSessionChoice(false)}
+                style={{
+                  paddingVertical: 14,
+                  marginTop: 8,
+                }}
+              >
+                <Text style={{
+                  color: colors.neutral.medium,
+                  fontSize: 15,
+                  fontWeight: '500',
+                  textAlign: 'center',
+                }}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
         </Modal>
       </SafeAreaView>
     );
