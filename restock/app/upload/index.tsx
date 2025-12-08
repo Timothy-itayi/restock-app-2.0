@@ -1,17 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ActivityIndicator,
-  SafeAreaView,
   ScrollView,
-  FlatList
+  FlatList,
+  TextInput,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+  Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import pickDocuments from '../../lib/utils/pickDocuments';
+import { normalizeImage, cleanupNormalizedImage } from '../../lib/utils/normalizeImage';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 import { useThemedStyles } from '@styles/useThemedStyles';
 import { getUploadStyles } from '@styles/components/upload';
 import colors from '../../lib/theme/colors';
@@ -44,6 +53,20 @@ export default function UploadScreen() {
   const [parsingError, setParsingError] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParsedItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+
+  // Preview & verification state
+  const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const [showFullPreview, setShowFullPreview] = useState(false);
+
+  // Inline editing state
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editedValues, setEditedValues] = useState<Map<string, Partial<ParsedItem>>>(new Map());
+
+  // Manual item entry state
+  const [showAddManual, setShowAddManual] = useState(false);
+  const [manualProduct, setManualProduct] = useState('');
+  const [manualSupplier, setManualSupplier] = useState('');
+  const [manualQuantity, setManualQuantity] = useState('');
 
   const { alert, hideAlert, showError, showWarning, showSuccess, showAlert } = useAlert();
 
@@ -102,13 +125,21 @@ export default function UploadScreen() {
 
     setLoading(true);
     setParsingError(null);
-    setLoadingMessage('Uploading image...');
+    setLoadingMessage('Preparing image...');
 
     try {
+      // Normalize image format (handles HEIC, WebP, etc. → JPEG)
+      const normalized = await normalizeImage(file.uri, file.name || 'catalog.jpg');
+      
+      // Store preview URI for verification
+      setPreviewUri(normalized.uri);
+      
+      setLoadingMessage('Uploading image...');
+
       const imageFile: DocumentFile = {
-        uri: file.uri,
-        name: file.name || 'catalog.jpg',
-        mimeType: file.mimeType || 'image/jpeg',
+        uri: normalized.uri,
+        name: normalized.name,
+        mimeType: normalized.mimeType, // Always 'image/jpeg' now
         size: file.size,
       };
 
@@ -123,6 +154,9 @@ export default function UploadScreen() {
 
       setParsed(result.items);
       setSelectedItems(new Set(result.items.map((x) => x.id)));
+      // Clear any previous edits when re-parsing
+      setEditedValues(new Map());
+      setEditingItemId(null);
     } catch (e: any) {
       console.warn('parse-doc error', e);
       setParsingError(
@@ -152,8 +186,10 @@ export default function UploadScreen() {
       activeSessions.length > 0 ? activeSessions[0] : createSession();
 
     for (const p of itemsToImport) {
-      const productNameRaw = safeString(p.product);
-      const supplierNameRaw = safeString(p.supplier);
+      // Use edited values if available, otherwise use original
+      const productNameRaw = safeString(getItemValue(p, 'product') as string);
+      const supplierNameRaw = safeString(getItemValue(p, 'supplier') as string);
+      const editedQuantity = getItemValue(p, 'quantity') as number | undefined;
 
       let supplierId: string | undefined;
 
@@ -165,8 +201,8 @@ export default function UploadScreen() {
         supplierId = supplier.id;
       }
 
-      // Use parsed quantity, default to 1 if not extracted
-      const quantity = p.quantity && p.quantity > 0 ? p.quantity : 1;
+      // Use edited/parsed quantity, default to 1 if not extracted
+      const quantity = editedQuantity && editedQuantity > 0 ? editedQuantity : 1;
 
       addOrUpdateProduct(productNameRaw, supplierId, quantity);
 
@@ -183,7 +219,11 @@ export default function UploadScreen() {
     showAlert('success', 'Items Imported', `${itemsToImport.length} item(s) added to session.`, [
       {
         text: 'View Session',
-        onPress: () => {
+        onPress: async () => {
+          // Cleanup persisted image before navigating away
+          if (previewUri) {
+            await cleanupNormalizedImage(previewUri);
+          }
           router.replace(`/sessions/${session.id}`);
         },
       },
@@ -200,308 +240,492 @@ export default function UploadScreen() {
     });
   };
 
-  // Render item for FlatList
-  const renderItem = ({ item, index }: { item: ParsedItem; index: number }) => {
+  // Get display value for an item (edited or original)
+  const getItemValue = (item: ParsedItem, field: keyof ParsedItem) => {
+    const edited = editedValues.get(item.id);
+    if (edited && field in edited) {
+      return edited[field];
+    }
+    return item[field];
+  };
+
+  // Update edited value for an item
+  const updateEditedValue = (itemId: string, field: keyof ParsedItem, value: any) => {
+    setEditedValues((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(itemId) || {};
+      next.set(itemId, { ...existing, [field]: value });
+      return next;
+    });
+  };
+
+  // Cancel editing an item
+  const cancelEditing = (itemId: string) => {
+    setEditingItemId(null);
+    // Optionally remove edits: setEditedValues(prev => { const next = new Map(prev); next.delete(itemId); return next; });
+  };
+
+  // Add manual item to parsed list
+  const addManualItem = () => {
+    if (!manualProduct.trim()) {
+      showWarning('Missing Product', 'Please enter a product name.');
+      return;
+    }
+
+    const newItem: ParsedItem = {
+      id: `manual-${Date.now()}`,
+      product: manualProduct.trim(),
+      supplier: manualSupplier.trim(),
+      quantity: manualQuantity ? parseInt(manualQuantity) || undefined : undefined,
+    };
+
+    setParsed((prev) => [...prev, newItem]);
+    setSelectedItems((prev) => new Set([...prev, newItem.id]));
+
+    // Reset form
+    setManualProduct('');
+    setManualSupplier('');
+    setManualQuantity('');
+    setShowAddManual(false);
+  };
+
+  // Delete an item from parsed list
+  const deleteItem = (itemId: string) => {
+    setParsed((prev) => prev.filter((p) => p.id !== itemId));
+    setSelectedItems((prev) => {
+      const next = new Set(prev);
+      next.delete(itemId);
+      return next;
+    });
+    setEditedValues((prev) => {
+      const next = new Map(prev);
+      next.delete(itemId);
+      return next;
+    });
+    if (editingItemId === itemId) {
+      setEditingItemId(null);
+    }
+  };
+
+  // Render item for FlatList - Clean, minimal Mobbin-style cards
+  const renderItem = ({ item }: { item: ParsedItem }) => {
     const isSelected = selectedItems.has(item.id);
+    const isEditing = editingItemId === item.id;
+    const hasEdits = editedValues.has(item.id);
+    const isManual = item.id.startsWith('manual-');
+
+    // Get display values (edited or original)
+    const displayProduct = getItemValue(item, 'product') as string;
+    const displaySupplier = getItemValue(item, 'supplier') as string;
+    const displayQuantity = getItemValue(item, 'quantity') as number | undefined;
+
+    // Editing mode - cleaner inline form
+    if (isEditing) {
+      return (
+        <View style={{
+          backgroundColor: '#fff',
+          borderRadius: 12,
+          padding: 16,
+          borderWidth: 1,
+          borderColor: colors.brand.primary,
+        }}>
+          {/* Product Name */}
+          <TextInput
+            value={displayProduct}
+            onChangeText={(text) => updateEditedValue(item.id, 'product', text)}
+            placeholder="Product name"
+            placeholderTextColor={colors.neutral.medium}
+            style={{
+              backgroundColor: colors.neutral.lighter,
+              borderRadius: 8,
+              paddingHorizontal: 12,
+              paddingVertical: 12,
+              fontSize: 16,
+              color: colors.neutral.darkest,
+              marginBottom: 10,
+            }}
+          />
+
+          {/* Supplier & Quantity row */}
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+            <TextInput
+              value={displaySupplier}
+              onChangeText={(text) => updateEditedValue(item.id, 'supplier', text)}
+              placeholder="Supplier"
+              placeholderTextColor={colors.neutral.medium}
+              style={{
+                flex: 1,
+                backgroundColor: colors.neutral.lighter,
+                borderRadius: 8,
+                paddingHorizontal: 12,
+                paddingVertical: 12,
+                fontSize: 15,
+                color: colors.neutral.darkest,
+              }}
+            />
+            <TextInput
+              value={displayQuantity ? String(displayQuantity) : ''}
+              onChangeText={(text) => updateEditedValue(item.id, 'quantity', text ? parseInt(text) || undefined : undefined)}
+              placeholder="Qty"
+              placeholderTextColor={colors.neutral.medium}
+              keyboardType="numeric"
+              style={{
+                width: 70,
+                backgroundColor: colors.neutral.lighter,
+                borderRadius: 8,
+                paddingHorizontal: 12,
+                paddingVertical: 12,
+                fontSize: 15,
+                color: colors.neutral.darkest,
+                textAlign: 'center',
+              }}
+            />
+          </View>
+
+          {/* Action Buttons */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <TouchableOpacity
+              onPress={() => deleteItem(item.id)}
+              style={{ padding: 8 }}
+            >
+              <Text style={{ color: colors.status.error, fontSize: 14, fontWeight: '500' }}>Delete</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setEditingItemId(null)}
+              style={{
+                paddingVertical: 8,
+                paddingHorizontal: 20,
+                backgroundColor: colors.brand.primary,
+                borderRadius: 8,
+              }}
+            >
+              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+
+    // Normal display mode - clean two-line card
     return (
-      <View>
-        <TouchableOpacity
-          onPress={() => toggleItemSelection(item.id)}
-          style={{
-            paddingVertical: 14,
-            paddingHorizontal: 16,
-            backgroundColor: colors.neutral.lightest,
-            flexDirection: 'row',
-            alignItems: 'center',
-          }}
-          activeOpacity={0.7}
-        >
-          {/* Checkbox */}
-          <View style={{
-            width: 24,
-            height: 24,
-            borderRadius: 6,
-            borderWidth: 2,
-            borderColor: isSelected ? colors.brand.primary : colors.neutral.light,
-            backgroundColor: isSelected ? colors.brand.primary : 'transparent',
-            justifyContent: 'center',
-            alignItems: 'center',
-            marginRight: 12,
-          }}>
-            {isSelected && (
-              <Ionicons name="checkmark" size={16} color="#fff" />
+      <TouchableOpacity
+        onPress={() => toggleItemSelection(item.id)}
+        onLongPress={() => setEditingItemId(item.id)}
+        style={{
+          backgroundColor: '#fff',
+          borderRadius: 10,
+          paddingVertical: 14,
+          paddingLeft: 14,
+          paddingRight: 10,
+          flexDirection: 'row',
+          alignItems: 'center',
+        }}
+        activeOpacity={0.7}
+      >
+        {/* Checkbox - minimal circle style */}
+        <View style={{
+          width: 22,
+          height: 22,
+          borderRadius: 11,
+          borderWidth: 1.5,
+          borderColor: isSelected ? colors.brand.primary : colors.neutral.light,
+          backgroundColor: isSelected ? colors.brand.primary : 'transparent',
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginRight: 12,
+        }}>
+          {isSelected && (
+            <Ionicons name="checkmark" size={14} color="#fff" />
+          )}
+        </View>
+
+        {/* Content - two line structure */}
+        <View style={{ flex: 1, marginRight: 8 }}>
+          {/* Line 1: Product name */}
+          <Text 
+            style={{
+              fontSize: 15,
+              fontWeight: '500',
+              color: colors.neutral.darkest,
+              marginBottom: 3,
+            }}
+            numberOfLines={1}
+          >
+            {displayProduct}
+          </Text>
+          
+          {/* Line 2: Supplier + Qty */}
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {displaySupplier ? (
+              <Text style={{ fontSize: 13, color: colors.neutral.medium }} numberOfLines={1}>
+                {displaySupplier}
+              </Text>
+            ) : (
+              <Text style={{ fontSize: 13, color: colors.neutral.light, fontStyle: 'italic' }}>
+                No supplier
+              </Text>
+            )}
+            {displayQuantity && displayQuantity > 0 && (
+              <Text style={{ fontSize: 13, color: colors.neutral.medium }}>
+                {' '} · Qty: {displayQuantity}
+              </Text>
+            )}
+            {/* Badges inline */}
+            {(hasEdits || isManual) && (
+              <View style={{
+                backgroundColor: isManual ? colors.analytics.olive + '15' : colors.status.warning + '15',
+                paddingHorizontal: 5,
+                paddingVertical: 1,
+                borderRadius: 3,
+                marginLeft: 6,
+              }}>
+                <Text style={{
+                  fontSize: 9,
+                  fontWeight: '600',
+                  color: isManual ? colors.analytics.olive : colors.status.warning,
+                }}>
+                  {isManual ? 'Added' : 'Edited'}
+                </Text>
+              </View>
             )}
           </View>
+        </View>
 
-          {/* Content */}
-          <View style={{ flex: 1 }}>
-            <Text style={{
-              fontSize: 15,
-              fontWeight: '600',
-              color: colors.neutral.darkest,
-              marginBottom: 2,
-            }}>
-              {item.product}
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-              {!!item.supplier && (
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Ionicons name="business-outline" size={12} color={colors.neutral.medium} style={{ marginRight: 4 }} />
-                  <Text style={{
-                    fontSize: 13,
-                    color: colors.neutral.medium,
-                  }}>
-                    {item.supplier}
-                  </Text>
-                </View>
-              )}
-              {item.quantity && item.quantity > 1 && (
-                <View style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  backgroundColor: colors.brand.primary + '15',
-                  paddingHorizontal: 6,
-                  paddingVertical: 2,
-                  borderRadius: 4,
-                }}>
-                  <Text style={{
-                    fontSize: 12,
-                    fontWeight: '600',
-                    color: colors.brand.primary,
-                  }}>
-                    Qty: {item.quantity}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
+        {/* Edit button - subtle */}
+        <TouchableOpacity
+          onPress={() => setEditingItemId(item.id)}
+          style={{ padding: 8 }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="pencil" size={16} color={colors.neutral.light} />
         </TouchableOpacity>
-
-        {/* Divider */}
-        {index < parsed.length - 1 && (
-          <View style={{
-            height: 1,
-            backgroundColor: colors.neutral.light,
-            marginHorizontal: 16,
-          }} />
-        )}
-      </View>
+      </TouchableOpacity>
     );
   };
 
   // If we have parsed items, show the selection view
   if (parsed.length > 0) {
+    const allSelected = selectedItems.size === parsed.length;
+    
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.neutral.lighter }}>
-        {/* Sticky Header */}
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#FAFAF9' }} edges={['top']}>
+        {/* Clean Header */}
         <View style={{
           flexDirection: 'row',
           alignItems: 'center',
           paddingHorizontal: 16,
-          paddingVertical: 12,
-          backgroundColor: colors.neutral.lighter,
-          borderBottomWidth: 1,
+          paddingVertical: 14,
+          backgroundColor: '#FAFAF9',
+          borderBottomWidth: 0.5,
           borderBottomColor: colors.neutral.light,
         }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
+          <TouchableOpacity 
+            onPress={() => router.back()} 
+            style={{ padding: 4, marginRight: 12 }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
             <Ionicons name="chevron-back" size={24} color={colors.neutral.darkest} />
           </TouchableOpacity>
           <Text style={{
-            fontSize: 20,
-            fontWeight: '700',
+            fontSize: 17,
+            fontWeight: '600',
             color: colors.neutral.darkest,
-          }}>Upload Catalog</Text>
+            flex: 1,
+          }}>Scan Results</Text>
+          
+          {/* View Image button in header */}
+          {previewUri && (
+            <TouchableOpacity 
+              onPress={() => setShowFullPreview(true)}
+              style={{ padding: 6 }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="image-outline" size={22} color={colors.neutral.dark} />
+            </TouchableOpacity>
+          )}
         </View>
 
-        {/* Summary Section */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}>
+        {/* Compact Summary Bar */}
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          backgroundColor: '#FAFAF9',
+          borderBottomWidth: 0.5,
+          borderBottomColor: colors.neutral.light,
+        }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View style={{
-              width: 4,
-              height: 20,
-              backgroundColor: colors.brand.primary,
-              borderRadius: 2,
-              marginRight: 10,
-            }} />
-            <Ionicons name="document-text-outline" size={16} color={colors.brand.primary} style={{ marginRight: 6 }} />
             <Text style={{
-              fontSize: 12,
-              fontWeight: '700',
-              color: colors.brand.primary,
-              letterSpacing: 1,
-              textTransform: 'uppercase',
+              fontSize: 15,
+              fontWeight: '600',
+              color: colors.neutral.darkest,
             }}>
-              Scan Results
+              {parsed.length} items
+            </Text>
+            <Text style={{
+              fontSize: 15,
+              color: colors.neutral.medium,
+              marginLeft: 6,
+            }}>
+              • {allSelected ? 'All selected' : `${selectedItems.size} selected`}
             </Text>
           </View>
+          
+          {/* Manage selection toggle */}
+          <TouchableOpacity
+            onPress={() => {
+              if (allSelected) {
+                setSelectedItems(new Set());
+              } else {
+                setSelectedItems(new Set(parsed.map(p => p.id)));
+              }
+            }}
+            style={{
+              paddingVertical: 6,
+              paddingHorizontal: 12,
+              borderRadius: 6,
+              backgroundColor: colors.neutral.lighter,
+            }}
+          >
+            <Text style={{
+              fontSize: 13,
+              fontWeight: '600',
+              color: colors.brand.primary,
+            }}>
+              {allSelected ? 'Deselect All' : 'Select All'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Summary Card */}
+        {/* Compact Icon Toolbar */}
         <View style={{
-          backgroundColor: colors.cypress.pale,
-          marginHorizontal: 16,
-          borderRadius: 12,
-          padding: 16,
-          marginBottom: 16,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'flex-start',
+          paddingHorizontal: 12,
+          paddingVertical: 8,
+          backgroundColor: '#FAFAF9',
+          gap: 4,
         }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <View>
-              <Text style={{
-                fontSize: 28,
-                fontWeight: '800',
-                color: colors.cypress.deep,
-              }}>
-                {parsed.length}
-              </Text>
-              <Text style={{
-                fontSize: 13,
-                color: colors.neutral.medium,
-                fontWeight: '600',
-              }}>
-                items found
-              </Text>
-            </View>
-            <View style={{
-              backgroundColor: colors.brand.primary + '20',
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              borderRadius: 20,
+          <TouchableOpacity
+            onPress={() => setShowAddManual(true)}
+            style={{
               flexDirection: 'row',
               alignItems: 'center',
-            }}>
-              <Ionicons name="checkmark-circle" size={14} color={colors.brand.primary} style={{ marginRight: 4 }} />
-              <Text style={{
-                fontSize: 13,
-                fontWeight: '700',
-                color: colors.brand.primary,
-              }}>
-                {selectedItems.size} selected
-              </Text>
-            </View>
-          </View>
+              paddingVertical: 8,
+              paddingHorizontal: 12,
+              borderRadius: 8,
+              backgroundColor: colors.neutral.lighter,
+            }}
+          >
+            <Ionicons name="add" size={18} color={colors.neutral.darkest} />
+            <Text style={{ fontSize: 13, fontWeight: '500', color: colors.neutral.darkest, marginLeft: 4 }}>Add</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            onPress={sendForParsing}
+            disabled={loading}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingVertical: 8,
+              paddingHorizontal: 12,
+              borderRadius: 8,
+              backgroundColor: colors.neutral.lighter,
+              opacity: loading ? 0.6 : 1,
+            }}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color={colors.neutral.darkest} />
+            ) : (
+              <>
+                <Ionicons name="refresh" size={16} color={colors.neutral.darkest} />
+                <Text style={{ fontSize: 13, fontWeight: '500', color: colors.neutral.darkest, marginLeft: 4 }}>Re-scan</Text>
+              </>
+            )}
+          </TouchableOpacity>
 
-          {/* Import Button */}
+          <TouchableOpacity
+            onPress={async () => {
+              if (previewUri) {
+                await cleanupNormalizedImage(previewUri);
+              }
+              setFile(null);
+              setParsed([]);
+              setSelectedItems(new Set());
+              setParsingError(null);
+              setPreviewUri(null);
+              setEditedValues(new Map());
+              setEditingItemId(null);
+            }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingVertical: 8,
+              paddingHorizontal: 12,
+              borderRadius: 8,
+              backgroundColor: colors.neutral.lighter,
+            }}
+          >
+            <Ionicons name="close" size={16} color={colors.neutral.dark} />
+            <Text style={{ fontSize: 13, fontWeight: '500', color: colors.neutral.dark, marginLeft: 4 }}>Clear</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Item List - Primary focus, takes remaining space */}
+        <FlatList
+          data={parsed}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          showsVerticalScrollIndicator={true}
+          style={{ flex: 1, backgroundColor: '#FAFAF9' }}
+          contentContainerStyle={{ 
+            paddingHorizontal: 16, 
+            paddingTop: 8,
+            paddingBottom: 100, // Space for sticky CTA
+          }}
+          ItemSeparatorComponent={() => (
+            <View style={{ height: 1, backgroundColor: colors.neutral.light, marginVertical: 1 }} />
+          )}
+        />
+
+        {/* Sticky Bottom CTA */}
+        <View style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: '#FAFAF9',
+          paddingHorizontal: 16,
+          paddingTop: 12,
+          paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+          borderTopWidth: 0.5,
+          borderTopColor: colors.neutral.light,
+        }}>
           <TouchableOpacity
             onPress={saveToSession}
+            disabled={selectedItems.size === 0}
             style={{
-              backgroundColor: colors.brand.primary,
-              paddingVertical: 14,
-              borderRadius: 10,
+              backgroundColor: selectedItems.size === 0 ? colors.neutral.light : colors.brand.primary,
+              paddingVertical: 16,
+              borderRadius: 12,
               alignItems: 'center',
               flexDirection: 'row',
               justifyContent: 'center',
             }}
             activeOpacity={0.8}
           >
-            <Ionicons name="download-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
             <Text style={{
-              color: '#fff',
-              fontSize: 16,
-              fontWeight: '700',
+              color: selectedItems.size === 0 ? colors.neutral.medium : '#fff',
+              fontSize: 17,
+              fontWeight: '600',
             }}>
-              Import {selectedItems.size} item(s) to Session
+              Import {selectedItems.size} {selectedItems.size === 1 ? 'Item' : 'Items'}
             </Text>
           </TouchableOpacity>
-        </View>
-
-        {/* Actions Row */}
-        <View style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          paddingHorizontal: 16,
-          marginBottom: 12,
-        }}>
-          <TouchableOpacity
-            onPress={() => setSelectedItems(new Set(parsed.map(p => p.id)))}
-            style={{
-              paddingVertical: 8,
-              paddingHorizontal: 12,
-              backgroundColor: colors.cypress.pale,
-              borderRadius: 6,
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}
-          >
-            <Ionicons name="checkbox-outline" size={14} color={colors.cypress.deep} style={{ marginRight: 4 }} />
-            <Text style={{ color: colors.cypress.deep, fontWeight: '600', fontSize: 13 }}>Select All</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            onPress={() => setSelectedItems(new Set())}
-            style={{
-              paddingVertical: 8,
-              paddingHorizontal: 12,
-              backgroundColor: colors.neutral.light,
-              borderRadius: 6,
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}
-          >
-            <Ionicons name="square-outline" size={14} color={colors.neutral.dark} style={{ marginRight: 4 }} />
-            <Text style={{ color: colors.neutral.dark, fontWeight: '600', fontSize: 13 }}>Deselect All</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            onPress={() => {
-              setFile(null);
-              setParsed([]);
-              setSelectedItems(new Set());
-              setParsingError(null);
-            }}
-            style={{
-              paddingVertical: 8,
-              paddingHorizontal: 12,
-              backgroundColor: colors.status.error + '15',
-              borderRadius: 6,
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}
-          >
-            <Ionicons name="refresh-outline" size={14} color={colors.status.error} style={{ marginRight: 4 }} />
-            <Text style={{ color: colors.status.error, fontWeight: '600', fontSize: 13 }}>Start Over</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Items Section Header */}
-        <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View style={{
-              width: 4,
-              height: 20,
-              backgroundColor: colors.cypress.deep,
-              borderRadius: 2,
-              marginRight: 10,
-            }} />
-            <Ionicons name="list-outline" size={16} color={colors.cypress.deep} style={{ marginRight: 6 }} />
-            <Text style={{
-              fontSize: 12,
-              fontWeight: '700',
-              color: colors.cypress.deep,
-              letterSpacing: 1,
-              textTransform: 'uppercase',
-            }}>
-              Parsed Items
-            </Text>
-          </View>
-        </View>
-
-        {/* Item List */}
-        <View style={{
-          flex: 1,
-          backgroundColor: colors.neutral.lightest,
-          marginHorizontal: 16,
-          borderRadius: 12,
-          overflow: 'hidden',
-          borderWidth: 1,
-          borderColor: colors.neutral.light,
-          marginBottom: 16,
-        }}>
-          <FlatList
-            data={parsed}
-            keyExtractor={(item) => item.id}
-            renderItem={renderItem}
-            showsVerticalScrollIndicator={true}
-          />
         </View>
 
         {/* Alert Modal */}
@@ -513,6 +737,214 @@ export default function UploadScreen() {
           actions={alert.actions}
           onClose={hideAlert}
         />
+
+        {/* Full Screen Image Preview Modal with Zoom */}
+        <Modal
+          visible={showFullPreview}
+          animationType="fade"
+          transparent={true}
+          onRequestClose={() => setShowFullPreview(false)}
+        >
+          <View style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.95)',
+          }}>
+            {/* Header with close button */}
+            <View style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              zIndex: 10,
+              paddingTop: 50,
+              paddingHorizontal: 16,
+              paddingBottom: 12,
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}>
+              <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, fontWeight: '600' }}>
+                Pinch to zoom • Double-tap to reset
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowFullPreview(false)}
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.2)',
+                  borderRadius: 20,
+                  padding: 8,
+                }}
+              >
+                <Ionicons name="close" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            
+            {/* Zoomable Image */}
+            {previewUri && (
+              <ScrollView
+                style={{ flex: 1, marginTop: 90 }}
+                contentContainerStyle={{
+                  flexGrow: 1,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+                maximumZoomScale={5}
+                minimumZoomScale={1}
+                showsHorizontalScrollIndicator={false}
+                showsVerticalScrollIndicator={false}
+                bouncesZoom={true}
+                centerContent={true}
+              >
+                <Image
+                  source={{ uri: previewUri }}
+                  style={{ 
+                    width: SCREEN_WIDTH,
+                    height: SCREEN_HEIGHT - 150,
+                  }}
+                  contentFit="contain"
+                />
+              </ScrollView>
+            )}
+          </View>
+        </Modal>
+
+        {/* Add Manual Item Modal - Clean bottom sheet */}
+        <Modal
+          visible={showAddManual}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowAddManual(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ flex: 1 }}
+          >
+            <TouchableOpacity
+              style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }}
+              activeOpacity={1}
+              onPress={() => setShowAddManual(false)}
+            />
+            <View style={{
+              backgroundColor: '#fff',
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              paddingHorizontal: 20,
+              paddingTop: 12,
+              paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+            }}>
+              {/* Handle bar */}
+              <View style={{
+                width: 36,
+                height: 4,
+                backgroundColor: colors.neutral.light,
+                borderRadius: 2,
+                alignSelf: 'center',
+                marginBottom: 16,
+              }} />
+
+              {/* Header */}
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 20,
+              }}>
+                <Text style={{
+                  fontSize: 17,
+                  fontWeight: '600',
+                  color: colors.neutral.darkest,
+                }}>
+                  Add Item
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowAddManual(false);
+                    setManualProduct('');
+                    setManualSupplier('');
+                    setManualQuantity('');
+                  }}
+                  style={{ padding: 4 }}
+                >
+                  <Ionicons name="close" size={22} color={colors.neutral.medium} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Product Name */}
+              <TextInput
+                value={manualProduct}
+                onChangeText={setManualProduct}
+                placeholder="Product name"
+                placeholderTextColor={colors.neutral.medium}
+                autoFocus
+                style={{
+                  backgroundColor: colors.neutral.lighter,
+                  borderRadius: 10,
+                  paddingHorizontal: 14,
+                  paddingVertical: 14,
+                  fontSize: 16,
+                  color: colors.neutral.darkest,
+                  marginBottom: 12,
+                }}
+              />
+
+              {/* Supplier & Quantity row */}
+              <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+                <TextInput
+                  value={manualSupplier}
+                  onChangeText={setManualSupplier}
+                  placeholder="Supplier"
+                  placeholderTextColor={colors.neutral.medium}
+                  style={{
+                    flex: 1,
+                    backgroundColor: colors.neutral.lighter,
+                    borderRadius: 10,
+                    paddingHorizontal: 14,
+                    paddingVertical: 14,
+                    fontSize: 16,
+                    color: colors.neutral.darkest,
+                  }}
+                />
+                <TextInput
+                  value={manualQuantity}
+                  onChangeText={setManualQuantity}
+                  placeholder="Qty"
+                  placeholderTextColor={colors.neutral.medium}
+                  keyboardType="numeric"
+                  style={{
+                    width: 80,
+                    backgroundColor: colors.neutral.lighter,
+                    borderRadius: 10,
+                    paddingHorizontal: 14,
+                    paddingVertical: 14,
+                    fontSize: 16,
+                    color: colors.neutral.darkest,
+                    textAlign: 'center',
+                  }}
+                />
+              </View>
+
+              {/* Add Button */}
+              <TouchableOpacity
+                onPress={addManualItem}
+                disabled={!manualProduct.trim()}
+                style={{
+                  backgroundColor: manualProduct.trim() ? colors.brand.primary : colors.neutral.light,
+                  paddingVertical: 16,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={{
+                  color: manualProduct.trim() ? '#fff' : colors.neutral.medium,
+                  fontSize: 17,
+                  fontWeight: '600',
+                }}>
+                  Add Item
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
       </SafeAreaView>
     );
   }
