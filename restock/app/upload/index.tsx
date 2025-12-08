@@ -42,6 +42,11 @@ import {
 import { parseImages, type ParsedItem, type DocumentFile } from '../../lib/api/parseDoc';
 import { AlertModal } from '../../components/AlertModal';
 import { useAlert } from '../../lib/hooks/useAlert';
+import { 
+  saveScanResults, 
+  loadScanResults, 
+  clearScanResults 
+} from '../../lib/helpers/storage/scanResults';
 
 export default function UploadScreen() {
   const styles = useThemedStyles(getUploadStyles);
@@ -99,6 +104,32 @@ export default function UploadScreen() {
   useEffect(() => {
     if (!productsHydrated) loadProducts();
   }, [productsHydrated, loadProducts]);
+
+  // Load saved scan results on mount
+  useEffect(() => {
+    const restoreSavedResults = async () => {
+      const saved = await loadScanResults();
+      if (saved && saved.parsed.length > 0) {
+        setParsed(saved.parsed);
+        setSelectedItems(new Set(saved.selectedIds));
+        setPreviewUri(saved.previewUri);
+        setEditedValues(new Map(Object.entries(saved.editedValues)));
+      }
+    };
+    restoreSavedResults();
+  }, []);
+
+  // Auto-save scan results when they change
+  useEffect(() => {
+    if (parsed.length > 0) {
+      saveScanResults(
+        parsed,
+        Array.from(selectedItems),
+        previewUri,
+        editedValues
+      );
+    }
+  }, [parsed, selectedItems, previewUri, editedValues]);
 
   // File picker - images only
   const pickFile = async () => {
@@ -220,10 +251,11 @@ export default function UploadScreen() {
       {
         text: 'View Session',
         onPress: async () => {
-          // Cleanup persisted image before navigating away
+          // Cleanup persisted image and saved results before navigating away
           if (previewUri) {
             await cleanupNormalizedImage(previewUri);
           }
+          await clearScanResults();
           router.replace(`/sessions/${session.id}`);
         },
       },
@@ -650,9 +682,11 @@ export default function UploadScreen() {
 
           <TouchableOpacity
             onPress={async () => {
+              // Cleanup persisted image and saved results
               if (previewUri) {
                 await cleanupNormalizedImage(previewUri);
               }
+              await clearScanResults();
               setFile(null);
               setParsed([]);
               setSelectedItems(new Set());
