@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,18 +11,18 @@ import {
   KeyboardAvoidingView,
   Platform,
   Dimensions,
+  SafeAreaView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import pickDocuments from '../../lib/utils/pickDocuments';
-import { normalizeImage, cleanupNormalizedImage } from '../../lib/utils/normalizeImage';
+import { normalizeImage, cleanupNormalizedImage, isHeicFormat } from '../../lib/utils/normalizeImage';
+// Camera capture - requires native rebuild after expo install
+// import { captureFromCamera, cleanupCapturedImage } from '../../lib/utils/captureCamera';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-import { useThemedStyles } from '@styles/useThemedStyles';
-import { getUploadStyles } from '@styles/components/upload';
 import colors from '../../lib/theme/colors';
 
 import {
@@ -49,8 +49,6 @@ import {
 } from '../../lib/helpers/storage/scanResults';
 
 export default function UploadScreen() {
-  const styles = useThemedStyles(getUploadStyles);
-
   // Local state
   const [file, setFile] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -153,27 +151,89 @@ export default function UploadScreen() {
     setParsingError(null);
   };
 
+  // Camera capture - outputs JPEG directly, no HEIC issues
+  // Note: Requires native rebuild after installing expo-image-picker
+  const takePhoto = async () => {
+    try {
+      // Dynamically import to avoid crash if native module not linked
+      const { captureFromCamera } = await import('../../lib/utils/captureCamera');
+      
+      const captured = await captureFromCamera(0.85);
+      
+      if (!captured) {
+        // User cancelled
+        return;
+      }
+
+      // Set as file with camera-captured info
+      setFile({
+        uri: captured.uri,
+        name: captured.name,
+        mimeType: captured.mimeType,
+        size: 0, // Size not needed since it's already JPEG
+        _isCameraCapture: true, // Flag to skip normalization
+      });
+      setParsed([]);
+      setSelectedItems(new Set());
+      setParsingError(null);
+    } catch (err: any) {
+      console.warn('Camera capture error:', err);
+      
+      // Check if it's a native module error
+      if (err.message?.includes('native module') || err.message?.includes('ExponentImagePicker')) {
+        showError(
+          'Camera Not Available',
+          'Camera feature requires rebuilding the app. Please restart the development server or rebuild the native app.\n\nFor now, use "Choose from Photos" instead.'
+        );
+      } else {
+        showError(
+          'Camera Error', 
+          err.message || 'Failed to capture photo. Please check camera permissions.'
+        );
+      }
+    }
+  };
+
   // Send image to backend for parsing
   const sendForParsing = async () => {
     if (!file) return;
 
     setLoading(true);
     setParsingError(null);
-    setLoadingMessage('Preparing image...');
+    
+    const fileName = file.name || 'catalog.jpg';
+    const isHeic = isHeicFormat(fileName, file.mimeType);
+    const isCameraCapture = file._isCameraCapture;
+    
+    // Show appropriate message
+    if (isCameraCapture) {
+      setLoadingMessage('Uploading photo...');
+    } else {
+      setLoadingMessage(isHeic ? 'Converting image format...' : 'Preparing image...');
+    }
 
     try {
-      // Normalize image format (handles HEIC, WebP, etc. → JPEG)
-      const normalized = await normalizeImage(file.uri, file.name || 'catalog.jpg');
+      let imageUri = file.uri;
+      let imageName = fileName;
+      let imageMimeType = file.mimeType || 'image/jpeg';
+
+      // Skip normalization for camera captures (already JPEG)
+      if (!isCameraCapture) {
+        const normalized = await normalizeImage(file.uri, fileName);
+        imageUri = normalized.uri;
+        imageName = normalized.name;
+        imageMimeType = normalized.mimeType;
+      }
       
       // Store preview URI for verification
-      setPreviewUri(normalized.uri);
+      setPreviewUri(imageUri);
       
-      setLoadingMessage('Uploading image...');
+      setLoadingMessage('Analyzing document...');
 
       const imageFile: DocumentFile = {
-        uri: normalized.uri,
-        name: normalized.name,
-        mimeType: normalized.mimeType, // Always 'image/jpeg' now
+        uri: imageUri,
+        name: imageName,
+        mimeType: imageMimeType,
         size: file.size,
       };
 
@@ -188,21 +248,40 @@ export default function UploadScreen() {
 
       setParsed(result.items);
       setSelectedItems(new Set(result.items.map((x) => x.id)));
-      // Clear any previous edits when re-parsing
       setEditedValues(new Map());
       setEditingItemId(null);
     } catch (e: any) {
       console.warn('parse-doc error', e);
-      setParsingError(
-        e instanceof Error ? e.message : 'Failed to parse image'
-      );
+      
+      let errorMessage = e instanceof Error ? e.message : 'Failed to parse image';
+      
+      if (isHeic && (errorMessage.includes('IIOCall') || errorMessage.includes('ImageIO') || errorMessage.includes('convert'))) {
+        errorMessage = 'Could not convert this image format. Try using the camera instead, or use a JPEG/PNG image.';
+      }
+      
+      setParsingError(errorMessage);
     } finally {
       setLoading(false);
       setLoadingMessage('');
     }
   };
 
-  // Handle import button press - show choice if active session exists
+  // Clear current selection
+  const clearSelection = async () => {
+    if (previewUri) {
+      await cleanupNormalizedImage(previewUri);
+    }
+    await clearScanResults();
+    setFile(null);
+    setParsed([]);
+    setSelectedItems(new Set());
+    setParsingError(null);
+    setPreviewUri(null);
+    setEditedValues(new Map());
+    setEditingItemId(null);
+  };
+
+  // Handle import button press
   const handleImportPress = () => {
     if (!isSessionHydrated) {
       showWarning('Please Wait', 'Still loading sessions. Try again in a moment.');
@@ -216,23 +295,20 @@ export default function UploadScreen() {
       return;
     }
 
-    // If there's an active session, show choice modal
     if (activeSessions.length > 0) {
       setShowSessionChoice(true);
     } else {
-      // No active session, create new one directly
       performImport(createSession());
     }
   };
 
-  // Perform the actual import to a specific session
+  // Perform the actual import
   const performImport = async (session: ReturnType<typeof createSession>) => {
     setShowSessionChoice(false);
     
     const itemsToImport = parsed.filter((p) => selectedItems.has(p.id));
 
     for (const p of itemsToImport) {
-      // Use edited values if available, otherwise use original
       const productNameRaw = safeString(getItemValue(p, 'product') as string);
       const supplierNameRaw = safeString(getItemValue(p, 'supplier') as string);
       const editedQuantity = getItemValue(p, 'quantity') as number | undefined;
@@ -241,13 +317,10 @@ export default function UploadScreen() {
 
       if (supplierNameRaw) {
         const existing = getSupplierByName(supplierNameRaw);
-        const supplier =
-          existing ?? addSupplier(supplierNameRaw);
-
+        const supplier = existing ?? addSupplier(supplierNameRaw);
         supplierId = supplier.id;
       }
 
-      // Use edited/parsed quantity, default to 1 if not extracted
       const quantity = editedQuantity && editedQuantity > 0 ? editedQuantity : 1;
 
       addOrUpdateProduct(productNameRaw, supplierId, quantity);
@@ -266,7 +339,6 @@ export default function UploadScreen() {
       {
         text: 'View Session',
         onPress: async () => {
-          // Cleanup persisted image and saved results before navigating away
           if (previewUri) {
             await cleanupNormalizedImage(previewUri);
           }
@@ -287,7 +359,7 @@ export default function UploadScreen() {
     });
   };
 
-  // Get display value for an item (edited or original)
+  // Get display value for an item
   const getItemValue = (item: ParsedItem, field: keyof ParsedItem) => {
     const edited = editedValues.get(item.id);
     if (edited && field in edited) {
@@ -296,7 +368,7 @@ export default function UploadScreen() {
     return item[field];
   };
 
-  // Update edited value for an item
+  // Update edited value
   const updateEditedValue = (itemId: string, field: keyof ParsedItem, value: any) => {
     setEditedValues((prev) => {
       const next = new Map(prev);
@@ -306,13 +378,7 @@ export default function UploadScreen() {
     });
   };
 
-  // Cancel editing an item
-  const cancelEditing = (itemId: string) => {
-    setEditingItemId(null);
-    // Optionally remove edits: setEditedValues(prev => { const next = new Map(prev); next.delete(itemId); return next; });
-  };
-
-  // Add manual item to parsed list
+  // Add manual item
   const addManualItem = () => {
     if (!manualProduct.trim()) {
       showWarning('Missing Product', 'Please enter a product name.');
@@ -329,14 +395,13 @@ export default function UploadScreen() {
     setParsed((prev) => [...prev, newItem]);
     setSelectedItems((prev) => new Set([...prev, newItem.id]));
 
-    // Reset form
     setManualProduct('');
     setManualSupplier('');
     setManualQuantity('');
     setShowAddManual(false);
   };
 
-  // Delete an item from parsed list
+  // Delete an item
   const deleteItem = (itemId: string) => {
     setParsed((prev) => prev.filter((p) => p.id !== itemId));
     setSelectedItems((prev) => {
@@ -354,97 +419,150 @@ export default function UploadScreen() {
     }
   };
 
-  // Render item for FlatList - Clean, minimal Mobbin-style cards
+  // Render item for FlatList
   const renderItem = ({ item }: { item: ParsedItem }) => {
     const isSelected = selectedItems.has(item.id);
     const isEditing = editingItemId === item.id;
     const hasEdits = editedValues.has(item.id);
     const isManual = item.id.startsWith('manual-');
 
-    // Get display values (edited or original)
     const displayProduct = getItemValue(item, 'product') as string;
     const displaySupplier = getItemValue(item, 'supplier') as string;
     const displayQuantity = getItemValue(item, 'quantity') as number | undefined;
 
-    // Editing mode - cleaner inline form
     if (isEditing) {
       return (
         <View style={{
-          backgroundColor: '#fff',
-          borderRadius: 12,
-          padding: 16,
-          borderWidth: 1,
-          borderColor: colors.brand.primary,
+          backgroundColor: colors.cypress.pale,
+          paddingVertical: 16,
+          paddingHorizontal: 16,
         }}>
-          {/* Product Name */}
-          <TextInput
-            value={displayProduct}
-            onChangeText={(text) => updateEditedValue(item.id, 'product', text)}
-            placeholder="Product name"
-            placeholderTextColor={colors.neutral.medium}
-            style={{
-              backgroundColor: colors.neutral.lighter,
-              borderRadius: 8,
-              paddingHorizontal: 12,
-              paddingVertical: 12,
-              fontSize: 16,
-              color: colors.neutral.darkest,
-              marginBottom: 10,
-            }}
-          />
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+            <View style={{
+              width: 4,
+              height: 16,
+              backgroundColor: colors.cypress.deep,
+              borderRadius: 2,
+              marginRight: 8,
+            }} />
+            <Text style={{
+              fontSize: 11,
+              fontWeight: '700',
+              color: colors.cypress.deep,
+              letterSpacing: 1,
+              textTransform: 'uppercase',
+            }}>
+              Editing Item
+            </Text>
+          </View>
 
-          {/* Supplier & Quantity row */}
-          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+          <View style={{ marginBottom: 12 }}>
+            <Text style={{
+              fontSize: 11,
+              fontWeight: '600',
+              color: colors.neutral.dark,
+              marginBottom: 4,
+              letterSpacing: 0.5,
+            }}>
+              Product Name
+            </Text>
             <TextInput
-              value={displaySupplier}
-              onChangeText={(text) => updateEditedValue(item.id, 'supplier', text)}
-              placeholder="Supplier"
+              value={displayProduct}
+              onChangeText={(text) => updateEditedValue(item.id, 'product', text)}
+              placeholder="Product name"
               placeholderTextColor={colors.neutral.medium}
               style={{
-                flex: 1,
-                backgroundColor: colors.neutral.lighter,
+                backgroundColor: colors.neutral.lightest,
                 borderRadius: 8,
-                paddingHorizontal: 12,
+                paddingHorizontal: 14,
                 paddingVertical: 12,
-                fontSize: 15,
+                fontSize: 16,
                 color: colors.neutral.darkest,
-              }}
-            />
-            <TextInput
-              value={displayQuantity ? String(displayQuantity) : ''}
-              onChangeText={(text) => updateEditedValue(item.id, 'quantity', text ? parseInt(text) || undefined : undefined)}
-              placeholder="Qty"
-              placeholderTextColor={colors.neutral.medium}
-              keyboardType="numeric"
-              style={{
-                width: 70,
-                backgroundColor: colors.neutral.lighter,
-                borderRadius: 8,
-                paddingHorizontal: 12,
-                paddingVertical: 12,
-                fontSize: 15,
-                color: colors.neutral.darkest,
-                textAlign: 'center',
+                borderWidth: 1,
+                borderColor: colors.neutral.light,
               }}
             />
           </View>
 
-          {/* Action Buttons */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{
+                fontSize: 11,
+                fontWeight: '600',
+                color: colors.neutral.dark,
+                marginBottom: 4,
+                letterSpacing: 0.5,
+              }}>
+                Supplier
+              </Text>
+              <TextInput
+                value={displaySupplier}
+                onChangeText={(text) => updateEditedValue(item.id, 'supplier', text)}
+                placeholder="Supplier"
+                placeholderTextColor={colors.neutral.medium}
+                style={{
+                  backgroundColor: colors.neutral.lightest,
+                  borderRadius: 8,
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                  fontSize: 16,
+                  color: colors.neutral.darkest,
+                  borderWidth: 1,
+                  borderColor: colors.neutral.light,
+                }}
+              />
+            </View>
+            <View style={{ width: 80 }}>
+              <Text style={{
+                fontSize: 11,
+                fontWeight: '600',
+                color: colors.neutral.dark,
+                marginBottom: 4,
+                letterSpacing: 0.5,
+              }}>
+                Qty
+              </Text>
+              <TextInput
+                value={displayQuantity ? String(displayQuantity) : ''}
+                onChangeText={(text) => updateEditedValue(item.id, 'quantity', text ? parseInt(text) || undefined : undefined)}
+                placeholder="0"
+                placeholderTextColor={colors.neutral.medium}
+                keyboardType="numeric"
+                style={{
+                  backgroundColor: colors.neutral.lightest,
+                  borderRadius: 8,
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                  fontSize: 16,
+                  color: colors.neutral.darkest,
+                  textAlign: 'center',
+                  borderWidth: 1,
+                  borderColor: colors.neutral.light,
+                }}
+              />
+            </View>
+          </View>
+
+          <View style={{ flexDirection: 'row', gap: 8 }}>
             <TouchableOpacity
               onPress={() => deleteItem(item.id)}
-              style={{ padding: 8 }}
+              style={{
+                paddingVertical: 12,
+                paddingHorizontal: 16,
+                backgroundColor: '#FEE2E2',
+                borderRadius: 8,
+              }}
             >
-              <Text style={{ color: colors.status.error, fontSize: 14, fontWeight: '500' }}>Delete</Text>
+              <Text style={{ color: colors.status.error, fontWeight: '600', fontSize: 14 }}>Delete</Text>
             </TouchableOpacity>
-
             <TouchableOpacity
               onPress={() => setEditingItemId(null)}
               style={{
-                paddingVertical: 8,
-                paddingHorizontal: 20,
+                flex: 1,
+                paddingVertical: 12,
                 backgroundColor: colors.brand.primary,
                 borderRadius: 8,
+                alignItems: 'center',
               }}
             >
               <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Done</Text>
@@ -454,28 +572,25 @@ export default function UploadScreen() {
       );
     }
 
-    // Normal display mode - clean two-line card
     return (
       <TouchableOpacity
         onPress={() => toggleItemSelection(item.id)}
         onLongPress={() => setEditingItemId(item.id)}
         style={{
-          backgroundColor: '#fff',
-          borderRadius: 10,
+          backgroundColor: colors.neutral.lightest,
           paddingVertical: 14,
-          paddingLeft: 14,
-          paddingRight: 10,
+          paddingLeft: 16,
+          paddingRight: 12,
           flexDirection: 'row',
           alignItems: 'center',
         }}
         activeOpacity={0.7}
       >
-        {/* Checkbox - minimal circle style */}
         <View style={{
-          width: 22,
-          height: 22,
-          borderRadius: 11,
-          borderWidth: 1.5,
+          width: 24,
+          height: 24,
+          borderRadius: 12,
+          borderWidth: 2,
           borderColor: isSelected ? colors.brand.primary : colors.neutral.light,
           backgroundColor: isSelected ? colors.brand.primary : 'transparent',
           justifyContent: 'center',
@@ -487,259 +602,270 @@ export default function UploadScreen() {
           )}
         </View>
 
-        {/* Content - two line structure */}
         <View style={{ flex: 1, marginRight: 8 }}>
-          {/* Line 1: Product name */}
           <Text 
             style={{
-              fontSize: 15,
-              fontWeight: '500',
+              fontSize: 16,
+              fontWeight: '600',
               color: colors.neutral.darkest,
-              marginBottom: 3,
+              marginBottom: 4,
             }}
             numberOfLines={1}
           >
             {displayProduct}
           </Text>
           
-          {/* Line 2: Supplier + Qty */}
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
             {displaySupplier ? (
-              <Text style={{ fontSize: 13, color: colors.neutral.medium }} numberOfLines={1}>
-                {displaySupplier}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="business-outline" size={12} color={colors.neutral.medium} style={{ marginRight: 4 }} />
+                <Text style={{ fontSize: 13, color: colors.neutral.medium }} numberOfLines={1}>
+                  {displaySupplier}
+                </Text>
+              </View>
             ) : (
               <Text style={{ fontSize: 13, color: colors.neutral.light, fontStyle: 'italic' }}>
                 No supplier
               </Text>
             )}
             {displayQuantity && displayQuantity > 0 && (
-              <Text style={{ fontSize: 13, color: colors.neutral.medium }}>
-                {' '} · Qty: {displayQuantity}
-              </Text>
+              <View style={{
+                backgroundColor: colors.cypress.pale,
+                paddingHorizontal: 8,
+                paddingVertical: 2,
+                borderRadius: 4,
+                marginLeft: 8,
+              }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: colors.cypress.deep }}>
+                  ×{displayQuantity}
+                </Text>
+              </View>
             )}
-            {/* Badges inline */}
             {(hasEdits || isManual) && (
               <View style={{
-                backgroundColor: isManual ? colors.analytics.olive + '15' : colors.status.warning + '15',
-                paddingHorizontal: 5,
-                paddingVertical: 1,
-                borderRadius: 3,
-                marginLeft: 6,
+                backgroundColor: isManual ? colors.analytics.olive + '20' : colors.status.warning + '20',
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+                borderRadius: 4,
+                marginLeft: 8,
               }}>
                 <Text style={{
-                  fontSize: 9,
-                  fontWeight: '600',
+                  fontSize: 10,
+                  fontWeight: '700',
                   color: isManual ? colors.analytics.olive : colors.status.warning,
                 }}>
-                  {isManual ? 'Added' : 'Edited'}
+                  {isManual ? 'MANUAL' : 'EDITED'}
                 </Text>
               </View>
             )}
           </View>
         </View>
 
-        {/* Edit button - subtle */}
         <TouchableOpacity
           onPress={() => setEditingItemId(item.id)}
-          style={{ padding: 8 }}
+          style={{
+            padding: 10,
+            backgroundColor: colors.cypress.pale,
+            borderRadius: 8,
+          }}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="pencil" size={16} color={colors.neutral.light} />
+          <Ionicons name="pencil" size={16} color={colors.cypress.deep} />
         </TouchableOpacity>
       </TouchableOpacity>
     );
   };
 
-  // If we have parsed items, show the selection view
+  // ========================================
+  // RESULTS VIEW - Show parsed items
+  // ========================================
   if (parsed.length > 0) {
     const allSelected = selectedItems.size === parsed.length;
     
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#FAFAF9' }} edges={['top']}>
-        {/* Clean Header */}
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.neutral.lighter }}>
+        {/* Sticky Header */}
         <View style={{
           flexDirection: 'row',
           alignItems: 'center',
           paddingHorizontal: 16,
-          paddingVertical: 14,
-          backgroundColor: '#FAFAF9',
-          borderBottomWidth: 0.5,
+          paddingVertical: 12,
+          backgroundColor: colors.neutral.lighter,
+          borderBottomWidth: 1,
           borderBottomColor: colors.neutral.light,
         }}>
-          <TouchableOpacity 
-            onPress={() => router.back()} 
-            style={{ padding: 4, marginRight: 12 }}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
+          <TouchableOpacity onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
             <Ionicons name="chevron-back" size={24} color={colors.neutral.darkest} />
           </TouchableOpacity>
           <Text style={{
-            fontSize: 17,
-            fontWeight: '600',
+            fontSize: 20,
+            fontWeight: '700',
             color: colors.neutral.darkest,
             flex: 1,
           }}>Scan Results</Text>
           
-          {/* View Image button in header */}
           {previewUri && (
             <TouchableOpacity 
               onPress={() => setShowFullPreview(true)}
-              style={{ padding: 6 }}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={{
+                padding: 8,
+                backgroundColor: colors.cypress.pale,
+                borderRadius: 8,
+              }}
             >
-              <Ionicons name="image-outline" size={22} color={colors.neutral.dark} />
+              <Ionicons name="image-outline" size={20} color={colors.cypress.deep} />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Compact Summary Bar */}
-        <View style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          backgroundColor: '#FAFAF9',
-          borderBottomWidth: 0.5,
-          borderBottomColor: colors.neutral.light,
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={{
-              fontSize: 15,
-              fontWeight: '600',
-              color: colors.neutral.darkest,
-            }}>
-              {parsed.length} items
-            </Text>
-            <Text style={{
-              fontSize: 15,
-              color: colors.neutral.medium,
-              marginLeft: 6,
-            }}>
-              • {allSelected ? 'All selected' : `${selectedItems.size} selected`}
-            </Text>
-          </View>
-          
-          {/* Manage selection toggle */}
-          <TouchableOpacity
-            onPress={() => {
-              if (allSelected) {
-                setSelectedItems(new Set());
-              } else {
-                setSelectedItems(new Set(parsed.map(p => p.id)));
-              }
-            }}
-            style={{
-              paddingVertical: 6,
-              paddingHorizontal: 12,
-              borderRadius: 6,
-              backgroundColor: colors.neutral.lighter,
-            }}
-          >
-            <Text style={{
-              fontSize: 13,
-              fontWeight: '600',
-              color: colors.brand.primary,
-            }}>
-              {allSelected ? 'Deselect All' : 'Select All'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Compact Icon Toolbar */}
-        <View style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-          paddingHorizontal: 12,
-          paddingVertical: 8,
-          backgroundColor: '#FAFAF9',
-          gap: 4,
-        }}>
-          <TouchableOpacity
-            onPress={() => setShowAddManual(true)}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingVertical: 8,
-              paddingHorizontal: 12,
-              borderRadius: 8,
-              backgroundColor: colors.neutral.lighter,
-            }}
-          >
-            <Ionicons name="add" size={18} color={colors.neutral.darkest} />
-            <Text style={{ fontSize: 13, fontWeight: '500', color: colors.neutral.darkest, marginLeft: 4 }}>Add</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            onPress={sendForParsing}
-            disabled={loading}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingVertical: 8,
-              paddingHorizontal: 12,
-              borderRadius: 8,
-              backgroundColor: colors.neutral.lighter,
-              opacity: loading ? 0.6 : 1,
-            }}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color={colors.neutral.darkest} />
-            ) : (
-              <>
-                <Ionicons name="refresh" size={16} color={colors.neutral.darkest} />
-                <Text style={{ fontSize: 13, fontWeight: '500', color: colors.neutral.darkest, marginLeft: 4 }}>Re-scan</Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={async () => {
-              // Cleanup persisted image and saved results
-              if (previewUri) {
-                await cleanupNormalizedImage(previewUri);
-              }
-              await clearScanResults();
-              setFile(null);
-              setParsed([]);
-              setSelectedItems(new Set());
-              setParsingError(null);
-              setPreviewUri(null);
-              setEditedValues(new Map());
-              setEditingItemId(null);
-            }}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingVertical: 8,
-              paddingHorizontal: 12,
-              borderRadius: 8,
-              backgroundColor: colors.neutral.lighter,
-            }}
-          >
-            <Ionicons name="close" size={16} color={colors.neutral.dark} />
-            <Text style={{ fontSize: 13, fontWeight: '500', color: colors.neutral.dark, marginLeft: 4 }}>Clear</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Item List - Primary focus, takes remaining space */}
-        <FlatList
-          data={parsed}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 100 }}
           showsVerticalScrollIndicator={true}
-          style={{ flex: 1, backgroundColor: '#FAFAF9' }}
-          contentContainerStyle={{ 
-            paddingHorizontal: 16, 
-            paddingTop: 8,
-            paddingBottom: 100, // Space for sticky CTA
-          }}
-          ItemSeparatorComponent={() => (
-            <View style={{ height: 1, backgroundColor: colors.neutral.light, marginVertical: 1 }} />
-          )}
-        />
+        >
+          {/* Summary Section */}
+          <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{
+                  width: 4,
+                  height: 20,
+                  backgroundColor: colors.brand.primary,
+                  borderRadius: 2,
+                  marginRight: 10,
+                }} />
+                <Ionicons name="list-outline" size={16} color={colors.brand.primary} style={{ marginRight: 6 }} />
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '700',
+                  color: colors.brand.primary,
+                  letterSpacing: 1,
+                  textTransform: 'uppercase',
+                }}>
+                  Extracted Items
+                </Text>
+              </View>
+              <View style={{
+                backgroundColor: colors.cypress.pale,
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: 12,
+              }}>
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '700',
+                  color: colors.cypress.deep,
+                }}>
+                  {selectedItems.size}/{parsed.length}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Action Toolbar */}
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 16,
+            paddingBottom: 12,
+            gap: 8,
+          }}>
+            <TouchableOpacity
+              onPress={() => {
+                if (allSelected) {
+                  setSelectedItems(new Set());
+                } else {
+                  setSelectedItems(new Set(parsed.map(p => p.id)));
+                }
+              }}
+              style={{
+                paddingVertical: 10,
+                paddingHorizontal: 14,
+                borderRadius: 8,
+                backgroundColor: colors.neutral.lightest,
+                borderWidth: 1,
+                borderColor: colors.neutral.light,
+                flexDirection: 'row',
+                alignItems: 'center',
+              }}
+            >
+              <Ionicons 
+                name={allSelected ? "checkbox" : "square-outline"} 
+                size={16} 
+                color={colors.brand.primary} 
+                style={{ marginRight: 6 }} 
+              />
+              <Text style={{ fontSize: 13, fontWeight: '600', color: colors.neutral.darkest }}>
+                {allSelected ? 'Deselect All' : 'Select All'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setShowAddManual(true)}
+              style={{
+                paddingVertical: 10,
+                paddingHorizontal: 14,
+                borderRadius: 8,
+                backgroundColor: colors.cypress.pale,
+                flexDirection: 'row',
+                alignItems: 'center',
+              }}
+            >
+              <Ionicons name="add" size={16} color={colors.cypress.deep} style={{ marginRight: 4 }} />
+              <Text style={{ fontSize: 13, fontWeight: '600', color: colors.cypress.deep }}>Add</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={clearSelection}
+              style={{
+                paddingVertical: 10,
+                paddingHorizontal: 14,
+                borderRadius: 8,
+                backgroundColor: '#FEE2E2',
+                flexDirection: 'row',
+                alignItems: 'center',
+              }}
+            >
+              <Ionicons name="close" size={16} color={colors.status.error} style={{ marginRight: 4 }} />
+              <Text style={{ fontSize: 13, fontWeight: '600', color: colors.status.error }}>Clear</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Items List */}
+          <View style={{
+            backgroundColor: colors.neutral.lightest,
+            marginHorizontal: 16,
+            borderRadius: 12,
+            overflow: 'hidden',
+            borderWidth: 1,
+            borderColor: colors.neutral.light,
+          }}>
+            <FlatList
+              data={parsed}
+              keyExtractor={(item) => item.id}
+              renderItem={renderItem}
+              scrollEnabled={false}
+              ItemSeparatorComponent={() => (
+                <View style={{ height: 1, backgroundColor: colors.neutral.light, marginHorizontal: 16 }} />
+              )}
+            />
+          </View>
+
+          {/* Tip */}
+          <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+            <View style={{
+              backgroundColor: colors.analytics.clay + '20',
+              borderRadius: 8,
+              padding: 12,
+              flexDirection: 'row',
+              alignItems: 'center',
+            }}>
+              <Ionicons name="bulb-outline" size={16} color={colors.analytics.olive} style={{ marginRight: 8 }} />
+              <Text style={{ fontSize: 12, color: colors.analytics.olive, flex: 1 }}>
+                Long-press any item to edit details
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
 
         {/* Sticky Bottom CTA */}
         <View style={{
@@ -747,11 +873,11 @@ export default function UploadScreen() {
           bottom: 0,
           left: 0,
           right: 0,
-          backgroundColor: '#FAFAF9',
+          backgroundColor: colors.neutral.lighter,
           paddingHorizontal: 16,
           paddingTop: 12,
           paddingBottom: Platform.OS === 'ios' ? 34 : 16,
-          borderTopWidth: 0.5,
+          borderTopWidth: 1,
           borderTopColor: colors.neutral.light,
         }}>
           <TouchableOpacity
@@ -767,17 +893,23 @@ export default function UploadScreen() {
             }}
             activeOpacity={0.8}
           >
+            <Ionicons 
+              name="download-outline" 
+              size={20} 
+              color={selectedItems.size === 0 ? colors.neutral.medium : '#fff'} 
+              style={{ marginRight: 8 }} 
+            />
             <Text style={{
               color: selectedItems.size === 0 ? colors.neutral.medium : '#fff',
               fontSize: 17,
-              fontWeight: '600',
+              fontWeight: '700',
             }}>
               Import {selectedItems.size} {selectedItems.size === 1 ? 'Item' : 'Items'}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Alert Modal */}
+        {/* Modals */}
         <AlertModal
           visible={alert.visible}
           type={alert.type}
@@ -787,18 +919,14 @@ export default function UploadScreen() {
           onClose={hideAlert}
         />
 
-        {/* Full Screen Image Preview Modal with Zoom */}
+        {/* Full Screen Image Preview */}
         <Modal
           visible={showFullPreview}
           animationType="fade"
           transparent={true}
           onRequestClose={() => setShowFullPreview(false)}
         >
-          <View style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.95)',
-          }}>
-            {/* Header with close button */}
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' }}>
             <View style={{
               position: 'absolute',
               top: 0,
@@ -813,7 +941,7 @@ export default function UploadScreen() {
               alignItems: 'center',
             }}>
               <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, fontWeight: '600' }}>
-                Pinch to zoom • Double-tap to reset
+                Pinch to zoom
               </Text>
               <TouchableOpacity
                 onPress={() => setShowFullPreview(false)}
@@ -827,7 +955,6 @@ export default function UploadScreen() {
               </TouchableOpacity>
             </View>
             
-            {/* Zoomable Image */}
             {previewUri && (
               <ScrollView
                 style={{ flex: 1, marginTop: 90 }}
@@ -845,10 +972,7 @@ export default function UploadScreen() {
               >
                 <Image
                   source={{ uri: previewUri }}
-                  style={{ 
-                    width: SCREEN_WIDTH,
-                    height: SCREEN_HEIGHT - 150,
-                  }}
+                  style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT - 150 }}
                   contentFit="contain"
                 />
               </ScrollView>
@@ -856,7 +980,7 @@ export default function UploadScreen() {
           </View>
         </Modal>
 
-        {/* Add Manual Item Modal - Clean bottom sheet */}
+        {/* Add Manual Item Modal */}
         <Modal
           visible={showAddManual}
           animationType="slide"
@@ -873,14 +997,13 @@ export default function UploadScreen() {
               onPress={() => setShowAddManual(false)}
             />
             <View style={{
-              backgroundColor: '#fff',
+              backgroundColor: colors.neutral.lightest,
               borderTopLeftRadius: 16,
               borderTopRightRadius: 16,
               paddingHorizontal: 20,
               paddingTop: 12,
               paddingBottom: Platform.OS === 'ios' ? 40 : 24,
             }}>
-              {/* Handle bar */}
               <View style={{
                 width: 36,
                 height: 4,
@@ -890,7 +1013,6 @@ export default function UploadScreen() {
                 marginBottom: 16,
               }} />
 
-              {/* Header */}
               <View style={{
                 flexDirection: 'row',
                 justifyContent: 'space-between',
@@ -898,80 +1020,105 @@ export default function UploadScreen() {
                 marginBottom: 20,
               }}>
                 <Text style={{
-                  fontSize: 17,
-                  fontWeight: '600',
+                  fontSize: 18,
+                  fontWeight: '700',
                   color: colors.neutral.darkest,
                 }}>
-                  Add Item
+                  Add Item Manually
                 </Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    setShowAddManual(false);
-                    setManualProduct('');
-                    setManualSupplier('');
-                    setManualQuantity('');
-                  }}
-                  style={{ padding: 4 }}
-                >
+                <TouchableOpacity onPress={() => setShowAddManual(false)} style={{ padding: 4 }}>
                   <Ionicons name="close" size={22} color={colors.neutral.medium} />
                 </TouchableOpacity>
               </View>
 
-              {/* Product Name */}
-              <TextInput
-                value={manualProduct}
-                onChangeText={setManualProduct}
-                placeholder="Product name"
-                placeholderTextColor={colors.neutral.medium}
-                autoFocus
-                style={{
-                  backgroundColor: colors.neutral.lighter,
-                  borderRadius: 10,
-                  paddingHorizontal: 14,
-                  paddingVertical: 14,
-                  fontSize: 16,
-                  color: colors.neutral.darkest,
-                  marginBottom: 12,
-                }}
-              />
-
-              {/* Supplier & Quantity row */}
-              <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '600',
+                  color: colors.neutral.dark,
+                  marginBottom: 6,
+                  letterSpacing: 0.5,
+                }}>
+                  Product Name
+                </Text>
                 <TextInput
-                  value={manualSupplier}
-                  onChangeText={setManualSupplier}
-                  placeholder="Supplier"
+                  value={manualProduct}
+                  onChangeText={setManualProduct}
+                  placeholder="Enter product name"
                   placeholderTextColor={colors.neutral.medium}
+                  autoFocus
                   style={{
-                    flex: 1,
                     backgroundColor: colors.neutral.lighter,
-                    borderRadius: 10,
+                    borderRadius: 8,
                     paddingHorizontal: 14,
                     paddingVertical: 14,
                     fontSize: 16,
                     color: colors.neutral.darkest,
-                  }}
-                />
-                <TextInput
-                  value={manualQuantity}
-                  onChangeText={setManualQuantity}
-                  placeholder="Qty"
-                  placeholderTextColor={colors.neutral.medium}
-                  keyboardType="numeric"
-                  style={{
-                    width: 80,
-                    backgroundColor: colors.neutral.lighter,
-                    borderRadius: 10,
-                    paddingHorizontal: 14,
-                    paddingVertical: 14,
-                    fontSize: 16,
-                    color: colors.neutral.darkest,
-                    textAlign: 'center',
+                    borderWidth: 1,
+                    borderColor: colors.neutral.light,
                   }}
                 />
               </View>
 
-              {/* Add Button */}
+              <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{
+                    fontSize: 12,
+                    fontWeight: '600',
+                    color: colors.neutral.dark,
+                    marginBottom: 6,
+                    letterSpacing: 0.5,
+                  }}>
+                    Supplier
+                  </Text>
+                  <TextInput
+                    value={manualSupplier}
+                    onChangeText={setManualSupplier}
+                    placeholder="Optional"
+                    placeholderTextColor={colors.neutral.medium}
+                    style={{
+                      backgroundColor: colors.neutral.lighter,
+                      borderRadius: 8,
+                      paddingHorizontal: 14,
+                      paddingVertical: 14,
+                      fontSize: 16,
+                      color: colors.neutral.darkest,
+                      borderWidth: 1,
+                      borderColor: colors.neutral.light,
+                    }}
+                  />
+                </View>
+                <View style={{ width: 80 }}>
+                  <Text style={{
+                    fontSize: 12,
+                    fontWeight: '600',
+                    color: colors.neutral.dark,
+                    marginBottom: 6,
+                    letterSpacing: 0.5,
+                  }}>
+                    Qty
+                  </Text>
+                  <TextInput
+                    value={manualQuantity}
+                    onChangeText={setManualQuantity}
+                    placeholder="1"
+                    placeholderTextColor={colors.neutral.medium}
+                    keyboardType="numeric"
+                    style={{
+                      backgroundColor: colors.neutral.lighter,
+                      borderRadius: 8,
+                      paddingHorizontal: 14,
+                      paddingVertical: 14,
+                      fontSize: 16,
+                      color: colors.neutral.darkest,
+                      textAlign: 'center',
+                      borderWidth: 1,
+                      borderColor: colors.neutral.light,
+                    }}
+                  />
+                </View>
+              </View>
+
               <TouchableOpacity
                 onPress={addManualItem}
                 disabled={!manualProduct.trim()}
@@ -986,7 +1133,7 @@ export default function UploadScreen() {
                 <Text style={{
                   color: manualProduct.trim() ? '#fff' : colors.neutral.medium,
                   fontSize: 17,
-                  fontWeight: '600',
+                  fontWeight: '700',
                 }}>
                   Add Item
                 </Text>
@@ -1014,16 +1161,15 @@ export default function UploadScreen() {
             onPress={() => setShowSessionChoice(false)}
           >
             <View style={{
-              backgroundColor: '#fff',
+              backgroundColor: colors.neutral.lightest,
               borderRadius: 16,
               padding: 24,
               width: '100%',
               maxWidth: 340,
             }}>
-              {/* Header */}
               <Text style={{
                 fontSize: 18,
-                fontWeight: '600',
+                fontWeight: '700',
                 color: colors.neutral.darkest,
                 textAlign: 'center',
                 marginBottom: 8,
@@ -1036,10 +1182,9 @@ export default function UploadScreen() {
                 textAlign: 'center',
                 marginBottom: 24,
               }}>
-                You have an active session. Where would you like to add these items?
+                Where would you like to add these items?
               </Text>
 
-              {/* Add to existing session */}
               {activeSessions.length > 0 && (
                 <TouchableOpacity
                   onPress={() => performImport(activeSessions[0])}
@@ -1051,7 +1196,6 @@ export default function UploadScreen() {
                     marginBottom: 12,
                     flexDirection: 'row',
                     alignItems: 'center',
-                    justifyContent: 'center',
                   }}
                   activeOpacity={0.8}
                 >
@@ -1060,7 +1204,7 @@ export default function UploadScreen() {
                     <Text style={{
                       color: '#fff',
                       fontSize: 15,
-                      fontWeight: '600',
+                      fontWeight: '700',
                     }}>
                       Add to Current Session
                     </Text>
@@ -1075,7 +1219,6 @@ export default function UploadScreen() {
                 </TouchableOpacity>
               )}
 
-              {/* Create new session */}
               <TouchableOpacity
                 onPress={() => performImport(createSession())}
                 style={{
@@ -1086,6 +1229,8 @@ export default function UploadScreen() {
                   flexDirection: 'row',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: colors.neutral.light,
                 }}
                 activeOpacity={0.8}
               >
@@ -1099,13 +1244,9 @@ export default function UploadScreen() {
                 </Text>
               </TouchableOpacity>
 
-              {/* Cancel */}
               <TouchableOpacity
                 onPress={() => setShowSessionChoice(false)}
-                style={{
-                  paddingVertical: 14,
-                  marginTop: 8,
-                }}
+                style={{ paddingVertical: 14, marginTop: 8 }}
               >
                 <Text style={{
                   color: colors.neutral.medium,
@@ -1123,7 +1264,9 @@ export default function UploadScreen() {
     );
   }
 
-  // Default view: file selection or parsing
+  // ========================================
+  // UPLOAD VIEW - Initial state
+  // ========================================
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.neutral.lighter }}>
       {/* Sticky Header */}
@@ -1147,45 +1290,13 @@ export default function UploadScreen() {
       </View>
 
       <ScrollView 
-        style={{ flex: 1 }} 
-        contentContainerStyle={{ padding: 16 }}
+        contentContainerStyle={{ paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
-        {!file && (
+        {!file ? (
           <>
-            {/* Beta Notice */}
-            <View style={{
-              backgroundColor: colors.status.warning + '20',
-              borderRadius: 10,
-              padding: 12,
-              marginBottom: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-              borderWidth: 1,
-              borderColor: colors.status.warning + '40',
-            }}>
-              <Ionicons name="flask-outline" size={20} color={colors.status.warning} style={{ marginRight: 10 }} />
-              <View style={{ flex: 1 }}>
-                <Text style={{
-                  fontSize: 13,
-                  fontWeight: '700',
-                  color: colors.neutral.darkest,
-                  marginBottom: 2,
-                }}>
-                  Beta Testing
-                </Text>
-                <Text style={{
-                  fontSize: 12,
-                  color: colors.neutral.dark,
-                  lineHeight: 16,
-                }}>
-                  Help us test the AI parsing! Upload an image of your Stock Item Sales Report and let us know if items are extracted correctly.
-                </Text>
-              </View>
-            </View>
-
-            {/* Upload Section */}
-            <View style={{ paddingBottom: 12 }}>
+            {/* Capture Section */}
+            <View style={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View style={{
                   width: 4,
@@ -1194,7 +1305,7 @@ export default function UploadScreen() {
                   borderRadius: 2,
                   marginRight: 10,
                 }} />
-                <Ionicons name="image-outline" size={16} color={colors.brand.primary} style={{ marginRight: 6 }} />
+                <Ionicons name="camera-outline" size={16} color={colors.brand.primary} style={{ marginRight: 6 }} />
                 <Text style={{
                   fontSize: 12,
                   fontWeight: '700',
@@ -1202,19 +1313,19 @@ export default function UploadScreen() {
                   letterSpacing: 1,
                   textTransform: 'uppercase',
                 }}>
-                  Upload Image
+                  Capture Document
                 </Text>
               </View>
             </View>
 
             <View style={{
               backgroundColor: colors.neutral.lightest,
+              marginHorizontal: 16,
               borderRadius: 12,
               padding: 24,
               alignItems: 'center',
-              borderWidth: 2,
+              borderWidth: 1,
               borderColor: colors.neutral.light,
-              borderStyle: 'dashed',
             }}>
               <View style={{
                 width: 64,
@@ -1225,41 +1336,31 @@ export default function UploadScreen() {
                 alignItems: 'center',
                 marginBottom: 16,
               }}>
-                <Ionicons name="document-text-outline" size={32} color={colors.cypress.deep} />
+                <Ionicons name="camera" size={32} color={colors.cypress.deep} />
               </View>
 
               <Text style={{
-                fontSize: 16,
-                fontWeight: '600',
+                fontSize: 17,
+                fontWeight: '700',
                 color: colors.neutral.darkest,
                 marginBottom: 8,
                 textAlign: 'center',
               }}>
-                Select Image from Device
+                Take a Photo
               </Text>
               
               <Text style={{
                 fontSize: 14,
                 color: colors.neutral.medium,
                 textAlign: 'center',
-                marginBottom: 6,
+                marginBottom: 20,
                 paddingHorizontal: 8,
               }}>
-                Choose an image of your product list, order sheet, or catalog from your photo library.
-              </Text>
-
-              <Text style={{
-                fontSize: 12,
-                color: colors.neutral.medium,
-                textAlign: 'center',
-                marginBottom: 20,
-                fontStyle: 'italic',
-              }}>
-                Camera capture coming soon
+                Use your camera to capture a stock report or product list. Best quality and no format issues.
               </Text>
 
               <TouchableOpacity 
-                onPress={pickFile} 
+                onPress={takePhoto} 
                 style={{
                   backgroundColor: colors.brand.primary,
                   paddingVertical: 14,
@@ -1267,54 +1368,157 @@ export default function UploadScreen() {
                   borderRadius: 10,
                   flexDirection: 'row',
                   alignItems: 'center',
+                  width: '100%',
+                  justifyContent: 'center',
                 }}
                 activeOpacity={0.8}
               >
-                <Ionicons name="folder-open-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
+                <Ionicons name="camera" size={20} color="#fff" style={{ marginRight: 8 }} />
                 <Text style={{
                   color: '#fff',
                   fontSize: 16,
                   fontWeight: '700',
                 }}>
-                  Choose from Photos
+                  Open Camera
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {/* What We're Testing Section */}
-            <View style={{ paddingTop: 24, paddingBottom: 12 }}>
+            {/* Or Divider */}
+            <View style={{ 
+              flexDirection: 'row', 
+              alignItems: 'center', 
+              marginHorizontal: 16,
+              marginVertical: 20,
+            }}>
+              <View style={{ flex: 1, height: 1, backgroundColor: colors.neutral.light }} />
+              <Text style={{ 
+                paddingHorizontal: 16, 
+                fontSize: 13, 
+                color: colors.neutral.medium,
+                fontWeight: '600',
+              }}>
+                OR
+              </Text>
+              <View style={{ flex: 1, height: 1, backgroundColor: colors.neutral.light }} />
+            </View>
+
+            {/* Upload Section */}
+            <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View style={{
                   width: 4,
                   height: 20,
-                  backgroundColor: colors.analytics.olive,
+                  backgroundColor: colors.cypress.deep,
                   borderRadius: 2,
                   marginRight: 10,
                 }} />
-                <Ionicons name="checkmark-circle-outline" size={16} color={colors.analytics.olive} style={{ marginRight: 6 }} />
+                <Ionicons name="folder-open-outline" size={16} color={colors.cypress.deep} style={{ marginRight: 6 }} />
                 <Text style={{
                   fontSize: 12,
                   fontWeight: '700',
-                  color: colors.analytics.olive,
+                  color: colors.cypress.deep,
                   letterSpacing: 1,
                   textTransform: 'uppercase',
                 }}>
-                  What We're Testing
+                  Choose from Photos
                 </Text>
               </View>
             </View>
 
             <View style={{
               backgroundColor: colors.neutral.lightest,
+              marginHorizontal: 16,
+              borderRadius: 12,
+              padding: 20,
+              borderWidth: 2,
+              borderColor: colors.neutral.light,
+              borderStyle: 'dashed',
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: colors.cypress.pale,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginRight: 16,
+                }}>
+                  <Ionicons name="images" size={24} color={colors.cypress.deep} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{
+                    fontSize: 15,
+                    fontWeight: '600',
+                    color: colors.neutral.darkest,
+                    marginBottom: 4,
+                  }}>
+                    Select from Library
+                  </Text>
+                  <Text style={{
+                    fontSize: 13,
+                    color: colors.neutral.medium,
+                  }}>
+                    JPEG, PNG, or HEIC images
+                  </Text>
+                </View>
+                <TouchableOpacity 
+                  onPress={pickFile} 
+                  style={{
+                    backgroundColor: colors.cypress.pale,
+                    paddingVertical: 10,
+                    paddingHorizontal: 16,
+                    borderRadius: 8,
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{
+                    color: colors.cypress.deep,
+                    fontSize: 14,
+                    fontWeight: '700',
+                  }}>
+                    Browse
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Tips Section */}
+            <View style={{ paddingHorizontal: 16, paddingTop: 24, paddingBottom: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{
+                  width: 4,
+                  height: 20,
+                  backgroundColor: colors.neutral.medium,
+                  borderRadius: 2,
+                  marginRight: 10,
+                }} />
+                <Ionicons name="bulb-outline" size={16} color={colors.neutral.medium} style={{ marginRight: 6 }} />
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '700',
+                  color: colors.neutral.medium,
+                  letterSpacing: 1,
+                  textTransform: 'uppercase',
+                }}>
+                  Tips for Best Results
+                </Text>
+              </View>
+            </View>
+
+            <View style={{
+              backgroundColor: colors.neutral.lightest,
+              marginHorizontal: 16,
               borderRadius: 12,
               overflow: 'hidden',
               borderWidth: 1,
               borderColor: colors.neutral.light,
             }}>
               {[
-                { icon: 'eye-outline', text: 'Does the AI correctly read product names?' },
-                { icon: 'business-outline', text: 'Are supplier names detected accurately?' },
-                { icon: 'calculator-outline', text: 'Are quantities extracted correctly?' },
+                { icon: 'sunny-outline', text: 'Use good lighting to avoid shadows' },
+                { icon: 'scan-outline', text: 'Keep the document flat and aligned' },
+                { icon: 'text-outline', text: 'Ensure all text is clearly readable' },
               ].map((tip, index) => (
                 <View key={index}>
                   <View style={{
@@ -1352,52 +1556,11 @@ export default function UploadScreen() {
                 </View>
               ))}
             </View>
-
-            {/* Image Tips */}
-            <View style={{ paddingTop: 20, paddingBottom: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <View style={{
-                  width: 4,
-                  height: 20,
-                  backgroundColor: colors.neutral.medium,
-                  borderRadius: 2,
-                  marginRight: 10,
-                }} />
-                <Ionicons name="bulb-outline" size={16} color={colors.neutral.medium} style={{ marginRight: 6 }} />
-                <Text style={{
-                  fontSize: 12,
-                  fontWeight: '700',
-                  color: colors.neutral.medium,
-                  letterSpacing: 1,
-                  textTransform: 'uppercase',
-                }}>
-                  For Best Results
-                </Text>
-              </View>
-            </View>
-
-            <View style={{
-              backgroundColor: colors.neutral.lightest,
-              borderRadius: 12,
-              padding: 14,
-              borderWidth: 1,
-              borderColor: colors.neutral.light,
-            }}>
-              <Text style={{
-                fontSize: 13,
-                color: colors.neutral.dark,
-                lineHeight: 20,
-              }}>
-                Use clear, well-lit images where text is readable. The AI works best with typed/printed text rather than handwriting.
-              </Text>
-            </View>
           </>
-        )}
-
-        {file && (
+        ) : (
           <>
             {/* Selected File Section */}
-            <View style={{ paddingBottom: 12 }}>
+            <View style={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View style={{
                   width: 4,
@@ -1421,11 +1584,11 @@ export default function UploadScreen() {
 
             <View style={{
               backgroundColor: colors.neutral.lightest,
+              marginHorizontal: 16,
               borderRadius: 12,
               padding: 16,
               borderWidth: 1,
               borderColor: colors.neutral.light,
-              marginBottom: 16,
             }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View style={{
@@ -1452,106 +1615,140 @@ export default function UploadScreen() {
                     fontSize: 12,
                     color: colors.neutral.medium,
                   }}>
-                    Ready to parse
+                    Ready to analyze
                   </Text>
                 </View>
                 <TouchableOpacity
-                  onPress={() => {
-                    setFile(null);
-                    setParsingError(null);
-                  }}
+                  onPress={clearSelection}
                   style={{
-                    padding: 8,
-                    backgroundColor: colors.neutral.lighter,
+                    padding: 10,
+                    backgroundColor: '#FEE2E2',
                     borderRadius: 8,
                   }}
                 >
-                  <Ionicons name="close" size={20} color={colors.neutral.dark} />
+                  <Ionicons name="close" size={20} color={colors.status.error} />
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* Parse Button */}
-            <TouchableOpacity
-              onPress={sendForParsing}
-              style={{
-                backgroundColor: colors.brand.primary,
-                paddingVertical: 16,
-                borderRadius: 12,
-                alignItems: 'center',
-                flexDirection: 'row',
-                justifyContent: 'center',
-                opacity: loading ? 0.7 : 1,
-              }}
-              disabled={loading}
-              activeOpacity={0.8}
-            >
-              {loading ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <ActivityIndicator color="#fff" style={{ marginRight: 12 }} />
-                  <Text style={{
-                    color: '#fff',
-                    fontSize: 16,
-                    fontWeight: '600',
-                  }}>
-                    {loadingMessage || 'Processing...'}
-                  </Text>
-                </View>
-              ) : (
-                <>
-                  <Ionicons name="scan-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-                  <Text style={{
-                    color: '#fff',
-                    fontSize: 16,
-                    fontWeight: '700',
-                  }}>
-                    Parse Image
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            {/* Error */}
-            {parsingError && (
-              <View style={{
-                backgroundColor: colors.status.error + '15',
-                borderRadius: 8,
-                padding: 12,
-                marginTop: 16,
-                flexDirection: 'row',
-                alignItems: 'center',
-              }}>
-                <Ionicons name="alert-circle" size={20} color={colors.status.error} style={{ marginRight: 8 }} />
+            {/* Actions Section */}
+            <View style={{ paddingHorizontal: 16, paddingTop: 24, paddingBottom: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{
+                  width: 4,
+                  height: 20,
+                  backgroundColor: colors.cypress.deep,
+                  borderRadius: 2,
+                  marginRight: 10,
+                }} />
+                <Ionicons name="sparkles-outline" size={16} color={colors.cypress.deep} style={{ marginRight: 6 }} />
                 <Text style={{
-                  color: colors.status.error,
-                  fontSize: 14,
-                  flex: 1,
+                  fontSize: 12,
+                  fontWeight: '700',
+                  color: colors.cypress.deep,
+                  letterSpacing: 1,
+                  textTransform: 'uppercase',
                 }}>
-                  {parsingError}
+                  Actions
                 </Text>
               </View>
-            )}
+            </View>
 
-            {/* Choose Different */}
-            <TouchableOpacity
-              onPress={() => {
-                setFile(null);
-                setParsingError(null);
-              }}
-              style={{
-                paddingVertical: 16,
-                alignItems: 'center',
-                marginTop: 12,
-              }}
-            >
-              <Text style={{
-                color: colors.neutral.medium,
-                fontSize: 14,
-                fontWeight: '500',
+            <View style={{ paddingHorizontal: 16 }}>
+              <TouchableOpacity
+                onPress={sendForParsing}
+                style={{
+                  backgroundColor: colors.brand.primary,
+                  paddingVertical: 16,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  opacity: loading ? 0.7 : 1,
+                }}
+                disabled={loading}
+                activeOpacity={0.8}
+              >
+                {loading ? (
+                  <>
+                    <ActivityIndicator color="#fff" style={{ marginRight: 12 }} />
+                    <Text style={{
+                      color: '#fff',
+                      fontSize: 16,
+                      fontWeight: '600',
+                    }}>
+                      {loadingMessage || 'Processing...'}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="scan-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+                    <Text style={{
+                      color: '#fff',
+                      fontSize: 16,
+                      fontWeight: '700',
+                    }}>
+                      Analyze Document
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={clearSelection}
+                style={{
+                  backgroundColor: colors.neutral.lightest,
+                  paddingVertical: 14,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  marginTop: 12,
+                  borderWidth: 1,
+                  borderColor: colors.neutral.light,
+                }}
+              >
+                <Text style={{
+                  color: colors.neutral.dark,
+                  fontSize: 15,
+                  fontWeight: '600',
+                }}>
+                  Choose Different File
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Error Display */}
+            {parsingError && (
+              <View style={{
+                marginHorizontal: 16,
+                marginTop: 16,
+                backgroundColor: '#FEE2E2',
+                borderRadius: 12,
+                padding: 16,
+                borderWidth: 1,
+                borderColor: colors.status.error + '40',
               }}>
-                Choose different image
-              </Text>
-            </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                  <Ionicons name="alert-circle" size={20} color={colors.status.error} style={{ marginRight: 10, marginTop: 2 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{
+                      fontSize: 14,
+                      fontWeight: '600',
+                      color: colors.status.error,
+                      marginBottom: 4,
+                    }}>
+                      Analysis Failed
+                    </Text>
+                    <Text style={{
+                      color: colors.status.error,
+                      fontSize: 13,
+                      lineHeight: 18,
+                    }}>
+                      {parsingError}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
           </>
         )}
       </ScrollView>

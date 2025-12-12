@@ -19,6 +19,53 @@ export interface Env {
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const GROQ_MODEL = "llama-3.1-70b-versatile"; // Or "mixtral-8x7b-32768" for structured JSON
 
+// Image formats supported by Groq Vision API
+const SUPPORTED_IMAGE_FORMATS = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+];
+
+// Formats that need client-side conversion (not supported by Vision API)
+const UNSUPPORTED_IMAGE_FORMATS = [
+  'image/heic',
+  'image/heif',
+  'image/heic-sequence',
+  'image/heif-sequence',
+  'image/bmp',
+  'image/tiff',
+];
+
+/**
+ * Validates if an image format is supported by the Vision API
+ */
+function isImageFormatSupported(mimeType: string): boolean {
+  return SUPPORTED_IMAGE_FORMATS.includes(mimeType.toLowerCase());
+}
+
+/**
+ * Gets a user-friendly error message for unsupported formats
+ */
+function getFormatErrorMessage(mimeType: string, fileName: string): string {
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  
+  if (ext === 'heic' || ext === 'heif' || mimeType.includes('heic') || mimeType.includes('heif')) {
+    return 'HEIC format not supported. Please convert to JPEG or take a new photo with your camera app.';
+  }
+  
+  if (ext === 'bmp' || mimeType.includes('bmp')) {
+    return 'BMP format not supported. Please use JPEG or PNG instead.';
+  }
+  
+  if (ext === 'tiff' || ext === 'tif' || mimeType.includes('tiff')) {
+    return 'TIFF format not supported. Please use JPEG or PNG instead.';
+  }
+  
+  return `Image format "${mimeType}" not supported. Please use JPEG, PNG, GIF, or WebP.`;
+}
+
 /**
  * Handles document parsing request
  */
@@ -105,6 +152,17 @@ export async function handleParseDoc(
         return response;
       }
     } else if (isImage) {
+      // Validate image format before sending to Vision API
+      if (!isImageFormatSupported(mimeType)) {
+        console.log(`[parse-doc:handler] Unsupported image format: ${mimeType} (${file.name})`);
+        const { response } = createError(
+          getFormatErrorMessage(mimeType, file.name),
+          400,
+          "UNSUPPORTED_FORMAT"
+        );
+        return response;
+      }
+
       // Image: Send directly to Groq Vision API
       const base64DataUrl = imageToBase64DataUrl(arrayBuffer, mimeType);
       const visionResponse = await groqVision(
@@ -124,13 +182,21 @@ export async function handleParseDoc(
               ],
             },
           ],
-          model: "meta-llama/llama-4-maverick-17b-128e-instruct", // Groq vision model (Maverick has 128 experts, better for complex docs)
+          model: "meta-llama/llama-4-scout-17b-16e-instruct", // Groq Llama 4 Scout vision model
           temperature: 0.1,
           max_tokens: 4096, // Ensure enough tokens for large product lists
           response_format: { type: "json_object" },
         },
         env.GROQ_API_KEY
       );
+
+      console.log(`[parse-doc:handler] Vision API response ok: ${visionResponse.ok}`);
+      if (visionResponse.content) {
+        console.log(`[parse-doc:handler] Vision response preview: ${visionResponse.content.substring(0, 500)}`);
+      }
+      if (visionResponse.error) {
+        console.error(`[parse-doc:handler] Vision API error: ${visionResponse.error}`);
+      }
 
       if (!visionResponse.ok) {
         const { response } = createError(
@@ -143,10 +209,12 @@ export async function handleParseDoc(
       // Parse and validate vision response
       try {
         const parsed = JSON.parse(visionResponse.content!);
+        console.log(`[parse-doc:handler] Parsed items count: ${parsed.items?.length || 0}`);
         const validated = validateParsedDoc(parsed);
         items = validated.items;
       } catch (parseErr) {
         console.error("Failed to parse vision JSON:", parseErr);
+        console.error("Raw content:", visionResponse.content);
         const { response } = createError("Invalid response from parsing service", 500);
         return response;
       }
@@ -210,11 +278,22 @@ export async function handleParseImages(
     return response;
   }
 
-  // Validate all files are images
+  // Validate all files are images AND in supported formats
   for (const image of images) {
     const mimeType = image.type || "";
     if (!mimeType.startsWith("image/")) {
       const { response } = createError("All files must be images", 400);
+      return response;
+    }
+    
+    // Check if format is supported by Vision API
+    if (!isImageFormatSupported(mimeType)) {
+      console.log(`[parse-doc:handler] Unsupported image format in batch: ${mimeType} (${image.name})`);
+      const { response } = createError(
+        getFormatErrorMessage(mimeType, image.name),
+        400,
+        "UNSUPPORTED_FORMAT"
+      );
       return response;
     }
   }
@@ -253,13 +332,18 @@ export async function handleParseImages(
               ],
             },
           ],
-          model: "meta-llama/llama-4-maverick-17b-128e-instruct", // Groq vision model (Maverick has 128 experts, better for complex docs)
+          model: "meta-llama/llama-4-scout-17b-16e-instruct", // Groq Llama 4 Scout vision model
           temperature: 0.1,
           max_tokens: 4096, // Ensure enough tokens for large product lists
           response_format: { type: "json_object" },
         },
         env.GROQ_API_KEY
       );
+
+      console.log(`[parse-doc:handler] Image ${i + 1} vision response ok: ${visionResponse.ok}`);
+      if (visionResponse.error) {
+        console.error(`[parse-doc:handler] Image ${i + 1} API error: ${visionResponse.error}`);
+      }
 
       if (!visionResponse.ok) {
         console.error(`Failed to parse image ${i + 1}/${images.length} (${image.name}):`, visionResponse.error);

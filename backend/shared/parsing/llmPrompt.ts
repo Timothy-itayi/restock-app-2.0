@@ -37,6 +37,18 @@ function getBasePrompt(content: string): string {
 
 ${content ? `Document content:\n${content}` : "No content provided."}
 
+DOCUMENT CONTEXT:
+This may be a printed stock report that has been ANNOTATED BY HAND. Managers print these reports and:
+- Write handwritten numbers on the LEFT side next to items they need to restock
+- Cross out items they do NOT need
+- The printed columns (Quantity, Nett, Sales, etc.) are HISTORICAL SALES DATA
+
+QUANTITY EXTRACTION PRIORITY:
+1. FIRST: Look for numbers appearing BEFORE the product code/name - these are handwritten annotations
+   - If present, this IS the quantity to use - it OVERRIDES any printed quantity column
+2. SECOND: If no number appears before the item, use the printed "Quantity" column value
+3. SKIP: Any item that appears crossed out or struck through
+
 Return ONLY this JSON shape (no markdown, no comments, no extra text):
 
 {
@@ -53,9 +65,10 @@ Rules:
 - Ignore prices, totals, discounts, metadata
 - Supplier may be empty string if not identifiable
 - Product must be a readable product name
-- Quantity MUST be extracted if present in the document - look for columns like "Qty", "Order", "Amount", or numbers next to products
-- Do NOT default quantity to 1 - only use the actual value from the document
-- Omit quantity field only if genuinely not present in the source document
+- Numbers BEFORE item names take priority as quantity (handwritten annotations)
+- Otherwise use the printed quantity column
+- SKU codes (4-6 digit numbers as part of product names) are NOT quantities
+- Skip crossed-out or struck-through items entirely
 - Return empty array if no items found`;
 }
 
@@ -64,40 +77,116 @@ Rules:
  * Uses the specific prompt format for product list extraction
  */
 export function buildVisionPrompt(): string {
-  return `You are a precise OCR system. Extract product names and quantities EXACTLY as written in this image.
+  return `You are extracting restock items from a "Stock Item Sales Report" image.
 
-This appears to be a stock/sales report or product catalog. Look for:
-- Supplier/brand headers (e.g., "SHER WAGYU", "BELLCO - Box EMail", "BLUE PUMPKIN")
-- Product names with codes (e.g., "19303 Careme - Puff Pastry", "27437 Mario - Butter Salted 250g")
-- Quantities (numbers indicating how many units, often in columns labeled "Qty", "Order", "Amount", or just numbers next to products)
+═══════════════════════════════════════════════════════════════════════════════
+DOCUMENT LAYOUT - 3 KEY AREAS
+═══════════════════════════════════════════════════════════════════════════════
 
-CRITICAL RULES:
-1. Extract text EXACTLY as written - do not correct spelling or interpret
-2. Copy the exact product name from the document
-3. DO NOT invent, guess, or hallucinate products that are not clearly visible
-4. If text is unclear, skip that item rather than guess
-5. Supplier names appear as section headers in CAPS or bold
-6. Product codes (numbers) at the start of lines can be ignored - these are SKUs not quantities
-7. ALWAYS look for and extract the quantity - it's usually in a separate column or after the product name
-8. Quantities are typically small integers (1-100), not product codes (which are often 4-6 digits)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ AREA 1: SUPPLIER HEADERS (section dividers)                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   "gum tree GOOD FOOD"           ← Top of document, main supplier           │
+│   "CALENDAR CHEESE - S EMail"    ← Section header for cheese items          │
+│   "DARIKAY - Box of 4 EMail"     ← Another supplier section                 │
+│                                                                             │
+│   These headers indicate which supplier the following items belong to.      │
+│   Strip suffixes like " - S EMail", " - Box EMail" from supplier name.      │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-For each visible product line, extract:
-- supplier: The section header it appears under (e.g., "BELLCO", "BLUE PUMPKIN")
-- product: The exact product name as written (e.g., "Careme - Puff Pastry", "CoYo - 500g Greek")
-- quantity: The number of units to order (e.g., 2, 5, 10) - REQUIRED if visible in document
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ AREA 2: PRODUCT ROWS - This is where data is extracted                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   [MARGIN]  [SKU]   [Product Name]        [Price] [Qty] [Sales...]          │
+│      ↓        ↓           ↓                  ↓      ↓                       │
+│      10    14001  Meredith - Chevre Plain  8.49   6.000   ...               │
+│      ↑                                            ↑                         │
+│      │                                            │                         │
+│   HANDWRITTEN                              PRINTED (ignore if               │
+│   = USE THIS!                              handwritten exists)              │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-Return ONLY valid JSON:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ AREA 3: CROSSED-OUT ITEMS - DO NOT INCLUDE                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   ̶1̶4̶0̶7̶8̶ ̶ ̶M̶e̶r̶e̶d̶i̶t̶h̶ ̶-̶ ̶G̶o̶a̶t̶ ̶C̶u̶r̶d̶ ̶1̶0̶0̶g̶     ← Line through = SKIP             │
+│   ̶1̶4̶0̶8̶0̶ ̶ ̶M̶e̶r̶e̶d̶i̶t̶h̶ ̶-̶ ̶M̶a̶r̶i̶n̶a̶t̶e̶d̶ ̶F̶e̶t̶a̶       ← Line through = SKIP             │
+│                                                                             │
+│   Any item with strikethrough/crossed-out = manager doesn't need it         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+QUANTITY RULES - READ CAREFULLY
+═══════════════════════════════════════════════════════════════════════════════
+
+EXAMPLE ROW:
+┌──────────┬───────┬─────────────────────────┬───────┬───────┬─────────┐
+│  MARGIN  │  SKU  │     Product Name        │ Price │  Qty  │ Sales...│
+├──────────┼───────┼─────────────────────────┼───────┼───────┼─────────┤
+│    10    │ 14001 │ Meredith - Chevre Plain │ 8.49  │ 6.000 │   ...   │
+└──────────┴───────┴─────────────────────────┴───────┴───────┴─────────┘
+     ↑                                               ↑
+     │                                               │
+  HANDWRITTEN "10"                          PRINTED "6" (historical)
+  in left margin                            IGNORE THIS!
+     │
+     └──────────────────────────────────────────────────────────────────┐
+                                                                        │
+OUTPUT: {"supplier": "gum tree GOOD FOOD", "product": "Meredith - Chevre Plain", "quantity": 10}
+                                                                   USE 10! ↑
+
+RULE 1: Handwritten number in LEFT MARGIN = THE QUANTITY TO USE
+        - Appears BEFORE the 5-digit SKU code
+        - Usually 1-2 digits, sometimes circled
+        - This OVERRIDES the printed Qty column
+
+RULE 2: No handwritten number? → Use printed Qty column as fallback
+
+RULE 3: Item crossed out? → DO NOT INCLUDE in output
+
+═══════════════════════════════════════════════════════════════════════════════
+COMPLETE EXAMPLE
+═══════════════════════════════════════════════════════════════════════════════
+
+INPUT (what you see):
+┌────────────────────────────────────────────────────────────────────────────┐
+│ gum tree GOOD FOOD                                                         │
+│                                                                            │
+│  10  14001  Meredith - Chevre Plain     8.49   6.000    ...                │
+│       14002  Meredith - Chevre Ash      8.49   1.000    ...                │
+│   5  18115  Meredith - Ewes Yog Blue    7.49   4.000    ...                │
+│  ̶1̶8̶1̶0̶2̶ ̶ ̶M̶e̶r̶e̶d̶i̶t̶h̶ ̶-̶ ̶E̶w̶e̶s̶ ̶Y̶o̶g̶ ̶G̶r̶n̶                                           │
+│                                                                            │
+│ CALENDAR CHEESE - S EMail                                                  │
+│                                                                            │
+│   3  14156  Delice de Bourgogne        99.50   1.590    ...                │
+│      14154  Fromager d'Affinois        79.50   9.458    ...                │
+└────────────────────────────────────────────────────────────────────────────┘
+
+OUTPUT (what you return):
 {
   "items": [
-    {"supplier": "BELLCO", "product": "Careme - Puff Pastry", "quantity": 3},
-    {"supplier": "BELLCO", "product": "Carmans - Bars Choc Cranberry", "quantity": 2},
-    {"supplier": "BLUE PUMPKIN", "product": "Babushka - Coconut Kefir 500g", "quantity": 1}
+    {"supplier": "gum tree GOOD FOOD", "product": "Meredith - Chevre Plain", "quantity": 10},
+    {"supplier": "gum tree GOOD FOOD", "product": "Meredith - Chevre Ash", "quantity": 1},
+    {"supplier": "gum tree GOOD FOOD", "product": "Meredith - Ewes Yog Blue", "quantity": 5},
+    {"supplier": "CALENDAR CHEESE", "product": "Delice de Bourgogne", "quantity": 3},
+    {"supplier": "CALENDAR CHEESE", "product": "Fromager d'Affinois", "quantity": 9}
   ]
 }
 
-ACCURACY IS MORE IMPORTANT THAN COMPLETENESS.
-If you cannot clearly read a product name, DO NOT include it.
-Never make up products that are not in the image.
-ALWAYS include quantity if it is visible in the document - do not default to 1 unless that is what is written.`;
+NOTE: 
+- "Meredith - Chevre Plain" → qty=10 (handwritten), NOT 6 (printed)
+- "Meredith - Ewes Yog Grn" → SKIPPED (crossed out)
+- "Fromager d'Affinois" → qty=9 (from printed Qty column, rounded)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+Return ONLY valid JSON. No markdown, no explanation, no extra text.`;
 }
 

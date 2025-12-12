@@ -8,7 +8,8 @@ import { z } from "zod";
 export const ParsedItemSchema = z.object({
   supplier: z.string().optional(),
   product: z.string().min(1, "Product name is required"),
-  quantity: z.number().int().nonnegative().optional(),
+  // Accept any number and round to integer (LLM sometimes returns floats like 3.0)
+  quantity: z.number().nonnegative().transform(val => Math.round(val)).optional(),
 });
 
 export const ParsedDocSchema = z.object({
