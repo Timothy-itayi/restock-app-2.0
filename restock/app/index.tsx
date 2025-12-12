@@ -120,7 +120,11 @@ export default function DashboardScreen() {
 
 
 {hasActive && (
-  <View style={styles.activeSessionCard}>
+  <TouchableOpacity
+    style={styles.activeSessionCard}
+    activeOpacity={0.9}
+    onPress={() => router.push('/sessions')}
+  >
     <Text style={styles.activeSessionTitle}>Active Sessions</Text>
 
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
@@ -138,11 +142,11 @@ export default function DashboardScreen() {
           {activeSessions.length} active session(s)
         </Text>
         <Text style={styles.activeSessionSubtext}>
-          Your restock workflow is in progress.
+          Tap to view active sessions.
         </Text>
       </View>
     </View>
-  </View>
+  </TouchableOpacity>
 )}
 
 

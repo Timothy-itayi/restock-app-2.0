@@ -135,10 +135,15 @@ export const getDashboardStyles = (t: AppColors) =>
       activeSessionCard: {
         marginTop: 20,
         padding: 16,
-        backgroundColor: t.neutral.lighter,
+        backgroundColor: t.brand.glow,
         borderRadius: 12,
         borderWidth: 1,
         borderColor: t.brand.secondary,
+        shadowColor: t.brand.primary,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+        elevation: 4,
         marginBottom: 8,   // prevents that weird abyss
       },
   

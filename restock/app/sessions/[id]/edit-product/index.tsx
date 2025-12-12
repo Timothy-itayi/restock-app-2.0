@@ -117,7 +117,7 @@ export default function EditAllProductsScreen() {
   const decrementQty = (itemId: string) => {
     setEditedItems((prev) => ({
       ...prev,
-      [itemId]: { ...prev[itemId], quantity: Math.max(1, (prev[itemId]?.quantity || 1) - 1) },
+      [itemId]: { ...prev[itemId], quantity: Math.max(0, (prev[itemId]?.quantity || 1) - 1) },
     }));
   };
 
@@ -128,6 +128,12 @@ export default function EditAllProductsScreen() {
   const saveAllChanges = () => {
     // Save all edited items back to the store
     Object.entries(editedItems).forEach(([itemId, item]) => {
+      // If quantity is 0, remove the item instead of updating it
+      if (item.quantity === 0) {
+        removeItem(id, itemId);
+        return;
+      }
+
       const supplierNameTrimmed = item.supplierName?.trim() || '';
       let supplierId: string | undefined;
 
@@ -196,13 +202,17 @@ export default function EditAllProductsScreen() {
                 </Text>
               )}
               <View style={{
-                backgroundColor: colors.cypress.pale,
+                backgroundColor: edited.quantity === 0 ? colors.neutral.light : colors.cypress.pale,
                 paddingHorizontal: 8,
                 paddingVertical: 2,
                 borderRadius: 4,
                 marginLeft: 8,
               }}>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: colors.cypress.deep }}>
+                <Text style={{ 
+                  fontSize: 12, 
+                  fontWeight: '700', 
+                  color: edited.quantity === 0 ? colors.neutral.medium : colors.cypress.deep 
+                }}>
                   ×{edited.quantity}
                 </Text>
               </View>
@@ -282,16 +292,17 @@ export default function EditAllProductsScreen() {
             </View>
 
             {/* Quantity */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ marginBottom: 16 }}>
               <Text style={{
                 fontSize: 12,
                 fontWeight: '600',
                 color: colors.neutral.dark,
                 letterSpacing: 0.5,
+                marginBottom: 6,
               }}>
                 Quantity
               </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <TouchableOpacity
                   onPress={() => decrementQty(item.id)}
                   style={{
@@ -306,15 +317,27 @@ export default function EditAllProductsScreen() {
                   <Ionicons name="remove" size={18} color={colors.neutral.darkest} />
                 </TouchableOpacity>
 
-                <Text style={{
-                  fontSize: 18,
-                  fontWeight: '600',
-                  color: colors.neutral.darkest,
-                  minWidth: 50,
-                  textAlign: 'center',
-                }}>
-                  {edited.quantity}
-                </Text>
+                <TextInput
+                  value={String(edited.quantity)}
+                  onChangeText={(text) => {
+                    const num = parseInt(text) || 0;
+                    updateLocalItem(item.id, { quantity: Math.max(0, num) });
+                  }}
+                  keyboardType="numeric"
+                  style={{
+                    flex: 1,
+                    fontSize: 18,
+                    fontWeight: '600',
+                    color: edited.quantity === 0 ? colors.neutral.medium : colors.neutral.darkest,
+                    textAlign: 'center',
+                    backgroundColor: colors.neutral.lighter,
+                    borderRadius: 8,
+                    paddingVertical: 8,
+                    paddingHorizontal: 12,
+                    borderWidth: 1,
+                    borderColor: colors.neutral.light,
+                  }}
+                />
 
                 <TouchableOpacity
                   onPress={() => incrementQty(item.id)}

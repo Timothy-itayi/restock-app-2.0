@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   FlatList,
-  SafeAreaView
+  SafeAreaView,
+  TextInput
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +23,7 @@ export default function SessionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { alert, hideAlert, showError, showAlert } = useAlert();
   const sessionNavigation = useSessionNavigation();
+  const [searchQuery, setSearchQuery] = useState('');
 
   const session = useSessionStore((s) =>
     s.sessions.find((sess) => sess.id === id)
@@ -41,11 +43,26 @@ export default function SessionDetailScreen() {
     }
   }, [isHydrated, loadSessions]);
 
-  // Group items by supplier
+  // Group items by supplier and filter by search
   const supplierGroups = useMemo(() => {
     if (!session || !session.items.length) return [];
-    return groupBySupplier(session.items, suppliers);
-  }, [session, suppliers]);
+    
+    let filteredItems = session.items;
+    
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filteredItems = session.items.filter(item => {
+        const productMatch = item.productName?.toLowerCase().includes(query);
+        const supplierMatch = suppliers
+          .find(s => s.id === item.supplierId)
+          ?.name?.toLowerCase().includes(query);
+        return productMatch || supplierMatch;
+      });
+    }
+    
+    return groupBySupplier(filteredItems, suppliers);
+  }, [session, suppliers, searchQuery]);
 
   if (!isHydrated) {
     return (
@@ -144,25 +161,21 @@ export default function SessionDetailScreen() {
         flexDirection: 'row',
         alignItems: 'baseline',
         paddingHorizontal: 0, 
-        paddingVertical: 8, 
-        marginBottom: 4,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee'
+        paddingVertical: 12, 
+        marginBottom: 8,
+        borderBottomWidth: 2,
+        borderBottomColor: '#6B7F6B',
+        backgroundColor: '#f9f9f9',
+        paddingLeft: 8,
+        borderRadius: 4,
       }}>
         <Text style={{ 
-          fontSize: 12, 
+          fontSize: 16, 
           fontWeight: '800', 
-          color: '#a3a695',
-          marginRight: 8,
-          letterSpacing: 0.5
-        }}>
-          [ SUPPLIER ]
-        </Text>
-        <Text style={{ 
-          fontSize: 18, 
-          fontWeight: '700', 
           color: '#6B7F6B',
-          flex: 1
+          flex: 1,
+          textTransform: 'uppercase',
+          letterSpacing: 0.8,
         }}>
           {group.supplierName}
         </Text>
@@ -199,6 +212,37 @@ export default function SessionDetailScreen() {
         borderBottomWidth: 1,
         borderBottomColor: '#eee',
       }}>
+        {/* Search Bar */}
+        {session.items.length > 0 && (
+          <View style={{
+            marginBottom: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#f5f5f5',
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+          }}>
+            <Ionicons name="search-outline" size={18} color="#999" style={{ marginRight: 8 }} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search products or suppliers..."
+              placeholderTextColor="#999"
+              style={{
+                flex: 1,
+                fontSize: 15,
+                color: '#333',
+              }}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close-circle" size={18} color="#999" />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         {/* Session Info */}
         <View style={{ marginBottom: 12 }}>
           <Text style={styles.sessionTitle}>
@@ -210,8 +254,16 @@ export default function SessionDetailScreen() {
             </Text>
             <Text style={{ fontSize: 14, color: '#999', marginHorizontal: 8 }}>•</Text>
             <Text style={{ fontSize: 14, color: '#6B7F6B', fontWeight: '600' }}>
-              {supplierCount} {supplierCount === 1 ? 'supplier' : 'suppliers'}
+              {supplierGroups.length} {supplierGroups.length === 1 ? 'supplier' : 'suppliers'}
             </Text>
+            {searchQuery.trim() && (
+              <>
+                <Text style={{ fontSize: 14, color: '#999', marginHorizontal: 8 }}>•</Text>
+                <Text style={{ fontSize: 14, color: '#999' }}>
+                  {supplierGroups.reduce((sum, g) => sum + g.items.length, 0)} matching
+                </Text>
+              </>
+            )}
             <Text style={{ fontSize: 14, color: '#999', marginHorizontal: 8 }}>•</Text>
             <Text style={[{ fontSize: 14, fontWeight: '500' }, { color: statusColor }]}>
               {session.status}
@@ -266,7 +318,12 @@ export default function SessionDetailScreen() {
             </TouchableOpacity>
           </View>
         ) : supplierGroups.length === 0 ? (
-          <Text style={styles.emptyStateText}>No items to display.</Text>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <Ionicons name="search-outline" size={48} color="#ccc" />
+            <Text style={[styles.emptyStateText, { marginTop: 12 }]}>
+              {searchQuery.trim() ? `No items match "${searchQuery}"` : 'No items to display.'}
+            </Text>
+          </View>
         ) : (
           <FlatList
             data={supplierGroups}

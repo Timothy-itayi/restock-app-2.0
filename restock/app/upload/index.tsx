@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -55,6 +55,7 @@ export default function UploadScreen() {
   const [manualSupplier, setManualSupplier] = useState('');
   const [manualQuantity, setManualQuantity] = useState('');
   const [showSessionChoice, setShowSessionChoice] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const { alert, hideAlert, showError, showWarning, showAlert } = useAlert();
 
@@ -220,15 +221,25 @@ export default function UploadScreen() {
       const productNameRaw = safeString(getItemValue(p, 'product') as string);
       const supplierNameRaw = safeString(getItemValue(p, 'supplier') as string);
       const editedQuantity = getItemValue(p, 'quantity') as number | undefined;
+      
+      // Extract brand from product name (e.g., "loco love - twin caramel" → "loco love")
+      // Use brand as supplier, not the store name
+      const productParts = productNameRaw.split(' - ');
+      const brandName = productParts.length > 1 ? productParts[0].trim() : null;
+      const actualProductName = productParts.length > 1 ? productParts.slice(1).join(' - ').trim() : productNameRaw;
+      
+      // Use brand as supplier if available, otherwise use supplier field (but filter out store names)
+      const supplierToUse = brandName || (supplierNameRaw && !supplierNameRaw.toUpperCase().includes('GOOD FOOD') ? supplierNameRaw : null);
+      
       let supplierId: string | undefined;
-      if (supplierNameRaw) {
-        const existing = getSupplierByName(supplierNameRaw);
-        const supplier = existing ?? addSupplier(supplierNameRaw);
+      if (supplierToUse) {
+        const existing = getSupplierByName(supplierToUse);
+        const supplier = existing ?? addSupplier(supplierToUse);
         supplierId = supplier.id;
       }
       const quantity = editedQuantity && editedQuantity > 0 ? editedQuantity : 1;
-      addOrUpdateProduct(productNameRaw, supplierId, quantity);
-      const sessionItem: SessionItem = { id: ensureId('item'), productName: productNameRaw, quantity, supplierId };
+      addOrUpdateProduct(actualProductName, supplierId, quantity);
+      const sessionItem: SessionItem = { id: ensureId('item'), productName: actualProductName, quantity, supplierId };
       addItemToSession(session.id, sessionItem);
     }
 
@@ -292,6 +303,17 @@ export default function UploadScreen() {
     setEditedValues((prev) => { const next = new Map(prev); next.delete(itemId); return next; });
     if (editingItemId === itemId) setEditingItemId(null);
   };
+
+  // Filter parsed items by search query (must be at top level for hooks rules)
+  const filteredParsed = useMemo(() => {
+    if (!parsed.length || !searchQuery.trim()) return parsed;
+    const query = searchQuery.toLowerCase().trim();
+    return parsed.filter(item => {
+      const productMatch = getItemValue(item, 'product')?.toLowerCase().includes(query);
+      const supplierMatch = getItemValue(item, 'supplier')?.toLowerCase().includes(query);
+      return productMatch || supplierMatch;
+    });
+  }, [parsed, searchQuery, editedValues]);
 
   // =============================================
   // RESULTS VIEW
@@ -377,6 +399,10 @@ export default function UploadScreen() {
       const productParts = displayProduct.split(' - ');
       const productBrand = productParts.length > 1 ? productParts[0].trim() : null;
       const productName = productParts.length > 1 ? productParts.slice(1).join(' - ').trim() : displayProduct;
+      
+      // Use brand as supplier (META), ignore store name from supplier field
+      // Store names like "GUM TREE GOOD FOOD" should not be displayed
+      const actualSupplier = productBrand || displaySupplier;
 
       return (
         <TouchableOpacity
@@ -406,8 +432,8 @@ export default function UploadScreen() {
             {isSelected && <Ionicons name="checkmark" size={12} color="#fff" />}
           </View>
           <View style={{ flex: 1 }}>
-            {/* META: Supplier - tiny label, feels like metadata */}
-            {displaySupplier ? (
+            {/* META: Supplier (from brand) - tiny label, feels like metadata */}
+            {actualSupplier ? (
               <Text style={{ 
                 fontSize: 10, 
                 fontWeight: '500', 
@@ -416,18 +442,7 @@ export default function UploadScreen() {
                 letterSpacing: 0.8,
                 marginBottom: 1,
               }} numberOfLines={1}>
-                {displaySupplier}
-              </Text>
-            ) : null}
-            {/* SECONDARY: Brand - calm, olive, recedes */}
-            {productBrand ? (
-              <Text style={{ 
-                fontSize: 12, 
-                fontWeight: '400', 
-                color: '#6E7B67',
-                marginBottom: 1,
-              }} numberOfLines={1}>
-                {productBrand}
+                {actualSupplier}
               </Text>
             ) : null}
             {/* PRIMARY: Product name - the only thing that pops */}
@@ -439,11 +454,75 @@ export default function UploadScreen() {
               {productName}
             </Text>
           </View>
-          {displayQuantity && displayQuantity > 0 && (
-            <View style={{ backgroundColor: colors.cypress.pale, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 5, marginLeft: 10 }}>
-              <Text style={{ fontSize: 12, fontWeight: '700', color: colors.cypress.deep }}>×{displayQuantity}</Text>
+          {/* Quantity controls */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 10 }}>
+            <TouchableOpacity
+              onPress={(e) => {
+                e.stopPropagation();
+                const currentQty = (getItemValue(item, 'quantity') as number) || 0;
+                updateEditedValue(item.id, 'quantity', Math.max(0, currentQty - 1));
+              }}
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 6,
+                backgroundColor: colors.neutral.light,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+              hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
+            >
+              <Ionicons name="remove" size={16} color={colors.neutral.darkest} />
+            </TouchableOpacity>
+            
+            <View style={{ 
+              backgroundColor: (displayQuantity || 0) === 0 ? colors.neutral.light : colors.cypress.pale, 
+              paddingHorizontal: 8, 
+              paddingVertical: 2, 
+              borderRadius: 5,
+              minWidth: 50,
+              alignItems: 'center',
+              marginHorizontal: 6,
+            }}>
+              <TextInput
+                value={String(displayQuantity || 0)}
+                onChangeText={(text) => {
+                  const num = parseInt(text) || 0;
+                  updateEditedValue(item.id, 'quantity', Math.max(0, num));
+                }}
+                keyboardType="numeric"
+                onFocus={(e) => e.stopPropagation()}
+                onPressIn={(e) => e.stopPropagation()}
+                style={{ 
+                  fontSize: 12, 
+                  fontWeight: '700', 
+                  color: (displayQuantity || 0) === 0 ? colors.neutral.medium : colors.cypress.deep,
+                  textAlign: 'center',
+                  minWidth: 30,
+                  padding: 0,
+                }}
+              />
             </View>
-          )}
+            
+            <TouchableOpacity
+              onPress={(e) => {
+                e.stopPropagation();
+                const currentQty = (getItemValue(item, 'quantity') as number) || 0;
+                updateEditedValue(item.id, 'quantity', currentQty + 1);
+              }}
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 6,
+                backgroundColor: colors.brand.primary,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+              hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
+            >
+              <Ionicons name="add" size={16} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </TouchableOpacity>
       );
     };
@@ -492,22 +571,64 @@ export default function UploadScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Search Bar */}
+        <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#fff',
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            borderWidth: 1,
+            borderColor: colors.neutral.light,
+          }}>
+            <Ionicons name="search-outline" size={18} color={colors.neutral.medium} style={{ marginRight: 8 }} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search products or suppliers..."
+              placeholderTextColor={colors.neutral.medium}
+              style={{
+                flex: 1,
+                fontSize: 15,
+                color: colors.neutral.darkest,
+              }}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close-circle" size={18} color={colors.neutral.medium} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
         {/* Count */}
         <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
           <Text style={{ fontSize: 13, color: colors.neutral.medium }}>
             {selectedItems.size} of {parsed.length} selected
+            {searchQuery.trim() && ` • ${filteredParsed.length} matching`}
           </Text>
         </View>
 
         {/* List */}
-        <FlatList
-          data={parsed}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}
-          showsVerticalScrollIndicator={false}
-          style={{ flex: 1 }}
-        />
+        {filteredParsed.length === 0 ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 }}>
+            <Ionicons name="search-outline" size={48} color={colors.neutral.light} />
+            <Text style={{ fontSize: 15, color: colors.neutral.medium, marginTop: 12, textAlign: 'center' }}>
+              No items match "{searchQuery}"
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredParsed}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}
+            showsVerticalScrollIndicator={false}
+            style={{ flex: 1 }}
+          />
+        )}
 
         {/* Bottom Bar */}
         <View style={{

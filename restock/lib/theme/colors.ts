@@ -5,6 +5,7 @@ const light = {
     primary: '#6d9f72',
     secondary: '#a3a695',
     accent: '#e2ad5d',
+    glow: '#C4D088',      // Bright olive glow for highlights
   },
   cypress: {
     deep: '#545b32',      // Supplier headers, emphasis
@@ -49,6 +50,7 @@ const dark = {
     primary: '#8fcca0',
     secondary: '#b6c2a1',
     accent: '#f2c46d',
+    glow: '#D4C888',      // Bright olive glow on dark background
   },
   cypress: {
     deep: '#a8b87a',      // Lifted olive for dark bg visibility
