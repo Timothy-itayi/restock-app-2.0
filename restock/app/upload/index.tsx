@@ -19,9 +19,16 @@ import { Ionicons } from '@expo/vector-icons';
 
 import pickDocuments from '../../lib/utils/pickDocuments';
 import { normalizeImage, cleanupNormalizedImage, isHeicFormat } from '../../lib/utils/normalizeImage';
+import { pickFromPhotoLibrary } from '../../lib/utils/captureCamera';
+import { getJSON, setJSON } from '../../lib/helpers/storage/utils';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 import colors from '../../lib/theme/colors';
+import { useThemedStyles } from '@styles/useThemedStyles';
+import { getUploadStyles } from '@styles/components/upload';
+import { fontFamily } from '@styles/typography';
+
+const TIPS_DISMISSED_KEY = '@restock/upload-tips-dismissed';
 
 import {
   useSessionStore,
@@ -56,7 +63,12 @@ export default function UploadScreen() {
   const [manualQuantity, setManualQuantity] = useState('');
   const [showSessionChoice, setShowSessionChoice] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [tipsDismissed, setTipsDismissed] = useState(false);
+  const [showTips, setShowTips] = useState(false);
+  const [isLoadingTips, setIsLoadingTips] = useState(true);
+  const [showPickOptions, setShowPickOptions] = useState(false);
 
+  const styles = useThemedStyles(getUploadStyles);
   const { alert, hideAlert, showError, showWarning, showAlert } = useAlert();
 
   const activeSessions = useActiveSessions();
@@ -103,18 +115,57 @@ export default function UploadScreen() {
     }
   }, [parsed, selectedItems, previewUri, editedValues]);
 
-  const pickFile = async () => {
+  // LOAD TIPS DISMISSED STATE
+  useEffect(() => {
+    getJSON<boolean>(TIPS_DISMISSED_KEY).then((dismissed) => {
+      const wasDismissed = dismissed === true;
+      setTipsDismissed(wasDismissed);
+      setShowTips(!wasDismissed);
+      setIsLoadingTips(false);
+    });
+  }, []);
+
+  const handleDismissTips = async () => {
+    setTipsDismissed(true);
+    setShowTips(false);
+    await setJSON(TIPS_DISMISSED_KEY, true);
+  };
+
+  const handleToggleTips = () => {
+    setShowTips(!showTips);
+  };
+
+  const pickFromPhotos = async () => {
+    try {
+      const picked = await pickFromPhotoLibrary();
+      if (!picked) return;
+      setFile(picked);
+      setParsed([]);
+      setSelectedItems(new Set());
+      setParsingError(null);
+      setShowPickOptions(false);
+    } catch (err: any) {
+      showError('Photo Library Error', err.message || 'Failed to pick image from photo library.');
+    }
+  };
+
+  const pickFromFiles = async () => {
     const res = await pickDocuments({ multiple: false });
-    if (res.canceled || res.assets.length === 0) return;
+    if (res.canceled || res.assets.length === 0) {
+      setShowPickOptions(false);
+      return;
+    }
     const asset = res.assets[0];
     if (!asset.mimeType?.startsWith('image/')) {
       showError('Invalid File', 'Please select an image file.');
+      setShowPickOptions(false);
       return;
     }
     setFile(asset);
     setParsed([]);
     setSelectedItems(new Set());
     setParsingError(null);
+    setShowPickOptions(false);
   };
 
   const takePhoto = async () => {
@@ -528,7 +579,7 @@ export default function UploadScreen() {
     };
 
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.neutral.lighter }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.neutral.lightest }}>
         {/* Header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 }}>
           <TouchableOpacity 
@@ -636,7 +687,7 @@ export default function UploadScreen() {
           bottom: 0,
           left: 0,
           right: 0,
-          backgroundColor: colors.neutral.lighter,
+          backgroundColor: colors.neutral.lightest,
           paddingHorizontal: 20,
           paddingTop: 12,
           paddingBottom: Platform.OS === 'ios' ? 34 : 20,
@@ -826,34 +877,62 @@ export default function UploadScreen() {
   // UPLOAD VIEW - Clean & Minimal
   // =============================================
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.neutral.lighter }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.neutral.lightest }}>
       {/* Header */}
-      <View style={{ 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        paddingHorizontal: 16, 
-        paddingVertical: 12,
-        backgroundColor: colors.neutral.lighter,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.neutral.light,
-      }}>
+      <View style={styles.stickyHeader}>
         <TouchableOpacity 
           onPress={() => router.back()} 
-          style={{ padding: 4, marginRight: 12 }}
+          style={styles.stickyBackButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Ionicons name="chevron-back" size={24} color={colors.neutral.darkest} />
         </TouchableOpacity>
-        <Text style={{ 
-          fontSize: 20, 
-          fontWeight: '700', 
-          color: colors.neutral.darkest 
-        }}>
+        <Text style={styles.stickyHeaderTitle}>
           Scan Catalog
         </Text>
+        <TouchableOpacity
+          onPress={handleToggleTips}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          style={{ marginLeft: 'auto', padding: 4 }}
+        >
+          <Ionicons 
+            name={showTips ? "information-circle" : "information-circle-outline"} 
+            size={24} 
+            color={colors.brand.accent} 
+          />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
+        {/* Tips Section */}
+        {showTips && !isLoadingTips && (
+          <View style={{
+            backgroundColor: '#F3F0FF',
+            borderRadius: 8,
+            padding: 10,
+            marginTop: 12,
+            marginBottom: 12,
+            borderWidth: 1,
+            borderColor: '#8B5CF6',
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="bulb-outline" size={14} color="#8B5CF6" />
+                <Text style={{ fontFamily: fontFamily.satoshiBold, fontSize: 12, color: '#6D28D9', fontWeight: '700' }}>Tips</Text>
+              </View>
+              <TouchableOpacity
+                onPress={handleDismissTips}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close" size={14} color={colors.neutral.medium} />
+              </TouchableOpacity>
+            </View>
+            <Text style={{ fontFamily: fontFamily.satoshi, fontSize: 11, lineHeight: 15, color: colors.neutral.dark }}>
+              Use <Text style={{ fontFamily: fontFamily.satoshiBold, color: '#8B5CF6', fontWeight: '600' }}>Take Photo</Text> to capture directly, or <Text style={{ fontFamily: fontFamily.satoshiBold, color: '#8B5CF6', fontWeight: '600' }}>Choose Photo</Text> to select from your photo library or files. Supports JPEG, PNG, and HEIC images.
+            </Text>
+          </View>
+        )}
+
         {!file ? (
           <View style={{ flex: 1, justifyContent: 'center', paddingBottom: 80 }}>
             {/* Hero */}
@@ -896,7 +975,7 @@ export default function UploadScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                onPress={pickFile}
+                onPress={() => setShowPickOptions(true)}
                 style={{
                   backgroundColor: '#fff',
                   paddingVertical: 18,
@@ -1010,6 +1089,56 @@ export default function UploadScreen() {
       </ScrollView>
 
       <AlertModal visible={alert.visible} type={alert.type} title={alert.title} message={alert.message} actions={alert.actions} onClose={hideAlert} />
+
+      {/* Pick Options Modal */}
+      <Modal visible={showPickOptions} animationType="slide" transparent onRequestClose={() => setShowPickOptions(false)}>
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}
+          activeOpacity={1}
+          onPress={() => setShowPickOptions(false)}
+        >
+          <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: colors.neutral.darkest, marginBottom: 20, textAlign: 'center' }}>
+              Choose Photo From
+            </Text>
+            <TouchableOpacity
+              onPress={pickFromPhotos}
+              style={{
+                backgroundColor: colors.brand.primary,
+                paddingVertical: 16,
+                borderRadius: 12,
+                alignItems: 'center',
+                marginBottom: 12,
+                flexDirection: 'row',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="images" size={20} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Photo Library</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={pickFromFiles}
+              style={{
+                backgroundColor: colors.neutral.lighter,
+                paddingVertical: 16,
+                borderRadius: 12,
+                alignItems: 'center',
+                flexDirection: 'row',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="folder-outline" size={20} color={colors.neutral.darkest} style={{ marginRight: 8 }} />
+              <Text style={{ color: colors.neutral.darkest, fontSize: 16, fontWeight: '600' }}>Files</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setShowPickOptions(false)}
+              style={{ marginTop: 16, paddingVertical: 12, alignItems: 'center' }}
+            >
+              <Text style={{ color: colors.neutral.medium, fontSize: 15, fontWeight: '500' }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }

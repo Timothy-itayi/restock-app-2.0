@@ -9,7 +9,7 @@ export const getUploadStyles = (t: AppColors) => StyleSheet.create({
   // Screen container background
   sessionContainer: {
     flex: 1,
-    backgroundColor: colors.neutral.lighter,
+    backgroundColor: colors.neutral.lightest,
   },
   stickyHeader: {
     flexDirection: 'row',
@@ -17,7 +17,7 @@ export const getUploadStyles = (t: AppColors) => StyleSheet.create({
     paddingTop: 50,
     paddingHorizontal: 20,
     paddingBottom: 16,
-    backgroundColor: colors.neutral.lighter,
+    backgroundColor: colors.neutral.lightest,
     borderBottomWidth: 1,
     borderBottomColor: colors.neutral.light,
     zIndex: 10,

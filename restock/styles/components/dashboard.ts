@@ -11,11 +11,10 @@ export const getDashboardStyles = (t: AppColors) =>
       },
   
       contentContainer: {
+        flex: 1,
         paddingHorizontal: 20,
         paddingTop: 16,
-     
-     
-        // reduced from 32 → minimal clean space
+        paddingBottom: 16,
       },
   
       loadingContainer: {
@@ -31,8 +30,8 @@ export const getDashboardStyles = (t: AppColors) =>
   
       /* WELCOME SECTION */
       welcomeSection: {
-        marginBottom: 16, 
-        gap: 8,  // tighter hero → menu spacing
+        marginBottom: 12, 
+        gap: 6,
       },
   
       welcomeTitle: {
@@ -67,7 +66,22 @@ export const getDashboardStyles = (t: AppColors) =>
       welcomeRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
+        alignItems: 'center',
         width: '100%',
+      },
+
+      welcomeRowLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+      },
+
+      helpIconButton: {
+        padding: 4,
+      },
+
+      helpIcon: {
+        color: t.brand.accent,
       },
 
       welcomeLabel: {
@@ -88,9 +102,9 @@ export const getDashboardStyles = (t: AppColors) =>
   
       /* MENU LIST */
       menuList: {
-        gap: 20,         // modern app rhythm
+        gap: 12,         // tighter spacing for no-scroll
         marginTop: 4,
-        marginBottom: 8  // ensures no giant white space
+        marginBottom: 8
       },
   
       menuCard: {
@@ -160,8 +174,8 @@ export const getDashboardStyles = (t: AppColors) =>
   
       /* PROGRESS SECTION */
       progressSection: {
-        marginTop: 16,
-        marginBottom: 20,
+        marginTop: 12,
+        marginBottom: 12,
       },
 
       progressTitle: {
@@ -221,8 +235,8 @@ export const getDashboardStyles = (t: AppColors) =>
       readyToSendCard: {
         backgroundColor: t.neutral.lightest,
         borderRadius: 12,
-        padding: 16,
-        marginBottom: 20,
+        padding: 12,
+        marginBottom: 12,
         borderWidth: 1,
         borderColor: t.status.success,
         flexDirection: 'row',
@@ -262,7 +276,7 @@ export const getDashboardStyles = (t: AppColors) =>
       statusChipsRow: {
         flexDirection: 'row',
         gap: 8,
-        marginBottom: 20,
+        marginBottom: 12,
         flexWrap: 'wrap',
       },
 
@@ -323,8 +337,8 @@ export const getDashboardStyles = (t: AppColors) =>
 
       /* SECTION HEADER */
       sectionHeader: {
-        marginTop: 24,
-        marginBottom: 12,
+        marginTop: 16,
+        marginBottom: 8,
         paddingHorizontal: 4,
       },
 
@@ -365,6 +379,89 @@ export const getDashboardStyles = (t: AppColors) =>
         fontSize: 14,
         flex: 1,
         color: t.neutral.darkest,
+      },
+
+      /* TIPS SECTION */
+      tipsCard: {
+        backgroundColor: '#F3F0FF', // Light purple background
+        borderRadius: 8,
+        padding: 10,
+        marginTop: 12,
+        borderWidth: 1,
+        borderColor: '#8B5CF6', // Purple border
+      },
+
+      tipsHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 6,
+      },
+
+      tipsHeaderLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+      },
+
+      tipsIcon: {
+        color: '#8B5CF6', // Purple
+      },
+
+      tipsTitle: {
+        fontFamily: fontFamily.satoshiBold,
+        fontSize: 12,
+        color: '#6D28D9', // Darker purple
+        fontWeight: '700',
+      },
+
+      tipsCloseIcon: {
+        color: t.neutral.medium,
+      },
+
+      tipsContent: {
+        gap: 10,
+      },
+
+      tipItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 6,
+      },
+
+      tipTextCompact: {
+        fontFamily: fontFamily.satoshi,
+        fontSize: 11,
+        lineHeight: 15,
+        color: t.neutral.dark,
+        flexShrink: 1,
+      },
+
+      tipPillExample: {
+        marginLeft: 4,
+      },
+
+      statusChipActiveExample: {
+        backgroundColor: t.cypress.pale,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: t.status.success,
+      },
+
+      statusChipTextActiveExample: {
+        fontFamily: fontFamily.satoshiMedium,
+        fontSize: 12,
+        color: t.status.success,
+        fontWeight: '600',
+      },
+
+      tipHighlight: {
+        fontFamily: fontFamily.satoshiBold,
+        color: '#8B5CF6', // Purple
+        fontWeight: '600',
       },
       
     });

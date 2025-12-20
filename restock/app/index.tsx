@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  ScrollView,
   SafeAreaView
 } from 'react-native';
 import { router, Redirect } from 'expo-router';
@@ -21,9 +20,15 @@ import { useActiveSessions, useSessionStore, useSessions } from '../store/useSes
 import { useCompanyStore } from '../store/useCompanyStore';
 
 import { safeRead } from '../lib/helpers/errorHandling';
+import { getJSON, setJSON } from '../lib/helpers/storage/utils';
+
+const TIPS_DISMISSED_KEY = '@restock/dashboard-tips-dismissed';
 
 export default function DashboardScreen() {
   const [isChecking, setIsChecking] = useState(true);
+  const [tipsDismissed, setTipsDismissed] = useState(false);
+  const [showTips, setShowTips] = useState(false);
+  const [isLoadingTips, setIsLoadingTips] = useState(true);
   const styles = useThemedStyles(getDashboardStyles);
 
   // PROFILE
@@ -74,6 +79,27 @@ export default function DashboardScreen() {
     }
   }, [isSenderHydrated]);
 
+  // LOAD TIPS DISMISSED STATE
+  useEffect(() => {
+    getJSON<boolean>(TIPS_DISMISSED_KEY).then((dismissed) => {
+      const wasDismissed = dismissed === true;
+      setTipsDismissed(wasDismissed);
+      // Show tips by default if not dismissed
+      setShowTips(!wasDismissed);
+      setIsLoadingTips(false);
+    });
+  }, []);
+
+  const handleDismissTips = async () => {
+    setTipsDismissed(true);
+    setShowTips(false);
+    await setJSON(TIPS_DISMISSED_KEY, true);
+  };
+
+  const handleToggleTips = () => {
+    setShowTips(!showTips);
+  };
+
   if (isChecking) {
     return (
       <View style={styles.loadingContainer}>
@@ -90,13 +116,26 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.contentContainer}>
+      <View style={styles.contentContainer}>
         
       <View style={styles.welcomeSection}>
-        {/* TOP ROW: Welcome + Name */}
+        {/* TOP ROW: Welcome + Name + Help Icon */}
         <View style={styles.welcomeRow}>
-          <Text style={styles.welcomeTitle}>Welcome,</Text>
-          <Text style={styles.userName}>{userName}</Text>
+          <View style={styles.welcomeRowLeft}>
+            <Text style={styles.welcomeTitle}>Welcome,</Text>
+            <Text style={styles.userName}>{userName}</Text>
+          </View>
+          <TouchableOpacity
+            onPress={handleToggleTips}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={styles.helpIconButton}
+          >
+            <Ionicons 
+              name={showTips ? "information-circle" : "information-circle-outline"} 
+              size={24} 
+              style={styles.helpIcon} 
+            />
+          </TouchableOpacity>
         </View>
 
         {/* STORE */}
@@ -236,7 +275,56 @@ export default function DashboardScreen() {
           </TouchableOpacity>
         </View>
 
-      </ScrollView>
+        {/* Tips Section */}
+        {showTips && !isLoadingTips && (
+          <View style={styles.tipsCard}>
+            <View style={styles.tipsHeader}>
+              <View style={styles.tipsHeaderLeft}>
+                <Ionicons name="bulb-outline" size={14} style={styles.tipsIcon} />
+                <Text style={styles.tipsTitle}>Tips</Text>
+              </View>
+              <TouchableOpacity
+                onPress={handleDismissTips}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close" size={14} style={styles.tipsCloseIcon} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.tipsContent}>
+              {activeCount > 0 && (
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipTextCompact}>Tap this pill to see your current active session: </Text>
+                  <View style={styles.tipPillExample}>
+                    <View style={styles.statusChipActiveExample}>
+                      <Text style={styles.statusChipTextActiveExample}>{activeCount} active</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+              <View style={styles.tipItem}>
+                <Text style={styles.tipTextCompact}>
+                  Use <Text style={styles.tipHighlight}>Start New Session</Text> to log products manually or <Text style={styles.tipHighlight}>Upload Document</Text> to scan automatically.
+                </Text>
+              </View>
+              {readyToSendCount > 0 && (
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipTextCompact}>
+                    Tap <Text style={styles.tipHighlight}>Review & Send</Text> to send pending sessions.
+                  </Text>
+                </View>
+              )}
+              {link && (
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipTextCompact}>
+                    Visit <Text style={styles.tipHighlight}>Team</Text> to view other stores.
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
+      </View>
     </SafeAreaView>
   );
 }

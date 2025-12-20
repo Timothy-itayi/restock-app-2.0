@@ -129,3 +129,67 @@ export async function cleanupAllCapturedImages(): Promise<void> {
   }
 }
 
+/**
+ * Request photo library permissions
+ * @returns true if permission granted
+ */
+export async function requestPhotoLibraryPermission(): Promise<boolean> {
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  return status === 'granted';
+}
+
+/**
+ * Check if photo library permission is already granted
+ */
+export async function hasPhotoLibraryPermission(): Promise<boolean> {
+  const { status } = await ImagePicker.getMediaLibraryPermissionsAsync();
+  return status === 'granted';
+}
+
+/**
+ * Pick an image from the photo library
+ * @returns Picked image info, or null if cancelled
+ */
+export async function pickFromPhotoLibrary(): Promise<{
+  uri: string;
+  name: string;
+  mimeType: string;
+  size?: number;
+} | null> {
+  // Check/request permission
+  const hasPermission = await hasPhotoLibraryPermission();
+  if (!hasPermission) {
+    const granted = await requestPhotoLibraryPermission();
+    if (!granted) {
+      throw new Error('Photo library permission is required to select images');
+    }
+  }
+
+  // Launch image picker
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ['images'],
+    allowsEditing: false,
+    quality: 0.9,
+    exif: false,
+    base64: false,
+  });
+
+  // User cancelled
+  if (result.canceled || !result.assets || result.assets.length === 0) {
+    return null;
+  }
+
+  const asset = result.assets[0];
+  
+  // Generate a filename from the asset
+  const fileName = asset.fileName || `photo-${Date.now()}.jpg`;
+  const mimeType = asset.mimeType || 'image/jpeg';
+
+  return {
+    uri: asset.uri,
+    name: fileName,
+    mimeType,
+    size: asset.fileSize || undefined,
+  };
+}
+
