@@ -25,6 +25,7 @@ export default function SuppliersScreen() {
   const addSupplier = useSupplierStore((state) => state.addSupplier);
   const updateSupplier = useSupplierStore((state) => state.updateSupplier);
   const deleteSupplier = useSupplierStore((state) => state.deleteSupplier);
+  const deleteAllSuppliers = useSupplierStore((state) => state.deleteAllSuppliers);
   const loadSuppliers = useSupplierStore((state) => state.loadSuppliers);
   
   const [editing, setEditing] = useState<Supplier | null>(null);
@@ -97,6 +98,26 @@ export default function SuppliersScreen() {
         } catch (error) {
           console.warn('Error deleting supplier:', error);
           showError('Delete Failed', 'Failed to delete supplier. Please try again.');
+        }
+      }
+    );
+  };
+
+  const handleDeleteAll = () => {
+    showDelete(
+      'Delete All Suppliers',
+      `Are you sure you want to delete all ${suppliers.length} suppliers? This action cannot be undone.`,
+      () => {
+        try {
+          deleteAllSuppliers();
+          if (editing) {
+            setEditing(null);
+            setName('');
+            setEmail('');
+          }
+        } catch (error) {
+          console.warn('Error deleting all suppliers:', error);
+          showError('Delete Failed', 'Failed to delete all suppliers. Please try again.');
         }
       }
     );
@@ -413,19 +434,44 @@ export default function SuppliersScreen() {
                   Your Suppliers
                 </Text>
               </View>
-              <View style={{
-                backgroundColor: colors.cypress.pale,
-                paddingHorizontal: 10,
-                paddingVertical: 4,
-                borderRadius: 12,
-              }}>
-                <Text style={{
-                  fontSize: 12,
-                  fontWeight: '700',
-                  color: colors.cypress.deep,
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{
+                  backgroundColor: colors.cypress.pale,
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  borderRadius: 12,
                 }}>
-                  {suppliers.length}
-                </Text>
+                  <Text style={{
+                    fontSize: 12,
+                    fontWeight: '700',
+                    color: colors.cypress.deep,
+                  }}>
+                    {suppliers.length}
+                  </Text>
+                </View>
+                {suppliers.length > 0 && (
+                  <TouchableOpacity
+                    onPress={handleDeleteAll}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      backgroundColor: '#FEE2E2',
+                      borderRadius: 8,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <Ionicons name="trash-outline" size={14} color={colors.status.error} />
+                    <Text style={{
+                      fontSize: 12,
+                      fontWeight: '600',
+                      color: colors.status.error,
+                    }}>
+                      Delete All
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           </View>

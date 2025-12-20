@@ -15,6 +15,7 @@ type SupplierStore = {
   addSupplier: (name: string, email?: string) => Supplier;
   updateSupplier: (id: string, updates: Partial<Supplier>) => void;
   deleteSupplier: (id: string) => void;
+  deleteAllSuppliers: () => void;
   getSupplierByName: (name: string) => Supplier | undefined;
 
   loadSuppliers: () => Promise<void>;
@@ -69,6 +70,11 @@ export const useSupplierStore = create<SupplierStore>((set, get) => ({
 
     set({ suppliers: updated });
     setVersionedJSON(STORAGE_KEY, updated).catch(console.warn);
+  },
+
+  deleteAllSuppliers: () => {
+    set({ suppliers: [] });
+    setVersionedJSON(STORAGE_KEY, []).catch(console.warn);
   },
 
   //------------------------------------------------------------------
