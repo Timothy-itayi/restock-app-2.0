@@ -7,6 +7,7 @@ import { useThemedStyles } from '../../../styles/useThemedStyles';
 import { getEmailsStyles } from '../../../styles/components/emails';
 import { getSessionsStyles } from '../../../styles/components/sessions';
 import { useThemeStore } from '../../../styles/useThemeStore';
+import colors from '../../../lib/theme/colors';
 
 import { useSessionStore } from '../../../store/useSessionStore';
 import { useSupplierStore } from '../../../store/useSupplierStore';
@@ -268,7 +269,7 @@ ${senderProfile?.name || 'Customer'}`;
       {/* Sticky Header */}
       <View style={sessionStyles.stickyHeader}>
         <TouchableOpacity onPress={handleBackPress} style={sessionStyles.stickyBackButton}>
-          <Ionicons name="chevron-back" size={24} color="#333" />
+          <Ionicons name="chevron-back" size={24} color={colors.neutral.darkest} />
         </TouchableOpacity>
         <Text style={sessionStyles.stickyHeaderTitle}>Email Preview</Text>
       </View>

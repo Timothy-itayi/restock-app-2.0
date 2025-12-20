@@ -134,7 +134,7 @@ export default function EditProductScreen() {
         {/* Sticky Header */}
         <View style={styles.stickyHeader}>
           <TouchableOpacity onPress={() => router.back()} style={styles.stickyBackButton}>
-            <Ionicons name="chevron-back" size={24} color="#333" />
+            <Ionicons name="chevron-back" size={24} color={colors.neutral.darkest} />
           </TouchableOpacity>
           <Text style={styles.stickyHeaderTitle}>Edit Product</Text>
         </View>

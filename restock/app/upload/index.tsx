@@ -828,11 +828,27 @@ export default function UploadScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.neutral.lighter }}>
       {/* Header */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 }}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+      <View style={{ 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        paddingHorizontal: 16, 
+        paddingVertical: 12,
+        backgroundColor: colors.neutral.lighter,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.neutral.light,
+      }}>
+        <TouchableOpacity 
+          onPress={() => router.back()} 
+          style={{ padding: 4, marginRight: 12 }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <Ionicons name="chevron-back" size={24} color={colors.neutral.darkest} />
         </TouchableOpacity>
-        <Text style={{ flex: 1, fontSize: 18, fontWeight: '700', color: colors.neutral.darkest, marginLeft: 12 }}>
+        <Text style={{ 
+          fontSize: 20, 
+          fontWeight: '700', 
+          color: colors.neutral.darkest 
+        }}>
           Scan Catalog
         </Text>
       </View>

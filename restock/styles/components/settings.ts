@@ -16,21 +16,19 @@ export const getSettingsStyles = (t: AppColors) => StyleSheet.create({
   stickyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 50,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: t.neutral.lightest,
     borderBottomWidth: 1,
     borderBottomColor: t.neutral.light,
-    zIndex: 10,
   },
   backButton: {
-    marginRight: 16,
+    padding: 4,
+    marginRight: 12,
   },
   stickyHeaderTitle: {
-    fontFamily: fontFamily.satoshiBold,
-    fontSize: 28,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
     color: t.neutral.darkest,
   },
   headerContainer: {

@@ -13,6 +13,7 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import { useThemedStyles } from '@styles/useThemedStyles';
 import { getUploadStyles } from '@styles/components/upload';
+import { getSessionsStyles } from '@styles/components/sessions';
 import { addProductScreenStyles } from '@styles/components/add-product';
 import { useSessionStore } from '../../../store/useSessionStore';
 import { useSupplierStore } from '../../../store/useSupplierStore';
@@ -20,9 +21,11 @@ import type { SessionItem } from '../../../lib/helpers/storage/sessions';
 import colors from '../../../lib/theme/colors';
 import { AlertModal } from '../../../components/AlertModal';
 import { useAlert } from '../../../lib/hooks/useAlert';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function AddProductScreen() {
   const styles = useThemedStyles(getUploadStyles);
+  const headerStyles = useThemedStyles(getSessionsStyles);
   const qtyStyles = addProductScreenStyles;
   const { alert, hideAlert, showError } = useAlert();
 
@@ -131,6 +134,14 @@ export default function AddProductScreen() {
 
   return (
     <SafeAreaView style={styles.sessionContainer}>
+      {/* Sticky Header */}
+      <View style={headerStyles.stickyHeader}>
+        <TouchableOpacity onPress={() => router.back()} style={headerStyles.stickyBackButton}>
+          <Ionicons name="chevron-back" size={24} color={colors.neutral.darkest} />
+        </TouchableOpacity>
+        <Text style={headerStyles.stickyHeaderTitle}>Add Product</Text>
+      </View>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -141,8 +152,6 @@ export default function AddProductScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={true}
         >
-          
-          <Text style={styles.sessionSelectionTitle}>Add Product</Text>
 
           <View style={[styles.formCard, { marginTop: 20 }]}>
             

@@ -1,0 +1,11 @@
+name = "restock-company"
+main = "index.ts"
+compatibility_date = "2024-11-21"
+compatibility_flags = ["nodejs_compat"]
+
+# KV namespace for company data and snapshots
+# Create via: wrangler kv:namespace create "COMPANY_KV"
+[[kv_namespaces]]
+binding = "COMPANY_KV"
+id = "7da35ea0a7404ffa804de7f9c8d40866"
+

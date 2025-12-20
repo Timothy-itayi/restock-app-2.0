@@ -137,23 +137,11 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.neutral.lighter }}>
       {/* Sticky Header */}
-      <View style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        backgroundColor: colors.neutral.lighter,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.neutral.light,
-      }}>
-        <TouchableOpacity onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
+      <View style={styles.stickyHeader}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color={colors.neutral.darkest} />
         </TouchableOpacity>
-        <Text style={{
-          fontSize: 20,
-          fontWeight: '700',
-          color: colors.neutral.darkest,
-        }}>Settings</Text>
+        <Text style={styles.stickyHeaderTitle}>Settings</Text>
       </View>
 
       <KeyboardAvoidingView

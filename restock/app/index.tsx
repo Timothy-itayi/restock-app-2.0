@@ -17,10 +17,8 @@ import {
   useSenderProfileStore
 } from '../store/useSenderProfileStore';
 
-import {
-  useActiveSessions,
-  useSessionStore
-} from '../store/useSessionStore';
+import { useActiveSessions, useSessionStore } from '../store/useSessionStore';
+import { useCompanyStore } from '../store/useCompanyStore';
 
 import { safeRead } from '../lib/helpers/errorHandling';
 import ActiveSessionGauge from './activeSessionGauge';
@@ -40,6 +38,9 @@ export default function DashboardScreen() {
   const loadSessionsFromStorage = useSessionStore((s) => s.loadSessionsFromStorage);
   const createSession = useSessionStore((s) => s.createSession);
 
+  // COMPANY
+  const { link, loadFromStorage: loadCompanyFromStorage, isHydrated: isCompanyHydrated } = useCompanyStore();
+
   // HYDRATE PROFILE
   useEffect(() => {
     if (!isSenderHydrated) {
@@ -49,9 +50,14 @@ export default function DashboardScreen() {
     }
   }, [isSenderHydrated]);
 
-  // HYDRATE SESSIONS
+  // HYDRATE SESSIONS & COMPANY
   useEffect(() => {
-    if (isSenderHydrated) loadSessionsFromStorage();
+    if (isSenderHydrated) {
+      loadSessionsFromStorage();
+      if (!isCompanyHydrated) {
+        loadCompanyFromStorage();
+      }
+    }
   }, [isSenderHydrated]);
 
   if (isChecking) {
@@ -82,7 +88,8 @@ export default function DashboardScreen() {
     },
     { id: 'sessions', title: 'View Sessions', icon: 'list-outline', route: '/sessions' },
     { id: 'upload', title: 'Upload Document', icon: 'document-outline', route: '/upload' },
-    { id: 'suppliers', title: 'Suppliers', icon: 'people-outline', route: '/suppliers' },
+    { id: 'company', title: link ? `Team: ${link.code}` : 'Connect with Team', icon: 'people-outline', route: '/company' },
+    { id: 'suppliers', title: 'Suppliers', icon: 'business-outline', route: '/suppliers' },
     { id: 'settings', title: 'Settings', icon: 'settings-outline', route: '/settings' }
   ];
 

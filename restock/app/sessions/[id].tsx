@@ -11,6 +11,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemedStyles } from '@styles/useThemedStyles';
 import { getSessionsStyles } from '@styles/components/sessions';
+import colors from '@styles/theme/colors';
 import { useSessionHydrated, useSessionStore } from '../../store/useSessionStore';
 import { useSupplierStore } from '../../store/useSupplierStore';
 import { groupBySupplier } from '../../lib/utils/groupBySupplier';
@@ -199,7 +200,7 @@ export default function SessionDetailScreen() {
       {/* Sticky Header */}
       <View style={styles.stickyHeader}>
         <TouchableOpacity onPress={sessionNavigation.goBack} style={styles.stickyBackButton}>
-          <Ionicons name="chevron-back" size={24} color="#333" />
+          <Ionicons name="chevron-back" size={24} color={colors.neutral.darkest} />
         </TouchableOpacity>
         <Text style={styles.stickyHeaderTitle}>Session Details</Text>
       </View>

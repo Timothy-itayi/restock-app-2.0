@@ -1,7 +1,8 @@
-import { Modal, TouchableOpacity, View, Text } from "react-native";
-import React from 'react';
+import { Modal, TouchableOpacity, View, Text, ActivityIndicator } from "react-native";
+import React, { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../../lib/theme/colors';
+import { useCompanyStore } from '../../store/useCompanyStore';
 
 type SuccessModalProps = {
   visible: boolean;
@@ -14,6 +15,18 @@ export const SuccessModal = ({
   emailCount,
   onClose
 }: SuccessModalProps) => {
+  const { link, publishSnapshot, isLoading } = useCompanyStore();
+  const [published, setPublished] = useState(false);
+
+  const handleShare = async () => {
+    try {
+      await publishSnapshot();
+      setPublished(true);
+    } catch (err) {
+      console.error('Failed to share with team:', err);
+    }
+  };
+
   return (
     <Modal transparent visible={visible} animationType="fade">
       <View
@@ -103,6 +116,55 @@ export const SuccessModal = ({
                 {emailCount} {emailCount === 1 ? 'email' : 'emails'} sent
               </Text>
             </View>
+
+            {/* Share with Team Button (if linked) */}
+            {link && !published && (
+              <TouchableOpacity
+                onPress={handleShare}
+                disabled={isLoading}
+                style={{
+                  width: '100%',
+                  paddingVertical: 14,
+                  backgroundColor: colors.cypress.pale,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  marginBottom: 12,
+                  borderWidth: 1,
+                  borderColor: colors.brand.primary,
+                }}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color={colors.brand.primary} />
+                ) : (
+                  <>
+                    <Ionicons name="people" size={18} color={colors.brand.primary} style={{ marginRight: 8 }} />
+                    <Text style={{ color: colors.brand.primary, fontWeight: '700' }}>
+                      Share with Team
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+
+            {published && (
+              <View style={{ 
+                flexDirection: 'row', 
+                alignItems: 'center', 
+                marginBottom: 16,
+                backgroundColor: '#e6f7ed',
+                padding: 10,
+                borderRadius: 8,
+                width: '100%',
+                justifyContent: 'center'
+              }}>
+                <Ionicons name="checkmark-circle" size={18} color="#2ecc71" style={{ marginRight: 6 }} />
+                <Text style={{ color: '#27ae60', fontWeight: '600', fontSize: 13 }}>
+                  Shared with Brighton Branch
+                </Text>
+              </View>
+            )}
 
             {/* Done Button */}
             <TouchableOpacity

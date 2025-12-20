@@ -322,27 +322,24 @@ export const getSessionsStyles = (t: AppColors) => StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  // Sticky Header Styles
+  // Sticky Header Styles - Consistent with company screens
   stickyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 50,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: colors.neutral.lightest,
     borderBottomWidth: 1,
     borderBottomColor: colors.neutral.light,
-    zIndex: 10,
   },
   stickyBackButton: {
-    marginRight: 16,
+    padding: 4,
+    marginRight: 12,
   },
   stickyHeaderTitle: {
-    fontFamily: fontFamily.satoshiBlack,
-    fontSize: 28,
-    fontWeight: "700",
+    fontSize: 20,
+    fontWeight: '700',
     color: colors.neutral.darkest,
-    lineHeight: 34,
   },
   // Legacy styles (keeping for compatibility)
   header: {
