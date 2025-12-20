@@ -12,6 +12,8 @@ import colors from '../../../lib/theme/colors';
 import { useSessionStore } from '../../../store/useSessionStore';
 import { useSupplierStore } from '../../../store/useSupplierStore';
 import { useSenderProfile } from '../../../store/useSenderProfileStore';
+import { AlertModal } from '../../../components/AlertModal';
+import { useAlert } from '../../../lib/hooks/useAlert';
 
 import { groupBySupplier } from '../../../lib/utils/groupBySupplier';
 import { sendEmail } from '../../../lib/api/sendEmail';
@@ -34,8 +36,10 @@ export default function EmailPreviewScreen() {
   
   const session = useSessionStore((s) => s.getSession(id));
   const updateSession = useSessionStore((s) => s.updateSession);
+  const deleteSession = useSessionStore((s) => s.deleteSession);
   const suppliers = useSupplierStore((s) => s.suppliers);
   const senderProfile = useSenderProfile();
+  const { alert, hideAlert, showAlert } = useAlert();
 
   const [selectedDraft, setSelectedDraft] = useState<any | null>(null);
   const [editDraft, setEditDraft] = useState<any | null>(null);
@@ -264,6 +268,25 @@ ${senderProfile?.name || 'Customer'}`;
     }
   };
 
+  const handleDelete = () => {
+    if (!session) return;
+    const sessionLabel = session.items.length === 0 
+      ? 'this empty session' 
+      : `session with ${session.items.length} item${session.items.length !== 1 ? 's' : ''}`;
+    
+    showAlert('delete', 'Delete Session?', `Are you sure you want to delete ${sessionLabel}? This action cannot be undone.`, [
+      { 
+        text: 'Delete', 
+        style: 'destructive',
+        onPress: () => {
+          deleteSession(session.id);
+          goToSessionList();
+        }
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Sticky Header */}
@@ -281,14 +304,21 @@ ${senderProfile?.name || 'Customer'}`;
         storeName={senderProfile?.storeName || undefined}
       />
 
-      {/* Edit Products Button - Navigate to edit all products screen */}
+      {/* Edit Products and Delete Buttons */}
       <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 }}>
         <TouchableOpacity
-          style={[sessionStyles.secondaryButton, { marginBottom: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
+          style={[sessionStyles.secondaryButton, { marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
           onPress={() => router.push(`/sessions/${id}/edit-product`)}
         >
           <Ionicons name="create-outline" size={18} color="#666" style={{ marginRight: 8 }} />
           <Text style={sessionStyles.secondaryButtonText}>Edit Products</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[sessionStyles.secondaryButton, { borderColor: '#CC0000', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
+          onPress={handleDelete}
+        >
+          <Ionicons name="trash-outline" size={18} color="#CC0000" style={{ marginRight: 8 }} />
+          <Text style={[sessionStyles.secondaryButtonText, { color: '#CC0000' }]}>Delete Session</Text>
         </TouchableOpacity>
       </View>
 
@@ -395,6 +425,16 @@ ${senderProfile?.name || 'Customer'}`;
           setEditDraft(selectedDraft);
           setSelectedDraft(null);
         }}
+      />
+
+      {/* Alert Modal */}
+      <AlertModal
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        actions={alert.actions}
+        onClose={hideAlert}
       />
     </SafeAreaView>
   );

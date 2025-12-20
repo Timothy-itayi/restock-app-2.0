@@ -5,7 +5,7 @@ import { fontFamily, typography } from "../typography";
 export const getSuppliersStyles = (t: AppColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral.lighter,
+    backgroundColor: colors.neutral.lightest,
     maxWidth: '100%',
     alignSelf: 'center',
     width: '100%',
@@ -60,7 +60,7 @@ export const getSuppliersStyles = (t: AppColors) => StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: colors.neutral.lighter,
+    backgroundColor: colors.neutral.lightest,
     borderBottomWidth: 1,
     borderBottomColor: colors.neutral.light,
   },

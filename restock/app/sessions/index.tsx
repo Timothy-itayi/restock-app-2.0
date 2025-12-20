@@ -19,6 +19,8 @@ import {
 } from '../../store/useSessionStore';
 import type { Session } from '../../lib/helpers/storage/sessions';
 import colors from '@styles/theme/colors';
+import { AlertModal } from '../../components/AlertModal';
+import { useAlert } from '../../lib/hooks/useAlert';
 
 export default function SessionsScreen() {
   const styles = useThemedStyles(getSessionsStyles);
@@ -27,6 +29,8 @@ export default function SessionsScreen() {
   const activeSessions = useActiveSessions();
   const loadSessionsFromStorage = useSessionStore((state) => state.loadSessionsFromStorage);
   const createSession = useSessionStore((state) => state.createSession);
+  const deleteSession = useSessionStore((state) => state.deleteSession);
+  const { alert, hideAlert, showAlert } = useAlert();
 
   const [loading, setLoading] = useState(true);
 
@@ -102,23 +106,55 @@ export default function SessionsScreen() {
     }
   };
 
+  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
+
+  const handleDeleteSession = (session: Session, e: any) => {
+    e.stopPropagation();
+    const sessionLabel = session.items.length === 0 
+      ? 'this empty session' 
+      : `session with ${session.items.length} item${session.items.length !== 1 ? 's' : ''}`;
+    
+    showAlert('delete', 'Delete Session?', `Are you sure you want to delete ${sessionLabel}? This action cannot be undone.`, [
+      { 
+        text: 'Delete', 
+        style: 'destructive',
+        onPress: () => {
+          deleteSession(session.id);
+          setExpandedSessionId(null);
+        }
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const handleChevronPress = (sessionId: string, e: any) => {
+    e.stopPropagation();
+    // Toggle: if already expanded, close it; otherwise expand this one (closing any other)
+    setExpandedSessionId(expandedSessionId === sessionId ? null : sessionId);
+  };
+
+  const handleSessionPress = (item: Session) => {
+    // Close expanded state when navigating
+    setExpandedSessionId(null);
+    
+    if (item.status === 'pendingEmails') {
+      router.push({
+        pathname: '/sessions/[id]/email-preview',
+        params: { id: item.id }
+      });
+    } else {
+      router.push({
+        pathname: '/sessions/[id]',
+        params: { id: item.id }
+      });
+    }
+  };
+
   const renderSessionItem = ({ item, index, totalCount }: { item: Session; index: number; totalCount: number }) => {
     const statusConfig = getStatusConfig(item.status);
     const itemCount = item.items.length;
-
-    const handleSessionPress = () => {
-      if (item.status === 'pendingEmails') {
-        router.push({
-          pathname: '/sessions/[id]/email-preview',
-          params: { id: item.id }
-        });
-      } else {
-        router.push({
-          pathname: '/sessions/[id]',
-          params: { id: item.id }
-        });
-      }
-    };
+    const canDelete = item.status === 'active' || item.status === 'pendingEmails';
+    const isExpanded = expandedSessionId === item.id;
 
     return (
       <View>
@@ -128,7 +164,7 @@ export default function SessionsScreen() {
             paddingVertical: 16,
             paddingHorizontal: 16,
           }}
-          onPress={handleSessionPress}
+          onPress={() => handleSessionPress(item)}
           activeOpacity={0.7}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -186,7 +222,7 @@ export default function SessionsScreen() {
               </View>
             </View>
 
-            {/* Status Badge + Chevron */}
+            {/* Status Badge + Actions */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <View
                 style={{
@@ -213,7 +249,34 @@ export default function SessionsScreen() {
                   {statusConfig.label}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.neutral.medium} />
+              {canDelete && isExpanded && (
+                <TouchableOpacity
+                  onPress={(e) => handleDeleteSession(item, e)}
+                  style={{
+                    padding: 6,
+                    borderRadius: 6,
+                    backgroundColor: colors.status.error + '15',
+                    marginRight: 4,
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="trash-outline" size={18} color={colors.status.error} />
+                </TouchableOpacity>
+              )}
+              {canDelete ? (
+                <TouchableOpacity
+                  onPress={(e) => handleChevronPress(item.id, e)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons 
+                    name={isExpanded ? "chevron-back" : "chevron-forward"} 
+                    size={18} 
+                    color={colors.neutral.medium} 
+                  />
+                </TouchableOpacity>
+              ) : (
+                <Ionicons name="chevron-forward" size={18} color={colors.neutral.medium} />
+              )}
             </View>
           </View>
         </TouchableOpacity>
@@ -449,6 +512,16 @@ export default function SessionsScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Alert Modal */}
+      <AlertModal
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        actions={alert.actions}
+        onClose={hideAlert}
+      />
     </SafeAreaView>
   );
 }

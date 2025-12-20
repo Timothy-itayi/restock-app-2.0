@@ -311,12 +311,33 @@ export default function SessionDetailScreen() {
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
             <Ionicons name="cube-outline" size={48} color="#ccc" />
             <Text style={[styles.emptyStateText, { marginTop: 12 }]}>No items in this session yet.</Text>
-            <TouchableOpacity 
-              style={[styles.primaryButton, { marginTop: 16 }]} 
-              onPress={() => sessionNavigation.openAddProduct(session.id)}
-            >
-              <Text style={styles.primaryButtonText}>Add First Product</Text>
-            </TouchableOpacity>
+            {session.status === 'active' && (
+              <TouchableOpacity 
+                style={[styles.primaryButton, { marginTop: 16 }]} 
+                onPress={() => sessionNavigation.openAddProduct(session.id)}
+              >
+                <Text style={styles.primaryButtonText}>Add First Product</Text>
+              </TouchableOpacity>
+            )}
+            {/* Delete button for empty sessions */}
+            <View style={{ marginTop: 24, width: '100%', maxWidth: 300 }}>
+              {session.status === 'active' && (
+                <TouchableOpacity 
+                  style={[styles.secondaryButton, { borderColor: '#999', marginBottom: 12 }]} 
+                  onPress={handleCancel}
+                >
+                  <Text style={[styles.secondaryButtonText, { color: '#666' }]}>Cancel Session</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[styles.secondaryButton, { borderColor: '#CC0000' }]}
+                onPress={handleDelete}
+              >
+                <Text style={[styles.secondaryButtonText, { color: '#CC0000' }]}>
+                  Delete Session
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ) : supplierGroups.length === 0 ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>

@@ -391,11 +391,10 @@ export default function SuppliersScreen() {
           )}
 
           <View style={{
-            paddingHorizontal: 16,
             paddingTop: 24,
             paddingBottom: 8,
           }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View style={{
                   width: 4,
@@ -466,11 +465,10 @@ export default function SuppliersScreen() {
           ) : (
             <View style={{
               backgroundColor: colors.neutral.lightest,
-              marginHorizontal: 16,
-              borderRadius: 12,
               marginTop: 8,
               overflow: 'hidden',
-              borderWidth: 1,
+              borderTopWidth: 1,
+              borderBottomWidth: 1,
               borderColor: colors.neutral.light,
             }}>
               <FlatList

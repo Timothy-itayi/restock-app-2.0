@@ -171,7 +171,16 @@ export default function AddProductScreen() {
                 <Text style={qtyStyles.qtyButtonText}>−</Text>
               </TouchableOpacity>
 
-              <Text style={qtyStyles.qtyValue}>{quantity}</Text>
+              <TextInput
+                value={String(quantity)}
+                onChangeText={(text) => {
+                  const num = parseInt(text) || 0;
+                  setQuantity(Math.max(0, num));
+                }}
+                keyboardType="number-pad"
+                style={qtyStyles.qtyValue}
+                textAlign="center"
+              />
 
               <TouchableOpacity style={qtyStyles.qtyButton} onPress={incrementQty}>
                 <Text style={qtyStyles.qtyButtonText}>+</Text>

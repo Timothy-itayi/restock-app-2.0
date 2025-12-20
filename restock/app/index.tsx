@@ -17,12 +17,10 @@ import {
   useSenderProfileStore
 } from '../store/useSenderProfileStore';
 
-import { useActiveSessions, useSessionStore } from '../store/useSessionStore';
+import { useActiveSessions, useSessionStore, useSessions } from '../store/useSessionStore';
 import { useCompanyStore } from '../store/useCompanyStore';
 
 import { safeRead } from '../lib/helpers/errorHandling';
-import ActiveSessionGauge from './activeSessionGauge';
-import colors from '@styles/theme/colors';
 
 export default function DashboardScreen() {
   const [isChecking, setIsChecking] = useState(true);
@@ -34,9 +32,25 @@ export default function DashboardScreen() {
   const loadProfileFromStorage = useSenderProfileStore((s) => s.loadProfileFromStorage);
 
   // SESSIONS
+  const allSessions = useSessions();
   const activeSessions = useActiveSessions();
   const loadSessionsFromStorage = useSessionStore((s) => s.loadSessionsFromStorage);
   const createSession = useSessionStore((s) => s.createSession);
+  
+  // Count sessions by status
+  const activeCount = allSessions.filter(s => s.status === 'active').length;
+  const pendingCount = allSessions.filter(s => s.status === 'pendingEmails').length;
+  const readyToSendCount = allSessions.filter(s => s.status === 'pendingEmails').length;
+  
+  // Get most recent active session for progress bar
+  const mostRecentActive = activeSessions.length > 0
+    ? [...activeSessions].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0]
+    : null;
+  
+  // Determine progress stages for most recent active session
+  const hasStarted = mostRecentActive !== null;
+  const hasLogged = mostRecentActive?.items && mostRecentActive.items.length > 0;
+  const hasSent = mostRecentActive?.status === 'pendingEmails';
 
   // COMPANY
   const { link, loadFromStorage: loadCompanyFromStorage, isHydrated: isCompanyHydrated } = useCompanyStore();
@@ -73,114 +87,153 @@ export default function DashboardScreen() {
   const userName = safeRead(senderProfile.name, 'User');
   const userEmail = safeRead(senderProfile.email, 'Email');
 
-  const hasActive = activeSessions.length > 0;
-
-  const menuItems = [
-    {
-      id: 'start-session',
-      title: 'Start New Session',
-      icon: 'add-circle-outline',
-      route: () => {
-        const s = createSession();
-        router.push(`/sessions/${s.id}`);
-      },
-      secondary: true,
-    },
-    { id: 'sessions', title: 'View Sessions', icon: 'list-outline', route: '/sessions' },
-    { id: 'upload', title: 'Upload Document', icon: 'document-outline', route: '/upload' },
-    { id: 'company', title: link ? `Team: ${link.code}` : 'Connect with Team', icon: 'people-outline', route: '/company' },
-    { id: 'suppliers', title: 'Suppliers', icon: 'business-outline', route: '/suppliers' },
-    { id: 'settings', title: 'Settings', icon: 'settings-outline', route: '/settings' }
-  ];
-
-  const handleNavigation = (item) => {
-    if (typeof item.route === 'function') item.route();
-    else router.push(item.route);
-  };
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.contentContainer}>
         
       <View style={styles.welcomeSection}>
+        {/* TOP ROW: Welcome + Name */}
+        <View style={styles.welcomeRow}>
+          <Text style={styles.welcomeTitle}>Welcome,</Text>
+          <Text style={styles.userName}>{userName}</Text>
+        </View>
 
-{/* TOP ROW: Welcome + Name */}
-<View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
-  <Text style={styles.welcomeTitle}>Welcome,</Text>
-  <Text style={styles.userName}>{userName}</Text>
-</View>
-
-{/* STORE */}
-{senderProfile.storeName && (
-  <>
-    <Text style={styles.welcomeLabel}>Store</Text>
-    <Text style={styles.welcomeValue}>{senderProfile.storeName}</Text>
-  </>
-)}
-
-{/* EMAIL */}
-<Text style={styles.welcomeLabel}>Email</Text>
-<Text style={styles.welcomeValue}>{userEmail}</Text>
-
-</View>
-
-
-
-{hasActive && (
-  <TouchableOpacity
-    style={styles.activeSessionCard}
-    activeOpacity={0.9}
-    onPress={() => router.push('/sessions')}
-  >
-    <Text style={styles.activeSessionTitle}>Active Sessions</Text>
-
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-      <ActiveSessionGauge
-        count={activeSessions.length}
-        colors={{
-          track: colors.status.success,
-          fill: colors.status.warning,
-          center: colors.state.overlay,
-        }}
-      />
-
-      <View style={{ flex: 1 }}>
-        <Text style={styles.activeSessionText}>
-          {activeSessions.length} active session(s)
-        </Text>
-        <Text style={styles.activeSessionSubtext}>
-          Tap to view active sessions.
-        </Text>
+        {/* STORE */}
+        {senderProfile.storeName && (
+          <Text style={styles.welcomeLabel}>Store: {senderProfile.storeName}</Text>
+        )}
       </View>
-    </View>
-  </TouchableOpacity>
-)}
 
+        {/* Session Progress Bar */}
+        {mostRecentActive && (
+          <View style={styles.progressSection}>
+            <Text style={styles.progressTitle}>Today</Text>
+            <View style={styles.progressBar}>
+              <View style={styles.progressStep}>
+                <View style={[styles.progressDot, hasStarted && styles.progressDotActive]} />
+                <Text style={styles.progressLabel}>Started</Text>
+              </View>
+              <View style={[styles.progressLine, hasLogged && styles.progressLineActive]} />
+              <View style={styles.progressStep}>
+                <View style={[styles.progressDot, hasLogged && styles.progressDotActive]} />
+                <Text style={styles.progressLabel}>Logged</Text>
+              </View>
+              <View style={[styles.progressLine, hasSent && styles.progressLineActive]} />
+              <View style={styles.progressStep}>
+                <View style={[styles.progressDot, hasSent && styles.progressDotActive]} />
+                <Text style={styles.progressLabel}>Sent</Text>
+              </View>
+            </View>
+          </View>
+        )}
 
-        <View style={styles.menuList}>
-          {menuItems.map((item) => (
+        {/* Sessions Ready to Send */}
+        {readyToSendCount > 0 && (
+          <View style={styles.readyToSendCard}>
+            <Text style={styles.readyToSendText}>
+              {readyToSendCount} session{readyToSendCount !== 1 ? 's' : ''} ready to send
+            </Text>
             <TouchableOpacity
-              key={item.id}
-              onPress={() => handleNavigation(item)}
-              style={[styles.menuCard, item.secondary && styles.menuCardPrimary]}
+              style={styles.readyToSendButton}
+              onPress={() => router.push('/sessions')}
             >
-              <Ionicons
-                name={item.icon as any}
-                size={24}
-                style={[styles.menuIcon, item.secondary && styles.menuIconPrimary]}
-              />
-              <Text
-                style={[styles.menuCardText, item.secondary && styles.menuCardTextPrimary]}
-              >
-                {item.title}
-              </Text>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                style={[styles.menuChevron, item.secondary && styles.menuIconPrimary]}
-              />
+              <Text style={styles.readyToSendButtonText}>Review & Send</Text>
+              <Ionicons name="chevron-forward" size={16} style={styles.readyToSendButtonIcon} />
             </TouchableOpacity>
-          ))}
+          </View>
+        )}
+
+        {/* Status Chips Row */}
+        <View style={styles.statusChipsRow}>
+          {activeCount > 0 && (
+            <TouchableOpacity
+              style={styles.statusChipActive}
+              onPress={() => router.push('/sessions')}
+            >
+              <Text style={styles.statusChipTextActive}>{activeCount} active</Text>
+            </TouchableOpacity>
+          )}
+          {pendingCount > 0 && (
+            <TouchableOpacity
+              style={styles.statusChipPending}
+              onPress={() => router.push('/sessions')}
+            >
+              <Text style={styles.statusChipTextPending}>{pendingCount} pending</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={styles.historyChip}
+            onPress={() => router.push('/sessions')}
+          >
+            <Text style={styles.historyChipText}>history</Text>
+            <Ionicons name="chevron-forward" size={14} style={styles.historyChipIcon} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Primary Actions */}
+        <View style={styles.menuList}>
+          <TouchableOpacity
+            style={styles.menuCardGreen}
+            onPress={() => {
+              const s = createSession();
+              router.push(`/sessions/${s.id}`);
+            }}
+          >
+            <Ionicons name="add-circle-outline" size={24} style={styles.menuIconGreen} />
+            <Text style={styles.menuCardTextGreen}>Start New Session</Text>
+            <Ionicons name="chevron-forward" size={20} style={styles.menuChevronGreen} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuCardGreen}
+            onPress={() => router.push('/upload')}
+          >
+            <Ionicons name="document-outline" size={24} style={styles.menuIconGreen} />
+            <Text style={styles.menuCardTextGreen}>Upload Document</Text>
+            <Ionicons name="chevron-forward" size={20} style={styles.menuChevronGreen} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Team Section */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionHeaderText}>Team</Text>
+        </View>
+        <View style={styles.menuList}>
+          <TouchableOpacity
+            style={styles.menuCard}
+            onPress={() => router.push('/company')}
+          >
+            <Ionicons name="people-outline" size={24} style={styles.menuIcon} />
+            <Text style={styles.menuCardText}>
+              {link ? `Team: ${link.code}` : 'Connect with Team'}
+            </Text>
+            <Ionicons name="chevron-forward" size={20} style={styles.menuChevron} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Manage Section */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionHeaderText}>Manage</Text>
+        </View>
+        <View style={styles.manageRow}>
+          <TouchableOpacity
+            style={styles.manageCard}
+            onPress={() => router.push('/suppliers')}
+          >
+            <Ionicons name="business-outline" size={20} style={styles.menuIcon} />
+            <Text style={styles.manageCardText}>Suppliers</Text>
+            <Ionicons name="chevron-forward" size={16} style={styles.menuChevron} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.manageCard}
+            onPress={() => router.push('/settings')}
+          >
+            <Ionicons name="settings-outline" size={20} style={styles.menuIcon} />
+            <Text style={styles.manageCardText}>Settings</Text>
+            <Ionicons name="chevron-forward" size={16} style={styles.menuChevron} />
+          </TouchableOpacity>
         </View>
 
       </ScrollView>

@@ -255,9 +255,21 @@ export default function EditProductScreen() {
               <Ionicons name="remove" size={22} color="#333" />
             </TouchableOpacity>
 
-            <Text style={{ fontSize: 20, fontWeight: '600', minWidth: 40, textAlign: 'center' }}>
-              {qty}
-            </Text>
+            <TextInput
+              value={String(qty)}
+              onChangeText={(text) => {
+                const num = parseInt(text) || 0;
+                setQty(Math.max(1, num));
+              }}
+              keyboardType="number-pad"
+              style={{
+                fontSize: 20,
+                fontWeight: '600',
+                minWidth: 40,
+                textAlign: 'center',
+                color: colors.neutral.darkest,
+              }}
+            />
 
             <TouchableOpacity
               onPress={increment}

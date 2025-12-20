@@ -380,7 +380,7 @@ export default function EditAllProductsScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.neutral.lighter }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.neutral.lightest }}>
       {/* Sticky Header */}
       <View style={styles.stickyHeader}>
         <TouchableOpacity onPress={() => router.back()} style={styles.stickyBackButton}>
@@ -435,7 +435,7 @@ export default function EditAllProductsScreen() {
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: colors.neutral.lighter,
+        backgroundColor: colors.neutral.lightest,
         paddingHorizontal: 16,
         paddingTop: 12,
         paddingBottom: Platform.OS === 'ios' ? 34 : 16,

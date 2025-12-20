@@ -64,18 +64,25 @@ export const getDashboardStyles = (t: AppColors) =>
         color: t.neutral.medium,
       
       },
+      welcomeRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        width: '100%',
+      },
+
       welcomeLabel: {
+        fontFamily: fontFamily.satoshi,
         fontSize: 14,
         fontWeight: '500',
-       
-        color: colors.neutral.medium,
+        color: t.neutral.medium,
+        marginTop: 4,
       },
       
       welcomeValue: {
+        fontFamily: fontFamily.satoshiBold,
         fontSize: 16,
         fontWeight: '700',
-        color: colors.neutral.dark,
-  
+        color: t.neutral.dark,
       },
       
   
@@ -102,9 +109,20 @@ export const getDashboardStyles = (t: AppColors) =>
         elevation: 1,
       },
   
-      menuCardPrimary: {
+      menuCardGreen: {
         backgroundColor: t.brand.primary,
+        borderRadius: 12,
+        paddingVertical: 18,
+        paddingHorizontal: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
         borderColor: t.brand.primary,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 2,
+        elevation: 1,
       },
   
       menuCardText: {
@@ -114,8 +132,12 @@ export const getDashboardStyles = (t: AppColors) =>
         color: t.neutral.darkest,
       },
   
-      menuCardTextPrimary: {
+      menuCardTextGreen: {
+        fontFamily: fontFamily.satoshiMedium,
+        fontSize: 16,
+        flex: 1,
         color: t.neutral.lightest,
+        fontWeight: '700',
       },
   
       menuIcon: {
@@ -123,47 +145,226 @@ export const getDashboardStyles = (t: AppColors) =>
         color: t.brand.secondary,
       },
   
-      menuIconPrimary: {
+      menuIconGreen: {
+        marginRight: 16,
         color: t.neutral.lightest,
       },
   
       menuChevron: {
         color: t.neutral.medium,
       },
-  
-      /* ACTIVE SESSION */
-      activeSessionCard: {
-        marginTop: 20,
-        padding: 16,
-        backgroundColor: t.brand.glow,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: t.brand.secondary,
-        shadowColor: t.brand.primary,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.25,
-        shadowRadius: 12,
-        elevation: 4,
-        marginBottom: 8,   // prevents that weird abyss
+
+      menuChevronGreen: {
+        color: t.neutral.lightest,
       },
   
-      activeSessionTitle: {
+      /* PROGRESS SECTION */
+      progressSection: {
+        marginTop: 16,
+        marginBottom: 20,
+      },
+
+      progressTitle: {
         fontFamily: fontFamily.satoshiBold,
         fontSize: 14,
-        color: 'black',
-        marginBottom: 4,
+        color: t.neutral.darkest,
+        marginBottom: 12,
       },
-  
-      activeSessionText: {
+
+      progressBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 8,
+      },
+
+      progressStep: {
+        alignItems: 'center',
+        flex: 1,
+      },
+
+      progressDot: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        backgroundColor: t.neutral.light,
+        borderWidth: 2,
+        borderColor: t.neutral.light,
+        marginBottom: 6,
+      },
+
+      progressDotActive: {
+        backgroundColor: t.status.success,
+        borderColor: t.status.success,
+      },
+
+      progressLine: {
+        flex: 1,
+        height: 2,
+        backgroundColor: t.neutral.light,
+        marginHorizontal: 8,
+        marginBottom: 12,
+      },
+
+      progressLineActive: {
+        backgroundColor: t.status.success,
+      },
+
+      progressLabel: {
         fontFamily: fontFamily.satoshi,
+        fontSize: 11,
+        color: t.neutral.medium,
+        textAlign: 'center',
+      },
+
+      /* READY TO SEND CARD */
+      readyToSendCard: {
+        backgroundColor: t.neutral.lightest,
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: t.status.success,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      },
+
+      readyToSendText: {
+        fontFamily: fontFamily.satoshiMedium,
         fontSize: 14,
         color: t.neutral.darkest,
+        flex: 1,
       },
-      activeSessionSubtext: {
-        fontFamily: fontFamily.satoshi,
+
+      readyToSendButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: t.status.success,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 8,
+      },
+
+      readyToSendButtonText: {
+        fontFamily: fontFamily.satoshiBold,
+        fontSize: 13,
+        color: t.neutral.lightest,
+        fontWeight: '700',
+        marginRight: 4,
+      },
+
+      readyToSendButtonIcon: {
+        color: t.neutral.lightest,
+      },
+
+      /* STATUS CHIPS ROW */
+      statusChipsRow: {
+        flexDirection: 'row',
+        gap: 8,
+        marginBottom: 20,
+        flexWrap: 'wrap',
+      },
+
+      statusChipActive: {
+        backgroundColor: t.cypress.pale, // Light green background
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: t.status.success,
+      },
+
+      statusChipTextActive: {
+        fontFamily: fontFamily.satoshiMedium,
         fontSize: 12,
-        color: t.neutral.dark,
-        marginTop: 4,
+        color: t.status.success,
+        fontWeight: '600',
+      },
+
+      statusChipPending: {
+        backgroundColor: t.analytics.clay, // Light orange/beige background
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: t.status.warning,
+      },
+
+      statusChipTextPending: {
+        fontFamily: fontFamily.satoshiMedium,
+        fontSize: 12,
+        color: t.status.warning,
+        fontWeight: '600',
+      },
+
+      historyChip: {
+        backgroundColor: t.neutral.lightest,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: t.neutral.light,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+      },
+
+      historyChipText: {
+        fontFamily: fontFamily.satoshiMedium,
+        fontSize: 12,
+        color: t.neutral.medium,
+        fontWeight: '500',
+      },
+
+      historyChipIcon: {
+        color: t.neutral.medium,
+      },
+
+      /* SECTION HEADER */
+      sectionHeader: {
+        marginTop: 24,
+        marginBottom: 12,
+        paddingHorizontal: 4,
+      },
+
+      sectionHeaderText: {
+        fontFamily: fontFamily.satoshiBold,
+        fontSize: 12,
+        color: t.neutral.medium,
+        letterSpacing: 0.5,
+        textTransform: 'uppercase',
+      },
+
+      /* MANAGE ROW */
+      manageRow: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 8,
+      },
+
+      manageCard: {
+        flex: 1,
+        backgroundColor: t.neutral.lightest,
+        borderRadius: 12,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: t.neutral.light,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 2,
+        elevation: 1,
+      },
+
+      manageCardText: {
+        fontFamily: fontFamily.satoshiMedium,
+        fontSize: 14,
+        flex: 1,
+        color: t.neutral.darkest,
       },
       
     });

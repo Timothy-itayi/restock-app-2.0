@@ -45,5 +45,7 @@ export const addProductScreenStyles = StyleSheet.create({
     paddingHorizontal: 12,
     color: colors.neutral.darkest,
     fontFamily: typography.appTitle.fontFamily,
+    flex: 1,
+    textAlign: 'center',
   },
 });

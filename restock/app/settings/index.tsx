@@ -126,7 +126,7 @@ export default function SettingsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.neutral.lighter }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.neutral.lightest }}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={{ color: colors.neutral.medium, fontSize: 14 }}>Loading...</Text>
         </View>
@@ -135,7 +135,7 @@ export default function SettingsScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.neutral.lighter }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.neutral.lightest }}>
       {/* Sticky Header */}
       <View style={styles.stickyHeader}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -157,8 +157,8 @@ export default function SettingsScreen() {
           {/* Current Identity Section */}
           {senderProfile && !hasUnsavedChanges && (
             <>
-              <View style={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ paddingTop: 20, paddingBottom: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 }}>
                   <View style={{
                     width: 4,
                     height: 20,
@@ -181,10 +181,9 @@ export default function SettingsScreen() {
 
               <View style={{
                 backgroundColor: colors.neutral.lightest,
-                marginHorizontal: 16,
-                borderRadius: 12,
                 overflow: 'hidden',
-                borderWidth: 1,
+                borderTopWidth: 1,
+                borderBottomWidth: 1,
                 borderColor: colors.neutral.light,
               }}>
                 {/* Name */}
@@ -234,14 +233,14 @@ export default function SettingsScreen() {
           {/* Unsaved Changes Banner */}
           {hasUnsavedChanges && (
             <View style={{
-              marginHorizontal: 16,
               marginTop: 16,
               padding: 12,
+              paddingHorizontal: 16,
               backgroundColor: colors.analytics.clay + '30',
-              borderRadius: 8,
               flexDirection: 'row',
               alignItems: 'center',
-              borderWidth: 1,
+              borderTopWidth: 1,
+              borderBottomWidth: 1,
               borderColor: colors.analytics.clay,
             }}>
               <Ionicons name="alert-circle" size={18} color={colors.analytics.olive} style={{ marginRight: 8 }} />
@@ -252,8 +251,8 @@ export default function SettingsScreen() {
           )}
 
           {/* Edit Profile Section */}
-          <View style={{ paddingHorizontal: 16, paddingTop: 24, paddingBottom: 8 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ paddingTop: 24, paddingBottom: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 }}>
               <View style={{
                 width: 4,
                 height: 20,
@@ -276,10 +275,9 @@ export default function SettingsScreen() {
 
           <View style={{
             backgroundColor: colors.neutral.lightest,
-            marginHorizontal: 16,
-            borderRadius: 12,
             overflow: 'hidden',
-            borderWidth: 1,
+            borderTopWidth: 1,
+            borderBottomWidth: 1,
             borderColor: colors.neutral.light,
           }}>
             {/* Name Input */}
@@ -414,8 +412,8 @@ export default function SettingsScreen() {
           </View>
 
           {/* Actions Section */}
-          <View style={{ paddingHorizontal: 16, paddingTop: 24, paddingBottom: 8 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ paddingTop: 24, paddingBottom: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 }}>
               <View style={{
                 width: 4,
                 height: 20,
