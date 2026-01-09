@@ -36,7 +36,7 @@ const walkthroughSlides: WalkthroughSlide[] = [
     id: 2,
     title: 'Log',
     subtitle: 'Capture products as you go',
-    image: require('../assets/images/onboarding/Log.jpeg')
+    image: require('../assets/images/onboarding/log.jpeg')
   },
   {
     id: 3,

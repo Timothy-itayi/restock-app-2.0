@@ -4,28 +4,33 @@
  */
 import { useProductsStore } from '../../store/useProductsStore';
 import type { ProductHistory } from '../../store/useProductsStore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getVersionedJSON, setVersionedJSON } from '../../lib/helpers/storage/utils';
 
-// Mock AsyncStorage - already mocked in setup.ts
-jest.mock('@react-native-async-storage/async-storage');
+// Mock the storage utils
+jest.mock('../../lib/helpers/storage/utils', () => ({
+  getVersionedJSON: jest.fn(),
+  setVersionedJSON: jest.fn().mockResolvedValue(undefined),
+}));
 
 describe('useProductsStore', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    // Reset store before each test
     useProductsStore.setState({ products: [], isHydrated: false });
+    jest.clearAllMocks();
   });
 
   describe('addOrUpdateProduct', () => {
-    it('should add new product if not exists', () => {
+    it('should add new product if not exists and persist', () => {
       const store = useProductsStore.getState();
       const product = store.addOrUpdateProduct('New Product', 'supplier-1', 5);
 
       expect(product.name).toBe('New Product');
       expect(product.lastSupplierId).toBe('supplier-1');
       expect(product.lastQty).toBe(5);
+      expect(setVersionedJSON).toHaveBeenCalled();
     });
 
-    it('should update existing product (case-insensitive)', () => {
+    it('should update existing product (case-insensitive) and persist', () => {
       const store = useProductsStore.getState();
       store.addOrUpdateProduct('Product A', 'supplier-1', 5);
       const updated = store.addOrUpdateProduct('product a', 'supplier-2', 10);
@@ -34,6 +39,7 @@ describe('useProductsStore', () => {
       expect(products.length).toBe(1);
       expect(updated.lastSupplierId).toBe('supplier-2');
       expect(updated.lastQty).toBe(10);
+      expect(setVersionedJSON).toHaveBeenCalledTimes(2);
     });
 
     it('should preserve existing values when updating with undefined', () => {
@@ -69,30 +75,40 @@ describe('useProductsStore', () => {
   });
 
   describe('loadProducts', () => {
-    it('should load products from storage', async () => {
+    it('should load products from storage and update state', async () => {
       const mockProducts: ProductHistory[] = [
         { id: '1', name: 'Product A', lastSupplierId: 'supplier-1', lastQty: 5 }
       ];
-
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify({ version: 1, data: mockProducts })
-      );
-
+      (getVersionedJSON as jest.Mock).mockResolvedValue(mockProducts);
+      
       const store = useProductsStore.getState();
       await store.loadProducts();
+      
+      expect(useProductsStore.getState().products).toEqual(mockProducts);
+      expect(useProductsStore.getState().isHydrated).toBe(true);
+    });
 
-      const products = useProductsStore.getState().products;
-      expect(products).toEqual(mockProducts);
+    it('should handle empty storage', async () => {
+      (getVersionedJSON as jest.Mock).mockResolvedValue(null);
+      
+      const store = useProductsStore.getState();
+      await store.loadProducts();
+      
+      expect(useProductsStore.getState().products).toEqual([]);
+      expect(useProductsStore.getState().isHydrated).toBe(true);
     });
   });
 
   describe('saveProducts', () => {
-    it('should save products to storage with version', async () => {
+    it('should save products to storage', async () => {
       const store = useProductsStore.getState();
       store.addOrUpdateProduct('Test Product');
       await store.saveProducts();
 
-      expect(AsyncStorage.setItem).toHaveBeenCalled();
+      expect(setVersionedJSON).toHaveBeenLastCalledWith(
+        expect.any(String),
+        useProductsStore.getState().products
+      );
     });
   });
 });

@@ -3,13 +3,14 @@
  * @file tests/api/parseDoc.test.ts
  */
 
-import { parseDocument, validateParsedItem, validateParsedItems } from '../../lib/api/parseDoc';
+import { parseDocument, parseImages, validateParsedItem, validateParsedItems } from '../../lib/api/parseDoc';
+import Config from '../../lib/config';
 
 // Mock fetch globally
 global.fetch = jest.fn();
 
 describe('parseDoc API Integration', () => {
-  const PARSE_DOC_URL = 'https://restock-parse-doc.parse-doc.workers.dev';
+  const PARSE_DOC_URL = Config.PARSE_DOC_API_URL;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -94,6 +95,57 @@ describe('parseDoc API Integration', () => {
         expect(result.error).toContain('too large');
       }
       expect(global.fetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('parseImages', () => {
+    it('should parse multiple images successfully', async () => {
+      const mockFiles = [
+        { uri: 'file://test1.jpg', name: 'test1.jpg', mimeType: 'image/jpeg', size: 1024 },
+        { uri: 'file://test2.jpg', name: 'test2.jpg', mimeType: 'image/jpeg', size: 1024 },
+      ];
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          items: [
+            { id: '1', product: 'Product A', supplier: 'Supplier A' },
+          ],
+        }),
+      });
+
+      const result = await parseImages(mockFiles);
+
+      expect(result.success).toBe(true);
+      expect(global.fetch).toHaveBeenCalledWith(
+        PARSE_DOC_URL,
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.any(FormData),
+        })
+      );
+    });
+
+    it('should reject if no images provided', async () => {
+      const result = await parseImages([]);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain('No images provided');
+      }
+    });
+
+    it('should reject if total size exceeds 10MB', async () => {
+      const mockFiles = [
+        { uri: 'file://test1.jpg', name: 'test1.jpg', size: 6 * 1024 * 1024 },
+        { uri: 'file://test2.jpg', name: 'test2.jpg', size: 6 * 1024 * 1024 },
+      ];
+
+      const result = await parseImages(mockFiles);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain('Total file size too large');
+      }
     });
   });
 

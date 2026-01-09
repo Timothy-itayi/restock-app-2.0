@@ -3,6 +3,7 @@
  * @file tests/api/sendEmail.test.ts
  */
 import { isValidEmail, generateEmailBody, sendEmail } from '../../lib/api/sendEmail';
+import Config from '../../lib/config';
 
 // Mock fetch globally
 global.fetch = jest.fn();
@@ -104,7 +105,7 @@ describe('sendEmail API', () => {
 
       expect(result.success).toBe(true);
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('restock-send-email'),
+        Config.SEND_EMAIL_API_URL,
         expect.objectContaining({
           method: 'POST',
           headers: {

@@ -3,10 +3,13 @@
  * @file tests/auth/senderProfileStore.test.ts
  */
 import { useSenderProfileStore } from '../../store/useSenderProfileStore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getVersionedJSON, setVersionedJSON } from '../../lib/helpers/storage/utils';
 
-// Mock AsyncStorage - already mocked in setup.ts
-jest.mock('@react-native-async-storage/async-storage');
+// Mock the storage utils
+jest.mock('../../lib/helpers/storage/utils', () => ({
+  getVersionedJSON: jest.fn(),
+  setVersionedJSON: jest.fn().mockResolvedValue(undefined),
+}));
 
 describe('useSenderProfileStore', () => {
   beforeEach(() => {
@@ -15,7 +18,7 @@ describe('useSenderProfileStore', () => {
   });
 
   describe('setSenderProfile', () => {
-    it('should set sender profile', () => {
+    it('should set sender profile and persist', () => {
       const store = useSenderProfileStore.getState();
       const profile = {
         name: 'Test User',
@@ -27,11 +30,12 @@ describe('useSenderProfileStore', () => {
       const state = useSenderProfileStore.getState();
 
       expect(state.senderProfile).toEqual(profile);
+      expect(setVersionedJSON).toHaveBeenCalled();
     });
   });
 
   describe('updateProfile', () => {
-    it('should update profile fields', () => {
+    it('should update profile fields and persist', () => {
       const store = useSenderProfileStore.getState();
       store.setSenderProfile({
         name: 'Test User',
@@ -44,6 +48,7 @@ describe('useSenderProfileStore', () => {
 
       expect(state.senderProfile?.email).toBe('new@example.com');
       expect(state.senderProfile?.name).toBe('Test User');
+      expect(setVersionedJSON).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -55,9 +60,7 @@ describe('useSenderProfileStore', () => {
         storeName: 'Test Store'
       };
 
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify({ version: 1, data: mockProfile })
-      );
+      (getVersionedJSON as jest.Mock).mockResolvedValue(mockProfile);
 
       const store = useSenderProfileStore.getState();
       await store.loadProfileFromStorage();
@@ -68,7 +71,7 @@ describe('useSenderProfileStore', () => {
     });
 
     it('should handle empty storage', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+      (getVersionedJSON as jest.Mock).mockResolvedValue(null);
 
       const store = useSenderProfileStore.getState();
       await store.loadProfileFromStorage();
@@ -80,16 +83,20 @@ describe('useSenderProfileStore', () => {
   });
 
   describe('saveProfileToStorage', () => {
-    it('should save profile to storage with version', async () => {
+    it('should save profile to storage', async () => {
       const store = useSenderProfileStore.getState();
-      store.setSenderProfile({
+      const profile = {
         name: 'Test User',
         email: 'test@example.com'
-      });
+      };
+      store.setSenderProfile(profile);
 
       await store.saveProfileToStorage();
 
-      expect(AsyncStorage.setItem).toHaveBeenCalled();
+      expect(setVersionedJSON).toHaveBeenLastCalledWith(
+        expect.any(String),
+        profile
+      );
     });
   });
 
