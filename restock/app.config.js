@@ -8,6 +8,9 @@ export default ({ config }) => {
       SEND_EMAIL_API_URL: process.env.SEND_EMAIL_API_URL || config.extra.SEND_EMAIL_API_URL,
       SENTRY_DSN: process.env.SENTRY_DSN || config.extra.SENTRY_DSN,
     },
+    "plugins": [
+      "expo-secure-store"
+    ]
   };
 };
 
