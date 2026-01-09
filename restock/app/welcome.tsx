@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import * as Sentry from '@sentry/react-native';
 import {
   View,
   Text,
@@ -7,8 +6,7 @@ import {
   ScrollView,
   Dimensions,
   Image,
-  Animated,
-  Button
+  Animated
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -145,7 +143,7 @@ export default function WelcomeScreen() {
                   bottom: 0,
                   left: 0,
                   right: 0,
-                  height: '25%',
+                  height: '29%',
                   opacity: 0.8,
                   backgroundColor: 'rgba(0,0,0,0.4)', // Semi-transparent black fade for text readability
                 }} />

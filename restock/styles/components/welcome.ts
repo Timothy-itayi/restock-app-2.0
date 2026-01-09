@@ -107,7 +107,7 @@ export const welcomeStyles = StyleSheet.create({
   },
   slideSubtitle: {
     fontFamily: fontFamily.satoshi,
-    fontSize: 16,
+    fontSize: 20,
     color: 'rgba(255, 255, 255, 0.85)',
     marginBottom: 0,
     textAlign: 'center',

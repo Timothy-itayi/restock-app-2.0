@@ -18,6 +18,7 @@ import { groupBySupplier } from '../../lib/utils/groupBySupplier';
 import { AlertModal } from '../../components/AlertModal';
 import { useAlert } from '../../lib/hooks/useAlert';
 import { useSessionNavigation } from '../../lib/hooks/useSessionNavigation';
+import logger from '../../lib/helpers/logger';
 
 export default function SessionDetailScreen() {
   const styles = useThemedStyles(getSessionsStyles);
@@ -39,7 +40,7 @@ export default function SessionDetailScreen() {
   useEffect(() => {
     if (!isHydrated) {
       loadSessions().catch((error) =>
-        console.warn('Failed to hydrate sessions before detail screen', error)
+        logger.warn('Failed to hydrate sessions before detail screen', error)
       );
     }
   }, [isHydrated, loadSessions]);
@@ -96,7 +97,7 @@ export default function SessionDetailScreen() {
       updateSession(session.id, { status: 'pendingEmails' });
       sessionNavigation.openEmailPreview(session.id);
     } catch (err) {
-      console.error('Failed finishing session', err);
+      logger.error('Failed finishing session', err);
       showError('Error', 'Could not proceed to email preview.');
     }
   };

@@ -748,6 +748,9 @@ export const getEmailsStyles = (t: AppColors) => StyleSheet.create({
   confirmationIcon: {
     marginRight: 8,
   },
+  shareButtonIcon: {
+    marginRight: 8,
+  },
 }); 
 
 

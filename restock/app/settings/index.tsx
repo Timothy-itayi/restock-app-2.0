@@ -118,7 +118,7 @@ export default function SettingsScreen() {
     try {
       await AsyncStorage.clear();
       useSenderProfileStore.getState().clearProfile();
-      router.replace('/auth/sender-setup');
+      router.replace('/welcome');
     } catch (error) {
       showError('Reset Failed', 'An error occurred while resetting data. Please try again.');
     }

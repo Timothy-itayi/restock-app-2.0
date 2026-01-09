@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemedStyles } from '../../../styles/useThemedStyles';
 import { getEmailsStyles } from '../../../styles/components/emails';
 import { getSessionsStyles } from '../../../styles/components/sessions';
-import { useThemeStore } from '../../../styles/useThemeStore';
+import { useThemeStore } from '../../../lib/store/useThemeStore';
 import colors from '../../../lib/theme/colors';
 
 import { useSessionStore } from '../../../store/useSessionStore';

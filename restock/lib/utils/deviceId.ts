@@ -1,27 +1,46 @@
+import * as Application from 'expo-application';
+import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getJSON, setJSON } from '../helpers/storage/utils';
+import { Platform } from 'react-native';
+import logger from '../helpers/logger';
 
-const DEVICE_ID_KEY = 'deviceId';
+const DEVICE_ID_KEY = 'restock_device_id';
+const ERROR_FALLBACK_DEVICE_ID = `error-fallback-stable-id`;
 
 /**
- * Gets or creates a unique device ID for rate limiting.
- * Stores it in AsyncStorage for persistence.
+ * Gets a unique device ID.
+ * On iOS, uses vendor ID. On Android, uses androidId.
+ * Falls back to a generated UUID stored in SecureStore (native) or AsyncStorage (web) if needed.
  */
 export async function getDeviceId(): Promise<string> {
   try {
-    let deviceId = await getJSON<string>(DEVICE_ID_KEY);
-    
-    if (!deviceId) {
-      // Generate a simple device ID (in production, you might use expo-device or similar)
-      deviceId = `device-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
-      await setJSON(DEVICE_ID_KEY, deviceId);
+    if (Platform.OS === 'ios') {
+      const id = await Application.getIosIdForVendorAsync();
+      if (id) return id;
+    } else if (Platform.OS === 'android') {
+      if (Application.androidId) return Application.androidId;
     }
+
+    // Fallback: Check platform-appropriate storage for a previously generated ID
+    let fallbackId: string | null = null;
     
-    return deviceId;
+    if (Platform.OS === 'web') {
+      fallbackId = await AsyncStorage.getItem(DEVICE_ID_KEY);
+    } else {
+      fallbackId = await SecureStore.getItemAsync(DEVICE_ID_KEY);
+    }
+
+    if (!fallbackId) {
+      fallbackId = `fallback-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+      if (Platform.OS === 'web') {
+        await AsyncStorage.setItem(DEVICE_ID_KEY, fallbackId);
+      } else {
+        await SecureStore.setItemAsync(DEVICE_ID_KEY, fallbackId);
+      }
+    }
+    return fallbackId;
   } catch (error) {
-    console.warn('Failed to get device ID, using fallback:', error);
-    // Fallback device ID
-    return `device-fallback-${Date.now()}`;
+    logger.warn('Failed to get device ID, using fallback', { error });
+    return ERROR_FALLBACK_DEVICE_ID;
   }
 }
-

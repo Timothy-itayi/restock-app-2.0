@@ -1,93 +1,66 @@
 /**
- * Scan Results Persistence
- * Stores parsed items between app sessions so users don't lose progress
+ * Persistence for scan results
+ * Allows resuming a scan session if the app crashes or is closed
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getJSON, setJSON, removeJSON } from './utils';
 import type { ParsedItem } from '../../api/parseDoc';
+import logger from '../logger';
 
-const STORAGE_KEY = '@restock/scan-results';
+const SCAN_RESULTS_KEY = '@restock/temp-scan-results';
 
-export interface PersistedScanResults {
-  parsed: ParsedItem[];
-  selectedIds: string[];
-  previewUri: string | null;
-  editedValues: Record<string, Partial<ParsedItem>>;
-  savedAt: number;
-}
+export type ScanResults = {
+  sessionId: string;
+  items: ParsedItem[];
+  timestamp: number;
+};
 
 /**
- * Save scan results to persistent storage
+ * Saves temporary scan results
  */
-export async function saveScanResults(
-  parsed: ParsedItem[],
-  selectedIds: string[],
-  previewUri: string | null,
-  editedValues: Map<string, Partial<ParsedItem>>
-): Promise<void> {
+export async function saveScanResults(sessionId: string, items: ParsedItem[]): Promise<void> {
   try {
-    const data: PersistedScanResults = {
-      parsed,
-      selectedIds,
-      previewUri,
-      editedValues: Object.fromEntries(editedValues),
-      savedAt: Date.now(),
+    const results: ScanResults = {
+      sessionId,
+      items,
+      timestamp: Date.now(),
     };
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    await setJSON(SCAN_RESULTS_KEY, results);
   } catch (e) {
-    console.warn('Failed to save scan results:', e);
+    logger.warn('Failed to save scan results', { error: e });
   }
 }
 
 /**
- * Load scan results from persistent storage
- * Returns null if no saved results or if data is stale (>24 hours)
+ * Loads temporary scan results
+ * Returns null if not found or older than 2 hours
  */
-export async function loadScanResults(): Promise<PersistedScanResults | null> {
+export async function loadScanResults(): Promise<ScanResults | null> {
   try {
-    const json = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!json) return null;
+    const results = await getJSON<ScanResults>(SCAN_RESULTS_KEY);
+    if (!results) return null;
 
-    const data: PersistedScanResults = JSON.parse(json);
-    
-    // Check if data is stale (older than 24 hours)
-    const MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours
-    if (Date.now() - data.savedAt > MAX_AGE) {
+    // Check if results are older than 2 hours (in ms)
+    const TWO_HOURS = 2 * 60 * 60 * 1000;
+    if (Date.now() - results.timestamp > TWO_HOURS) {
       await clearScanResults();
       return null;
     }
 
-    return data;
+    return results;
   } catch (e) {
-    console.warn('Failed to load scan results:', e);
+    logger.warn('Failed to load scan results', { error: e });
     return null;
   }
 }
 
 /**
- * Clear saved scan results
+ * Clears temporary scan results
  */
 export async function clearScanResults(): Promise<void> {
   try {
-    await AsyncStorage.removeItem(STORAGE_KEY);
+    await removeJSON(SCAN_RESULTS_KEY);
   } catch (e) {
-    console.warn('Failed to clear scan results:', e);
+    logger.warn('Failed to clear scan results', { error: e });
   }
 }
-
-/**
- * Check if there are saved scan results
- */
-export async function hasSavedScanResults(): Promise<boolean> {
-  try {
-    const json = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!json) return false;
-    
-    const data: PersistedScanResults = JSON.parse(json);
-    const MAX_AGE = 24 * 60 * 60 * 1000;
-    return Date.now() - data.savedAt <= MAX_AGE && data.parsed.length > 0;
-  } catch {
-    return false;
-  }
-}
-

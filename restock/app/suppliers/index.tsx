@@ -18,6 +18,7 @@ import { useSupplierStore, type Supplier } from '../../store/useSupplierStore';
 import colors from '../../lib/theme/colors';
 import { AlertModal } from '../../components/AlertModal';
 import { useAlert } from '../../lib/hooks/useAlert';
+import logger from '../../lib/helpers/logger';
 
 export default function SuppliersScreen() {
   const styles = useThemedStyles(getSuppliersStyles);
@@ -96,7 +97,7 @@ export default function SuppliersScreen() {
             setEmail('');
           }
         } catch (error) {
-          console.warn('Error deleting supplier:', error);
+          logger.warn('Error deleting supplier', error);
           showError('Delete Failed', 'Failed to delete supplier. Please try again.');
         }
       }
@@ -116,7 +117,7 @@ export default function SuppliersScreen() {
             setEmail('');
           }
         } catch (error) {
-          console.warn('Error deleting all suppliers:', error);
+          logger.warn('Error deleting all suppliers', error);
           showError('Delete Failed', 'Failed to delete all suppliers. Please try again.');
         }
       }

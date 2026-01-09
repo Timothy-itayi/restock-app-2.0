@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useThemeStore } from '../../styles/useThemeStore';
+import { useThemeStore } from '../../lib/store/useThemeStore';
 
 interface EmailItem {
   id: string;

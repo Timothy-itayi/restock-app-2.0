@@ -1,183 +1,148 @@
-/**
- * Image normalization utility
- * Converts HEIC, WebP, and other formats to JPEG for API compatibility
- * Persists normalized images to document directory for re-parsing
- */
-
 import * as ImageManipulator from 'expo-image-manipulator';
-import { Paths, Directory, File } from 'expo-file-system';
+import * as FileSystem from 'expo-file-system';
+import logger from '../helpers/logger';
 
 export type NormalizedImage = {
   uri: string;
   width: number;
   height: number;
-  mimeType: 'image/jpeg';
-  name: string;
+  size: number;
 };
 
-// Directory for storing normalized images temporarily
-const NORMALIZED_DIR_NAME = 'normalized-images';
-
-// Formats that Groq Vision API supports
-const SUPPORTED_VISION_FORMATS = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-
-// Formats that need conversion (HEIC, HEIF from iPhone)
-const HEIC_FORMATS = ['image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence'];
+const NORMALIZED_DIR = `${FileSystem.cacheDirectory}normalized-images/`;
 
 /**
- * Gets or creates the normalized images directory
+ * Ensures the normalized images directory exists
  */
-function getNormalizedImagesDir(): Directory {
-  const dir = new Directory(Paths.document, NORMALIZED_DIR_NAME);
-  if (!dir.exists) {
-    dir.create();
+async function ensureDir() {
+  const dirInfo = await FileSystem.getInfoAsync(NORMALIZED_DIR);
+  if (!dirInfo.exists) {
+    await FileSystem.makeDirectoryAsync(NORMALIZED_DIR, { intermediates: true });
   }
-  return dir;
 }
 
 /**
- * Detects if a file is HEIC based on name or mimeType
+ * Checks if a file is in HEIC format based on its extension
  */
-export function isHeicFormat(fileName: string, mimeType?: string | null): boolean {
-  const ext = fileName.toLowerCase().split('.').pop();
-  const isHeicExtension = ext === 'heic' || ext === 'heif';
-  const isHeicMime = mimeType ? HEIC_FORMATS.includes(mimeType.toLowerCase()) : false;
-  return isHeicExtension || isHeicMime;
+export function isHeicFormat(uri: string): boolean {
+  return uri.toLowerCase().endsWith('.heic') || uri.toLowerCase().endsWith('.heif');
 }
 
 /**
- * Checks if format is directly supported by Vision API
+ * Normalizes an image for worker parsing:
+ * 1. Converts HEIC to JPEG
+ * 2. Resizes if too large (workers have limits)
+ * 3. Compresses to stay under 5MB
  */
-export function isDirectlySupportedFormat(mimeType?: string | null): boolean {
-  if (!mimeType) return false;
-  return SUPPORTED_VISION_FORMATS.includes(mimeType.toLowerCase());
-}
+export async function normalizeImage(uri: string): Promise<NormalizedImage> {
+  await ensureDir();
 
-/**
- * Converts any image format (HEIC, WebP, BMP, etc.) to JPEG
- * Persists to document directory so it survives for re-parsing
- * 
- * HEIC Handling:
- * - HDR HEIC from newer iPhones can fail with IIOCallConvertHDRData error
- * - We retry with progressively lower quality/size if initial conversion fails
- * 
- * @param uri - Original image URI (file:// or content://)
- * @param originalName - Original filename for generating new name
- * @param maxDimension - Max width/height (default 2048px, good for vision APIs)
- * @returns Normalized image with JPEG format in persistent storage
- */
-export async function normalizeImage(
-  uri: string,
-  originalName: string,
-  maxDimension: number = 2048
-): Promise<NormalizedImage> {
-  // Ensure directory exists
-  const dir = getNormalizedImagesDir();
+  const filename = uri.split('/').pop() || `img-${Date.now()}.jpg`;
+  const destUri = `${NORMALIZED_DIR}${filename.replace(/\.(heic|heif|png|webp)$/i, '.jpg')}`;
 
-  // Try conversion with progressively lower settings if needed
-  // This helps with HDR HEIC images that can fail at higher quality
+  const info = await FileSystem.getInfoAsync(uri, { size: true });
+  if (!info.exists) {
+    throw new Error('Image file does not exist');
+  }
+
+  // Get image dimensions
+  const { width, height } = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+    // We can use ImageManipulator to get dimensions by doing a no-op manipulation
+    ImageManipulator.manipulateAsync(uri, [])
+      .then(result => resolve({ width: result.width, height: result.height }))
+      .catch(reject);
+  });
+
+  const isHeic = isHeicFormat(uri);
+  const needsResize = width > 2000 || height > 2000;
+  const isLarge = (info as any).size > 5 * 1024 * 1024;
+
+  // If already fine, just return original (or copy to destUri if we want to be consistent)
+  if (!isHeic && !needsResize && !isLarge) {
+    logger.debug(`[normalizeImage] Image already normalized`, { width, height, size: (info as any).size });
+    await FileSystem.copyAsync({ from: uri, to: destUri });
+    return {
+      uri: destUri,
+      width,
+      height,
+      size: (info as any).size
+    };
+  }
+  
+  // Workers handle JPEG best. Resize to reasonable size for OCR.
   const attempts = [
-    { width: maxDimension, compress: 0.85 },
-    { width: 1600, compress: 0.80 },      // Retry with smaller size
-    { width: 1200, compress: 0.75 },      // Even smaller
-    { width: 1024, compress: 0.70 },      // Last resort
+    { width: 1600, compress: 0.8 },
+    { width: 1200, compress: 0.7 },
+    { width: 1000, compress: 0.6 },
   ];
 
-  let lastError: Error | null = null;
-  let result: ImageManipulator.ImageResult | null = null;
+  let lastError: any = null;
 
   for (const attempt of attempts) {
     try {
-      console.log(`[normalizeImage] Attempting conversion: width=${attempt.width}, compress=${attempt.compress}`);
+      logger.debug(`[normalizeImage] Attempting conversion`, { width: attempt.width, compress: attempt.compress });
       
-      result = await ImageManipulator.manipulateAsync(
+      const actions: ImageManipulator.Action[] = [];
+      if (width > attempt.width) {
+        actions.push({ resize: { width: attempt.width } });
+      }
+
+      const result = await ImageManipulator.manipulateAsync(
         uri,
-        [
-          {
-            resize: {
-              width: attempt.width,
-              // Height auto-scales to maintain aspect ratio
-            },
-          },
-        ],
-        {
-          compress: attempt.compress,
-          format: ImageManipulator.SaveFormat.JPEG,
-        }
+        actions,
+        { compress: attempt.compress, format: ImageManipulator.SaveFormat.JPEG }
       );
 
-      // Success - break out of retry loop
-      console.log(`[normalizeImage] Conversion succeeded: ${result.width}x${result.height}`);
-      break;
-    } catch (err: any) {
-      lastError = err;
-      console.warn(`[normalizeImage] Conversion failed at width=${attempt.width}:`, err?.message || err);
-      
-      // If this is not an ImageIO HDR error, don't retry
-      const errorMessage = err?.message || '';
-      if (!errorMessage.includes('IIOCall') && !errorMessage.includes('ImageIO')) {
-        throw err;
+      const resultInfo = await FileSystem.getInfoAsync(result.uri, { size: true });
+      const size = (resultInfo as any).size || 0;
+
+      // Target < 5MB for safety with workers
+      if (size < 5 * 1024 * 1024) {
+        logger.info(`[normalizeImage] Conversion succeeded`, { width: result.width, height: result.height, size });
+        
+        // Move to final destination
+        await FileSystem.moveAsync({ from: result.uri, to: destUri });
+
+        return {
+          uri: destUri,
+          width: result.width,
+          height: result.height,
+          size
+        };
       }
-      
-      // Continue to next attempt
-      result = null;
+    } catch (err: any) {
+      logger.warn(`[normalizeImage] Conversion failed at width=${attempt.width}`, { error: err?.message || err });
+      lastError = err;
     }
   }
 
-  // If all attempts failed, throw the last error
-  if (!result) {
-    console.error('[normalizeImage] All conversion attempts failed');
-    throw new Error(
-      `Failed to convert image. ${lastError?.message || 'The image format may not be supported.'}` +
-      '\n\nTry taking a new photo or using a JPEG/PNG image instead.'
-    );
-  }
-
-  // Generate unique filename
-  const baseName = originalName.replace(/\.[^/.]+$/, '') || 'image';
-  const timestamp = Date.now();
-  const newName = `${baseName}-${timestamp}.jpg`;
-
-  // Create file reference for destination
-  const destFile = new File(dir, newName);
-
-  // Copy from temp location to persistent location
-  const sourceFile = new File(result.uri);
-  await sourceFile.copy(destFile);
-
-  return {
-    uri: destFile.uri,
-    width: result.width,
-    height: result.height,
-    mimeType: 'image/jpeg',
-    name: newName,
-  };
+  logger.error('[normalizeImage] All conversion attempts failed', lastError);
+  throw lastError || new Error('Failed to normalize image');
 }
 
 /**
- * Cleans up a normalized image after it's no longer needed
+ * Cleans up a normalized image
  */
-export async function cleanupNormalizedImage(uri: string): Promise<void> {
+export async function cleanupNormalizedImage(uri: string) {
   try {
-    const file = new File(uri);
-    if (file.exists) {
-      await file.delete();
+    if (uri.startsWith(NORMALIZED_DIR)) {
+      await FileSystem.deleteAsync(uri, { idontcare: true });
     }
   } catch (e) {
-    console.warn('Failed to cleanup normalized image:', e);
+    logger.warn('Failed to cleanup normalized image', { uri, error: e });
   }
 }
 
 /**
- * Cleans up all normalized images (call on app start or periodically)
+ * Cleans up all normalized images
  */
-export async function cleanupAllNormalizedImages(): Promise<void> {
+export async function cleanupAllNormalizedImages() {
   try {
-    const dir = new Directory(Paths.document, NORMALIZED_DIR_NAME);
-    if (dir.exists) {
-      await dir.delete();
+    const dirInfo = await FileSystem.getInfoAsync(NORMALIZED_DIR);
+    if (dirInfo.exists) {
+      await FileSystem.deleteAsync(NORMALIZED_DIR, { idontcare: true });
     }
   } catch (e) {
-    console.warn('Failed to cleanup normalized images directory:', e);
+    logger.warn('Failed to cleanup normalized images directory', e);
   }
 }

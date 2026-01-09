@@ -22,6 +22,7 @@ import colors from '../../../lib/theme/colors';
 import { AlertModal } from '../../../components/AlertModal';
 import { useAlert } from '../../../lib/hooks/useAlert';
 import { Ionicons } from '@expo/vector-icons';
+import logger from '../../../lib/helpers/logger';
 
 export default function AddProductScreen() {
   const styles = useThemedStyles(getUploadStyles);
@@ -99,7 +100,7 @@ export default function AddProductScreen() {
         const supplierObj = existing ?? addSupplier(supplierNameTrimmed);
         supplierId = supplierObj.id;
       } catch (error) {
-        console.warn('Error accessing supplier store:', error);
+        logger.warn('Error accessing supplier store', error);
         // Continue without supplierId if there's an error
       }
     }

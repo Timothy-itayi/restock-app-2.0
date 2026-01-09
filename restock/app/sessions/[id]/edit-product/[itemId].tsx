@@ -17,6 +17,7 @@ import { getSessionsStyles } from '@styles/components/sessions';
 import { useSessionHydrated, useSessionStore } from '../../../../store/useSessionStore';
 import { useSupplierStore } from '../../../../store/useSupplierStore';
 import colors from '../../../../lib/theme/colors';
+import logger from '../../../../lib/helpers/logger';
 
 export default function EditProductScreen() {
   const styles = useThemedStyles(getSessionsStyles);
@@ -110,7 +111,7 @@ export default function EditProductScreen() {
         const supplierObj = existing ?? addSupplier(supplierNameTrimmed);
         supplierId = supplierObj.id;
       } catch (error) {
-        console.warn('Error accessing supplier store:', error);
+        logger.warn('Error accessing supplier store', error);
       }
     }
 

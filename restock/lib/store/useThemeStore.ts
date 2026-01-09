@@ -1,113 +1,133 @@
-import React from 'react';
 import { create } from 'zustand';
-import colors, { light, dark } from '../theme/colors';
-import { Dimensions } from 'react-native';
+import { Platform, Dimensions } from 'react-native';
+import { AppColors, light as lightTheme, dark as darkTheme } from '../theme/colors';
+import logger from '../helpers/logger';
 
-export type ThemeMode = 'light' | 'dark';
-export type DeviceType = 'mobile' | 'tablet' | 'tabletLarge';
+export type ThemeMode = 'light' | 'dark' | 'system';
 
-type ResponsiveState = {
-  deviceType: DeviceType;
-  isTablet: boolean;
-  screenWidth: number;
-  screenHeight: number;
-  isLandscape: boolean;
-};
-
-type ThemeState = {
+interface ThemeState {
   mode: ThemeMode;
-  theme: typeof light | typeof dark;
-  responsive: ResponsiveState;
-  toggleMode: () => void;
-  setMode: (mode: ThemeMode) => void;
-  updateScreenDimensions: (width: number, height: number) => void;
-  isInitialized: boolean;
-};
-
-// Inline device type detection to avoid circular dependencies
-const getDeviceTypeInternal = (width: number): DeviceType => {
-  if (width < 768) return 'mobile';
-  if (width < 810) return 'tablet';
-  return 'tabletLarge';
-};
-
-// Helper function to calculate responsive state
-const calculateResponsiveState = (width: number, height: number): ResponsiveState => {
-  const deviceType = getDeviceTypeInternal(width);
-  const isTablet = deviceType !== 'mobile';
-  const isLandscape = width > height;
-  
-  return {
-    deviceType,
-    isTablet,
-    screenWidth: width,
-    screenHeight: height,
-    isLandscape,
+  theme: AppColors;
+  screen: {
+    width: number;
+    height: number;
   };
-};
+  setMode: (mode: ThemeMode) => void;
+  toggleMode: () => void;
+  updateScreenDimensions: () => void;
+}
 
-// Get initial screen dimensions
-const { width: initialWidth, height: initialHeight } = Dimensions.get('window');
+/**
+ * Hook to get the system color scheme in a way that works for the store.
+ */
+const getSystemTheme = (mode: ThemeMode): AppColors => {
+  if (mode === 'light') return lightTheme;
+  if (mode === 'dark') return darkTheme;
+  
+  // For 'system' mode
+  // Note: we can't use useColorScheme hook here as it's a Zustand store, not a React component.
+  // The themed hook will handle actual reactivity.
+  return lightTheme;
+};
 
 export const useThemeStore = create<ThemeState>((set, get) => ({
   mode: 'light',
-  theme: light,
-  responsive: calculateResponsiveState(initialWidth, initialHeight),
-  isInitialized: true, // Mark as initialized by default
-  toggleMode: () => {
-    const next = get().mode === 'light' ? 'dark' : 'light';
-    set({ mode: next, theme: next === 'dark' ? dark : light });
+  theme: lightTheme,
+  screen: {
+    width: Platform.OS === 'web' ? 1200 : Dimensions.get('window').width,
+    height: Platform.OS === 'web' ? 800 : Dimensions.get('window').height,
   },
-  setMode: (mode: ThemeMode) => set({ mode, theme: mode === 'dark' ? dark : light }),
-  updateScreenDimensions: (width: number, height: number) => {
-    const responsive = calculateResponsiveState(width, height);
-    set({ responsive });
+
+  setMode: (mode) => {
+    let theme = mode === 'dark' ? darkTheme : lightTheme;
+    
+    if (mode === 'system' && Platform.OS === 'web') {
+      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      theme = isDark ? darkTheme : lightTheme;
+    }
+
+    set({ mode, theme });
+  },
+
+  toggleMode: () => {
+    const currentMode = get().mode;
+    let nextMode: ThemeMode = 'light';
+    
+    if (currentMode === 'light') nextMode = 'dark';
+    else if (currentMode === 'dark') nextMode = 'system';
+    else nextMode = 'light';
+
+    let theme = nextMode === 'dark' ? darkTheme : lightTheme;
+    
+    if (nextMode === 'system' && Platform.OS === 'web') {
+      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      theme = isDark ? darkTheme : lightTheme;
+    }
+
+    set({ mode: nextMode, theme });
+  },
+
+  updateScreenDimensions: () => {
+    set({
+      screen: {
+        width: Dimensions.get('window').width,
+        height: Dimensions.get('window').height,
+      }
+    });
   },
 }));
 
-// ✅ CRITICAL: Ensure store is properly initialized
-if (typeof window !== 'undefined') {
-  // Browser environment - store should be ready
-  console.log('🌙 Theme store initialized in browser');
+/**
+ * React hook to access the theme store safely
+ */
+export const useSafeTheme = () => {
+  const store = useThemeStore();
+
+  if (!store || !store.theme) {
+    logger.warn('⚠️ Theme store not ready, using fallback');
+    return {
+      theme: lightTheme,
+      mode: 'light' as ThemeMode,
+      screen: {
+        width: Dimensions.get('window').width || 1200,
+        height: Dimensions.get('window').height || 800,
+      },
+      toggleMode: () => logger.warn('Theme store not ready'),
+      setMode: () => logger.warn('Theme store not ready'),
+      updateScreenDimensions: () => logger.warn('Theme store not ready'),
+    };
+  }
+
+  return store;
+};
+
+/**
+ * Initialize the theme store with logging
+ */
+if (Platform.OS === 'web') {
+  logger.info('🌙 Theme store initialized in browser');
 } else {
-  // React Native environment - ensure store is ready
-  console.log('🌙 Theme store initialized in React Native');
+  logger.info('🌙 Theme store initialized in React Native');
 }
 
-// ✅ CRITICAL: Safe theme hook with fallbacks
-export const useSafeTheme = () => {
+/**
+ * A safe version of useThemeStore for use outside of React components
+ */
+export const getThemeStore = () => {
   try {
-    const store = useThemeStore();
-    if (store && store.theme && store.isInitialized) {
-      return store;
-    }
+    return useThemeStore.getState();
   } catch (error) {
-    console.warn('⚠️ Theme store access failed, using fallback:', error);
+    logger.warn('⚠️ Theme store access failed, using fallback', { error });
+    return {
+      theme: lightTheme,
+      mode: 'light' as ThemeMode,
+      screen: {
+        width: Dimensions.get('window').width || 1200,
+        height: Dimensions.get('window').height || 800,
+      },
+      toggleMode: () => logger.warn('Theme store not ready'),
+      setMode: () => logger.warn('Theme store not ready'),
+      updateScreenDimensions: () => logger.warn('Theme store not ready'),
+    };
   }
-  
-  // Return fallback values if store is not ready
-  return {
-    mode: 'light' as ThemeMode,
-    theme: light,
-    responsive: calculateResponsiveState(initialWidth, initialHeight),
-    toggleMode: () => console.warn('Theme store not ready'),
-    setMode: () => console.warn('Theme store not ready'),
-    updateScreenDimensions: () => console.warn('Theme store not ready'),
-    isInitialized: false,
-  };
 };
-
-// Hook to listen for screen dimension changes
-export const useScreenDimensions = () => {
-  const updateScreenDimensions = useThemeStore(state => state.updateScreenDimensions);
-  
-  React.useEffect(() => {
-    const subscription = Dimensions.addEventListener('change', ({ window }) => {
-      updateScreenDimensions(window.width, window.height);
-    });
-    
-    return () => subscription?.remove();
-  }, [updateScreenDimensions]);
-};
-
-export default useThemeStore;

@@ -1,38 +1,35 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getVersionedJSON, setVersionedJSON } from './utils';
+import logger from '../logger';
 
-const SENDER_PROFILE_KEY = 'senderProfile';
+const SENDER_PROFILE_KEY = 'sender_profile';
 
 export type SenderProfile = {
   name: string;
   email: string;
-  storeName?: string | null;
+  storeName?: string;
 };
 
 /**
- * Migrates sender profile data from older versions to current version.
- * Returns null if migration is not possible.
+ * Migration for sender profile data.
  */
 function migrateSenderProfile(oldVersion: number, oldData: any): SenderProfile | null {
-  // For now, all versions are compatible (v1)
-  // Future versions can add migration logic here
   if (oldVersion === 0 || oldVersion === 1) {
-    // Unversioned or v1 data - validate and return
     if (oldData && typeof oldData === 'object' && typeof oldData.name === 'string' && typeof oldData.email === 'string') {
-      return oldData as SenderProfile;
+      return {
+        name: oldData.name,
+        email: oldData.email,
+        storeName: oldData.storeName
+      };
     }
-    console.warn('Sender profile migration: invalid data format, resetting');
+    logger.warn('[Sender] Migration: invalid data format, resetting');
     return null;
   }
-  
-  // Unknown version - cannot migrate
   return null;
 }
 
 /**
- * Retrieves the sender profile from AsyncStorage.
- * Returns null if not found or on error.
- * Supports version migration for future schema changes.
+ * Loads the sender profile from storage.
  */
 export async function getSenderProfile(): Promise<SenderProfile | null> {
   try {
@@ -41,17 +38,22 @@ export async function getSenderProfile(): Promise<SenderProfile | null> {
       migrateSenderProfile
     );
   } catch (err) {
-    console.warn('Failed to load sender profile from storage:', err);
+    logger.error('[Sender] Failed to load sender profile from storage', err);
     return null;
   }
 }
 
 /**
- * Saves the sender profile to AsyncStorage.
- * Never throws - logs errors quietly.
- * Saves with version metadata for future migrations.
+ * Saves the sender profile to storage.
  */
-export async function setSenderProfile(profile: SenderProfile): Promise<void> {
+export async function setSenderProfile(profile: SenderProfile | null): Promise<void> {
+  if (!profile) {
+    try {
+      await AsyncStorage.removeItem(SENDER_PROFILE_KEY);
+    } catch (err) {
+      logger.error('[Sender] Failed to remove sender profile', err);
+    }
+    return;
+  }
   await setVersionedJSON(SENDER_PROFILE_KEY, profile);
 }
-
