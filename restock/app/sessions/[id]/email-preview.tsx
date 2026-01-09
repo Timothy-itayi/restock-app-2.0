@@ -27,6 +27,7 @@ import { EmailDetailModal } from '../../../components/emails/EmailEditModal';
 import { Toast } from '../../../components/Toast';
 import { useToast } from '../../../lib/hooks/useToast';
 import { useSessionNavigation } from '../../../lib/hooks/useSessionNavigation';
+import logger from '../../../lib/helpers/logger';
 
 export default function EmailPreviewScreen() {
   const styles = useThemedStyles(getEmailsStyles);
@@ -128,7 +129,7 @@ ${senderProfile?.name || 'Customer'}`;
 
 
   const handleSendAll = async () => {
-    console.log('[EmailPreview] handleSendAll called');
+    logger.info('[EmailPreview] handleSendAll called', { sessionId: id, draftCount: emailDrafts.length });
     setShowConfirm(false);
     setSending(true);
 
@@ -139,14 +140,9 @@ ${senderProfile?.name || 'Customer'}`;
 
       // Get sender email for replyTo
       const replyToEmail = senderProfile?.email;
-      console.log('[EmailPreview] Sender profile:', {
-        email: replyToEmail,
-        name: senderProfile?.name,
-        storeName: senderProfile?.storeName,
-      });
       
       if (!replyToEmail) {
-        console.error('[EmailPreview] No sender email found in profile');
+        logger.error('[EmailPreview] No sender email found in profile');
         setSending(false);
         showError(
           'Sender email required',
@@ -155,15 +151,12 @@ ${senderProfile?.name || 'Customer'}`;
         return;
       }
 
-      console.log(`[EmailPreview] Starting to send ${emailDrafts.length} emails`);
+      logger.info(`[EmailPreview] Starting to send ${emailDrafts.length} emails`);
       
       for (const draft of emailDrafts) {
-        console.log(`[EmailPreview] Sending email to ${draft.supplierName} (${draft.supplierEmail})`);
-        console.log('[EmailPreview] Draft details:', {
-          supplierName: draft.supplierName,
+        logger.debug(`[EmailPreview] Sending email to ${draft.supplierName}`, {
           supplierEmail: draft.supplierEmail,
           subject: draft.subject,
-          bodyLength: draft.body.length,
           itemsCount: draft.items.length,
         });
         
@@ -182,41 +175,26 @@ ${senderProfile?.name || 'Customer'}`;
             storeName: senderProfile?.storeName || senderProfile?.name || 'Restock App',
           };
           
-          console.log('[EmailPreview] Email request:', {
-            to: emailRequest.to,
-            replyTo: emailRequest.replyTo,
-            subject: emailRequest.subject,
-            textLength: emailRequest.text.length,
-            itemsCount: emailRequest.items.length,
-            storeName: emailRequest.storeName,
-          });
-          
           const result = await sendEmail(emailRequest);
           
-          console.log(`[EmailPreview] Email result for ${draft.supplierName}:`, {
-            success: result.success,
-            message: result.message,
-            error: result.error,
-          });
-
           if (!result.success) {
             failureCount++;
             const errorMsg = `${draft.supplierName}: ${result.message || result.error || 'Failed to send'}`;
-            console.error(`[EmailPreview] Failed to send to ${draft.supplierName}:`, errorMsg);
+            logger.error(`[EmailPreview] Failed to send to ${draft.supplierName}`, { errorMsg });
             errors.push(errorMsg);
           } else {
             successCount++;
-            console.log(`[EmailPreview] Successfully sent to ${draft.supplierName}`);
+            logger.info(`[EmailPreview] Successfully sent to ${draft.supplierName}`);
           }
         } catch (draftError: any) {
           failureCount++;
           const errorMsg = `${draft.supplierName}: ${draftError.message || 'Network error'}`;
-          console.error(`[EmailPreview] Exception sending to ${draft.supplierName}:`, draftError);
+          logger.error(`[EmailPreview] Exception sending to ${draft.supplierName}`, draftError);
           errors.push(errorMsg);
         }
       }
       
-      console.log(`[EmailPreview] Send complete: ${successCount} succeeded, ${failureCount} failed`);
+      logger.info(`[EmailPreview] Send complete`, { successCount, failureCount });
 
       setSending(false);
 
@@ -241,11 +219,12 @@ ${senderProfile?.name || 'Customer'}`;
       if (successCount > 0) {
         // Update session status to completed
         updateSession(id, { status: 'completed' });
-        console.log(`[EmailPreview] Updated session ${id} status to completed`);
+        logger.info(`[EmailPreview] Updated session status to completed`, { sessionId: id });
         setShowSuccess(true);
       }
 
     } catch (err: any) {
+      logger.error('[EmailPreview] Fatal error in handleSendAll', err);
       setSending(false);
       showError(
         'Error sending emails',
@@ -279,6 +258,7 @@ ${senderProfile?.name || 'Customer'}`;
         text: 'Delete', 
         style: 'destructive',
         onPress: () => {
+          logger.info('[EmailPreview] Deleting session', { sessionId: session.id });
           deleteSession(session.id);
           goToSessionList();
         }

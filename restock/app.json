@@ -36,7 +36,23 @@
     },
     "plugins": [
       "expo-router",
-      "expo-font"
+      "expo-font",
+      [
+        "@sentry/react-native",
+        {
+          "url": "https://0a6f0af11d5198a2a26cb0268b3d9e5f@o4510679283924992.ingest.us.sentry.io/4510679284842496",
+          "project": "react-native",
+          "organization": "timothy-itayi"
+        }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "react-native",
+          "organization": "timothy-itayi"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

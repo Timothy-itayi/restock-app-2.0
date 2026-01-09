@@ -1,3 +1,6 @@
+import Config from '../config';
+import logger from '../helpers/logger';
+
 /**
  * Parse Document API Client
  * Handles PDF/document parsing via backend worker
@@ -20,7 +23,7 @@ export type ParseDocError = {
   message?: string;
 };
 
-const PARSE_DOC_URL = 'https://restock-parse-doc.parse-doc.workers.dev';
+const PARSE_DOC_URL = Config.PARSE_DOC_API_URL;
 
 /**
  * File object from expo-document-picker
@@ -34,8 +37,6 @@ export type DocumentFile = {
 
 /**
  * Parses a document file and returns structured items
- * For PDFs: Client should convert to images first (since PDF.js doesn't work in Workers)
- * This function should NOT be called with PDFs - the upload component handles conversion
  */
 export async function parseDocument(
   file: DocumentFile,
@@ -82,13 +83,12 @@ export async function parseDocument(
       type: file.mimeType || 'image/jpeg',
     } as any);
 
+    logger.info('[parseDocument] Uploading image for parsing', { name: file.name });
+
     // Send to backend
     const response = await fetch(PARSE_DOC_URL, {
       method: 'POST',
       body: formData,
-      headers: {
-        // Don't set Content-Type - let React Native set it with boundary
-      },
     });
 
     // Handle non-OK responses
@@ -97,10 +97,8 @@ export async function parseDocument(
       
       try {
         const errorData = await response.json();
-        // Prefer message over error code for user-facing messages
         errorMessage = errorData.message || errorData.error || errorMessage;
       } catch {
-        // If JSON parsing fails, try text
         try {
           const errorText = await response.text();
           if (errorText) {
@@ -110,6 +108,8 @@ export async function parseDocument(
           // Use default error message
         }
       }
+
+      logger.error('[parseDocument] Server error during parsing', { status: response.status, errorMessage });
 
       return {
         success: false,
@@ -122,6 +122,7 @@ export async function parseDocument(
     try {
       data = await response.json();
     } catch (parseError) {
+      logger.error('[parseDocument] Invalid JSON response', parseError);
       return {
         success: false,
         error: 'Invalid server response format',
@@ -130,6 +131,7 @@ export async function parseDocument(
 
     // Validate response structure
     if (!data.items || !Array.isArray(data.items)) {
+      logger.error('[parseDocument] Missing items array in response', data);
       return {
         success: false,
         error: 'Invalid response format: missing items array',
@@ -159,18 +161,21 @@ export async function parseDocument(
 
     // Check if we got any valid items
     if (items.length === 0) {
+      logger.warn('[parseDocument] No valid items extracted from document');
       return {
         success: false,
         error: 'No items found in document',
       };
     }
 
+    logger.info('[parseDocument] Successfully parsed document', { itemCount: items.length });
+
     return {
       success: true,
       items,
     };
   } catch (error: any) {
-    console.error('parseDocument error:', error);
+    logger.error('[parseDocument] Exception during parsing', error);
 
     // Handle network errors
     if (error.message?.includes('network') || error.message?.includes('fetch')) {
@@ -190,7 +195,6 @@ export async function parseDocument(
 
 /**
  * Parses multiple image files and returns structured items
- * Used for pre-converted PDF pages
  */
 export async function parseImages(
   imageFiles: DocumentFile[],
@@ -227,15 +231,14 @@ export async function parseImages(
       } as any);
     }
 
+    logger.info('[parseImages] Uploading batch images for parsing', { count: imageFiles.length });
+
     onProgress?.('Uploading images...', 50);
 
     // Send to backend
     const response = await fetch(PARSE_DOC_URL, {
       method: 'POST',
       body: formData,
-      headers: {
-        // Don't set Content-Type - let React Native set it with boundary
-      },
     });
 
     // Handle non-OK responses
@@ -244,10 +247,8 @@ export async function parseImages(
       
       try {
         const errorData = await response.json();
-        // Prefer message over error code for user-facing messages
         errorMessage = errorData.message || errorData.error || errorMessage;
       } catch {
-        // If JSON parsing fails, try text
         try {
           const errorText = await response.text();
           if (errorText) {
@@ -257,6 +258,8 @@ export async function parseImages(
           // Use default error message
         }
       }
+
+      logger.error('[parseImages] Server error during batch parsing', { status: response.status, errorMessage });
 
       return {
         success: false,
@@ -269,6 +272,7 @@ export async function parseImages(
     try {
       data = await response.json();
     } catch (parseError) {
+      logger.error('[parseImages] Invalid JSON response', parseError);
       return {
         success: false,
         error: 'Invalid server response format',
@@ -277,6 +281,7 @@ export async function parseImages(
 
     // Validate response structure
     if (!data.items || !Array.isArray(data.items)) {
+      logger.error('[parseImages] Missing items array in batch response', data);
       return {
         success: false,
         error: 'Invalid response format: missing items array',
@@ -306,18 +311,21 @@ export async function parseImages(
 
     // Check if we got any valid items
     if (items.length === 0) {
+      logger.warn('[parseImages] No valid items extracted from batch images');
       return {
         success: false,
         error: 'No items found in document',
       };
     }
 
+    logger.info('[parseImages] Successfully parsed batch images', { itemCount: items.length });
+
     return {
       success: true,
       items,
     };
   } catch (error: any) {
-    console.error('parseImages error:', error);
+    logger.error('[parseImages] Exception during batch parsing', error);
 
     // Handle network errors
     if (error.message?.includes('network') || error.message?.includes('fetch')) {
@@ -355,4 +363,3 @@ export function validateParsedItem(item: any): item is ParsedItem {
 export function validateParsedItems(items: any[]): items is ParsedItem[] {
   return Array.isArray(items) && items.every(validateParsedItem);
 }
-

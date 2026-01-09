@@ -21,6 +21,7 @@ import { useCompanyStore } from '../store/useCompanyStore';
 
 import { safeRead } from '../lib/helpers/errorHandling';
 import { getJSON, setJSON } from '../lib/helpers/storage/utils';
+import logger from '../lib/helpers/logger';
 
 const TIPS_DISMISSED_KEY = '@restock/dashboard-tips-dismissed';
 
@@ -87,13 +88,20 @@ export default function DashboardScreen() {
       // Show tips by default if not dismissed
       setShowTips(!wasDismissed);
       setIsLoadingTips(false);
+    }).catch(err => {
+      logger.error('Failed to load tips dismissed state', err);
+      setIsLoadingTips(false);
     });
   }, []);
 
   const handleDismissTips = async () => {
     setTipsDismissed(true);
     setShowTips(false);
-    await setJSON(TIPS_DISMISSED_KEY, true);
+    try {
+      await setJSON(TIPS_DISMISSED_KEY, true);
+    } catch (err) {
+      logger.error('Failed to save tips dismissed state', err);
+    }
   };
 
   const handleToggleTips = () => {
@@ -215,6 +223,7 @@ export default function DashboardScreen() {
           <TouchableOpacity
             style={styles.menuCardGreen}
             onPress={() => {
+              logger.info('[Dashboard] Creating new session');
               const s = createSession();
               router.push(`/sessions/${s.id}`);
             }}
@@ -226,7 +235,10 @@ export default function DashboardScreen() {
 
           <TouchableOpacity
             style={styles.menuCardGreen}
-            onPress={() => router.push('/upload')}
+            onPress={() => {
+              logger.info('[Dashboard] Navigating to upload');
+              router.push('/upload');
+            }}
           >
             <Ionicons name="document-outline" size={24} style={styles.menuIconGreen} />
             <Text style={styles.menuCardTextGreen}>Upload Document</Text>
@@ -241,7 +253,10 @@ export default function DashboardScreen() {
         <View style={styles.menuList}>
           <TouchableOpacity
             style={styles.menuCard}
-            onPress={() => router.push('/company')}
+            onPress={() => {
+              logger.info('[Dashboard] Navigating to company');
+              router.push('/company');
+            }}
           >
             <Ionicons name="people-outline" size={24} style={styles.menuIcon} />
             <Text style={styles.menuCardText}>
@@ -258,7 +273,10 @@ export default function DashboardScreen() {
         <View style={styles.manageRow}>
           <TouchableOpacity
             style={styles.manageCard}
-            onPress={() => router.push('/suppliers')}
+            onPress={() => {
+              logger.info('[Dashboard] Navigating to suppliers');
+              router.push('/suppliers');
+            }}
           >
             <Ionicons name="business-outline" size={20} style={styles.menuIcon} />
             <Text style={styles.manageCardText}>Suppliers</Text>
@@ -267,7 +285,10 @@ export default function DashboardScreen() {
 
           <TouchableOpacity
             style={styles.manageCard}
-            onPress={() => router.push('/settings')}
+            onPress={() => {
+              logger.info('[Dashboard] Navigating to settings');
+              router.push('/settings');
+            }}
           >
             <Ionicons name="settings-outline" size={20} style={styles.menuIcon} />
             <Text style={styles.manageCardText}>Settings</Text>

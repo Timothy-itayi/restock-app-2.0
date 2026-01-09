@@ -145,7 +145,12 @@ export const getDashboardStyles = (t: AppColors) =>
         flex: 1,
         color: t.neutral.darkest,
       },
-  
+   sentryText: {
+    fontFamily: fontFamily.satoshiMedium,
+    fontSize: 1,
+    flex: 0.5,
+    color: t.neutral.darkest,
+   },
       menuCardTextGreen: {
         fontFamily: fontFamily.satoshiMedium,
         fontSize: 16,
@@ -158,7 +163,10 @@ export const getDashboardStyles = (t: AppColors) =>
         marginRight: 16,
         color: t.brand.secondary,
       },
-  
+      sentryIcon: {
+        marginRight: 3,
+        color: t.brand.secondary,
+      },
       menuIconGreen: {
         marginRight: 16,
         color: t.neutral.lightest,

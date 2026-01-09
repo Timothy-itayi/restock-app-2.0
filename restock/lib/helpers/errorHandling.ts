@@ -5,6 +5,8 @@
  * All errors should be handled gracefully with user-friendly messages.
  */
 
+import logger from './logger';
+
 export type ErrorState = {
   hasError: boolean;
   message: string;
@@ -70,7 +72,7 @@ export async function safeAsync<T>(
   try {
     return await operation();
   } catch (error) {
-    console.warn('[Error] Operation failed:', error);
+    logger.error('Operation failed', error);
     if (onError) {
       onError(error);
     }
@@ -89,12 +91,20 @@ export function safeSync<T>(
   try {
     return operation();
   } catch (error) {
-    console.warn('[Error] Operation failed:', error);
+    logger.error('Operation failed', error);
     if (onError) {
       onError(error);
     }
     return fallback;
   }
+}
+
+/**
+ * Captures an error and sends it to the logging service.
+ */
+export function captureError(error: unknown, context?: string): void {
+  const message = context ? `[${context}] ${getUserFriendlyError(error)}` : getUserFriendlyError(error);
+  logger.error(message, error);
 }
 
 /**

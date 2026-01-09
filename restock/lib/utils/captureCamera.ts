@@ -5,6 +5,7 @@
 
 import * as ImagePicker from 'expo-image-picker';
 import { Paths, Directory, File } from 'expo-file-system';
+import logger from '../helpers/logger';
 
 export type CapturedImage = {
   uri: string;
@@ -92,6 +93,8 @@ export async function captureFromCamera(
   const sourceFile = new File(asset.uri);
   await sourceFile.copy(destFile);
 
+  logger.info('[captureCamera] Photo captured successfully', { fileName, width: asset.width, height: asset.height });
+
   return {
     uri: destFile.uri,
     width: asset.width,
@@ -111,7 +114,7 @@ export async function cleanupCapturedImage(uri: string): Promise<void> {
       await file.delete();
     }
   } catch (e) {
-    console.warn('Failed to cleanup captured image:', e);
+    logger.warn('Failed to cleanup captured image', { uri, error: e });
   }
 }
 
@@ -125,7 +128,7 @@ export async function cleanupAllCapturedImages(): Promise<void> {
       await dir.delete();
     }
   } catch (e) {
-    console.warn('Failed to cleanup captured images directory:', e);
+    logger.warn('Failed to cleanup captured images directory', e);
   }
 }
 
@@ -185,6 +188,8 @@ export async function pickFromPhotoLibrary(): Promise<{
   const fileName = asset.fileName || `photo-${Date.now()}.jpg`;
   const mimeType = asset.mimeType || 'image/jpeg';
 
+  logger.info('[captureCamera] Image picked from library', { fileName, mimeType });
+
   return {
     uri: asset.uri,
     name: fileName,
@@ -192,4 +197,3 @@ export async function pickFromPhotoLibrary(): Promise<{
     size: asset.fileSize || undefined,
   };
 }
-

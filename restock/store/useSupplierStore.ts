@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getVersionedJSON, setVersionedJSON } from '../lib/helpers/storage/utils';
+import logger from '../lib/helpers/logger';
 
 export type Supplier = {
   id: string;
@@ -19,10 +19,9 @@ type SupplierStore = {
   getSupplierByName: (name: string) => Supplier | undefined;
 
   loadSuppliers: () => Promise<void>;
-  saveSuppliers: () => Promise<void>;
 };
 
-const STORAGE_KEY = 'suppliers';
+const STORAGE_KEY = '@restock/suppliers-v1';
 
 export const useSupplierStore = create<SupplierStore>((set, get) => ({
   suppliers: [],
@@ -32,18 +31,15 @@ export const useSupplierStore = create<SupplierStore>((set, get) => ({
   // CREATE
   //------------------------------------------------------------------
   addSupplier: (name, email) => {
-    const normalised = name.trim();
     const newSupplier: Supplier = {
-      id: Date.now().toString() + '-' + Math.random(),
-      name: normalised,
-      email
+      id: Date.now().toString(),
+      name,
+      email,
     };
 
-    const currentSuppliers = get().suppliers || [];
-    const updated = [...currentSuppliers, newSupplier];
-
+    const updated = [...get().suppliers, newSupplier];
     set({ suppliers: updated });
-    setVersionedJSON(STORAGE_KEY, updated).catch(console.warn);
+    setVersionedJSON(STORAGE_KEY, updated).catch(err => logger.error('Failed to save suppliers after add', err));
 
     return newSupplier;
   },
@@ -53,12 +49,10 @@ export const useSupplierStore = create<SupplierStore>((set, get) => ({
   //------------------------------------------------------------------
   updateSupplier: (id, updates) => {
     const currentSuppliers = get().suppliers || [];
-    const updated = currentSuppliers.map(s =>
-      s.id === id ? { ...s, ...updates } : s
-    );
+    const updated = currentSuppliers.map(s => s.id === id ? { ...s, ...updates } : s);
 
     set({ suppliers: updated });
-    setVersionedJSON(STORAGE_KEY, updated).catch(console.warn);
+    setVersionedJSON(STORAGE_KEY, updated).catch(err => logger.error('Failed to save suppliers after update', err));
   },
 
   //------------------------------------------------------------------
@@ -69,25 +63,20 @@ export const useSupplierStore = create<SupplierStore>((set, get) => ({
     const updated = currentSuppliers.filter(s => s.id !== id);
 
     set({ suppliers: updated });
-    setVersionedJSON(STORAGE_KEY, updated).catch(console.warn);
+    setVersionedJSON(STORAGE_KEY, updated).catch(err => logger.error('Failed to save suppliers after delete', err));
   },
 
   deleteAllSuppliers: () => {
     set({ suppliers: [] });
-    setVersionedJSON(STORAGE_KEY, []).catch(console.warn);
+    setVersionedJSON(STORAGE_KEY, []).catch(err => logger.error('Failed to save empty suppliers list', err));
   },
 
   //------------------------------------------------------------------
-  // FIND BY NAME (case-insensitive)
+  // HELPER
   //------------------------------------------------------------------
   getSupplierByName: (name) => {
     const currentSuppliers = get().suppliers || [];
-    if (currentSuppliers.length === 0) return undefined;
-    
-    const target = name.trim().toLowerCase();
-    return currentSuppliers.find(
-      s => s.name.trim().toLowerCase() === target
-    );
+    return currentSuppliers.find(s => s.name.toLowerCase() === name.toLowerCase());
   },
 
   //------------------------------------------------------------------
@@ -95,32 +84,19 @@ export const useSupplierStore = create<SupplierStore>((set, get) => ({
   //------------------------------------------------------------------
   loadSuppliers: async () => {
     try {
-      const suppliers = await getVersionedJSON<Supplier[]>(
-        STORAGE_KEY,
-        (oldVersion, oldData) => {
-          // Migration function: ensure array format
-          if (oldVersion === 0 || oldVersion === 1) {
-            return Array.isArray(oldData) ? oldData : [];
-          }
-          return null;
-        }
-      );
-      
-      // Ensure we have an array
-      const validSuppliers = Array.isArray(suppliers) ? suppliers : [];
-      set({ suppliers: validSuppliers, isHydrated: true });
+      const saved = await getVersionedJSON<Supplier[]>(STORAGE_KEY);
+      if (saved) {
+        set({ suppliers: saved, isHydrated: true });
+      } else {
+        set({ isHydrated: true });
+      }
     } catch (error) {
-      console.warn('Failed to load suppliers:', error);
-      // Initialize with empty array on error
-      set({ suppliers: [], isHydrated: true });
+      logger.error('Failed to load suppliers from storage', error);
+      set({ isHydrated: true });
     }
   },
-
-  //------------------------------------------------------------------
-  // SAVE
-  //------------------------------------------------------------------
-  saveSuppliers: async () => {
-    const currentSuppliers = get().suppliers || [];
-    await setVersionedJSON(STORAGE_KEY, currentSuppliers);
-  }
 }));
+
+// Stable hooks
+export const useSuppliers = () => useSupplierStore((state) => state.suppliers);
+export const useSupplierHydrated = () => useSupplierStore((state) => state.isHydrated);

@@ -6,6 +6,7 @@ import {
   type Session,
   type SessionItem
 } from '../lib/helpers/storage/sessions';
+import logger from '../lib/helpers/logger';
 
 type SessionStore = {
   sessions: Session[];
@@ -50,7 +51,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     const updated = [...state.sessions, newSession];
 
     set({ sessions: updated });
-    setSessions(updated).catch(console.warn);
+    setSessions(updated).catch(err => logger.error('Failed to save sessions after creation', err));
 
     return newSession;
   },
@@ -69,7 +70,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     );
 
     set({ sessions: updated });
-    setSessions(updated).catch(console.warn);
+    setSessions(updated).catch(err => logger.error('Failed to save sessions after update', err));
   },
 
   //----------------------------------------------------------------------
@@ -78,7 +79,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   deleteSession: (id) => {
     const updated = get().sessions.filter((s) => s.id !== id);
     set({ sessions: updated });
-    setSessions(updated).catch(console.warn);
+    setSessions(updated).catch(err => logger.error('Failed to save sessions after delete', err));
   },
 
   //----------------------------------------------------------------------
@@ -92,7 +93,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     );
 
     set({ sessions: updated });
-    setSessions(updated).catch(console.warn);
+    setSessions(updated).catch(err => logger.error('Failed to save sessions after item add', err));
   },
 
   //----------------------------------------------------------------------
@@ -111,7 +112,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     );
 
     set({ sessions: updated });
-    setSessions(updated).catch(console.warn);
+    setSessions(updated).catch(err => logger.error('Failed to save sessions after item update', err));
   },
 
   //----------------------------------------------------------------------
@@ -128,7 +129,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     );
 
     set({ sessions: updated });
-    setSessions(updated).catch(console.warn);
+    setSessions(updated).catch(err => logger.error('Failed to save sessions after item removal', err));
   },
 
   //----------------------------------------------------------------------
@@ -143,15 +144,24 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   // LOAD
   //----------------------------------------------------------------------
   loadSessionsFromStorage: async () => {
-    const sessions = await getSessions();
-    set({ sessions, isHydrated: true });
+    try {
+      const sessions = await getSessions();
+      set({ sessions, isHydrated: true });
+    } catch (err) {
+      logger.error('Failed to load sessions from storage', err);
+      set({ isHydrated: true });
+    }
   },
 
   //----------------------------------------------------------------------
   // SAVE
   //----------------------------------------------------------------------
   saveSessionsToStorage: async () => {
-    await setSessions(get().sessions);
+    try {
+      await setSessions(get().sessions);
+    } catch (err) {
+      logger.error('Failed to save sessions to storage', err);
+    }
   }
 }));
 

@@ -1,3 +1,6 @@
+import Config from '../config';
+import logger from '../helpers/logger';
+
 export type EmailItem = {
   productName: string;
   quantity: number;
@@ -37,19 +40,16 @@ export type SendEmailResponse = {
  * Validates email format before sending.
  */
 export async function sendEmail(request: Omit<SendEmailRequest, 'deviceId'>): Promise<SendEmailResponse> {
-  console.log('[sendEmail] Starting email send request');
-  console.log('[sendEmail] Request:', {
+  logger.info('[sendEmail] Starting email send request', {
     to: request.to,
     replyTo: request.replyTo,
     subject: request.subject,
-    textLength: request.text?.length,
-    itemsCount: request.items?.length || 0,
     storeName: request.storeName,
   });
   
   // Validate email format on client side
   if (!isValidEmail(request.to)) {
-    console.error('[sendEmail] Invalid recipient email:', request.to);
+    logger.error('[sendEmail] Invalid recipient email', { to: request.to });
     return {
       success: false,
       message: 'Invalid supplier email format',
@@ -58,7 +58,7 @@ export async function sendEmail(request: Omit<SendEmailRequest, 'deviceId'>): Pr
   }
 
   if (!isValidEmail(request.replyTo)) {
-    console.error('[sendEmail] Invalid reply-to email:', request.replyTo);
+    logger.error('[sendEmail] Invalid reply-to email', { replyTo: request.replyTo });
     return {
       success: false,
       message: 'Invalid reply-to email format',
@@ -70,24 +70,15 @@ export async function sendEmail(request: Omit<SendEmailRequest, 'deviceId'>): Pr
     // Get device ID for rate limiting
     const { getDeviceId } = await import('../utils/deviceId');
     const deviceId = await getDeviceId();
-    console.log('[sendEmail] Device ID:', deviceId);
+    logger.debug('[sendEmail] Device ID retrieved', { deviceId });
 
-    const url = 'https://restock-send-email.parse-doc.workers.dev';
+    const url = Config.SEND_EMAIL_API_URL;
     const payload = {
       ...request,
       deviceId,
     };
     
-    console.log('[sendEmail] Sending request to:', url);
-    console.log('[sendEmail] Payload (sanitized):', {
-      to: payload.to,
-      replyTo: payload.replyTo,
-      subject: payload.subject,
-      textLength: payload.text?.length,
-      itemsCount: payload.items?.length || 0,
-      storeName: payload.storeName,
-      deviceId: payload.deviceId,
-    });
+    logger.debug('[sendEmail] Sending request to worker', { url });
 
     const response = await fetch(url, {
       method: 'POST',
@@ -97,20 +88,17 @@ export async function sendEmail(request: Omit<SendEmailRequest, 'deviceId'>): Pr
       body: JSON.stringify(payload),
     });
 
-    console.log('[sendEmail] Response status:', response.status, response.statusText);
-    console.log('[sendEmail] Response headers:', Object.fromEntries(response.headers.entries()));
+    logger.debug('[sendEmail] Response received', { status: response.status, statusText: response.statusText });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[sendEmail] Error response:', errorText);
+      logger.error('[sendEmail] Error response from worker', { status: response.status, errorText });
       
       let errorData;
       try {
         errorData = JSON.parse(errorText);
-        console.error('[sendEmail] Parsed error data:', errorData);
       } catch {
         errorData = { message: errorText };
-        console.error('[sendEmail] Could not parse error as JSON');
       }
       
       return {
@@ -121,14 +109,13 @@ export async function sendEmail(request: Omit<SendEmailRequest, 'deviceId'>): Pr
     }
 
     const data = await response.json();
-    console.log('[sendEmail] Success response:', data);
     
     // Validate response format
     if (data.success === true) {
-      console.log('[sendEmail] Email sent successfully, messageId:', data.messageId);
+      logger.info('[sendEmail] Email sent successfully', { messageId: data.messageId });
       return { success: true, ...data };
     } else {
-      console.error('[sendEmail] Response indicates failure:', data);
+      logger.error('[sendEmail] Response indicates failure', data);
       return {
         success: false,
         message: data.message || 'Email send failed',
@@ -136,16 +123,10 @@ export async function sendEmail(request: Omit<SendEmailRequest, 'deviceId'>): Pr
       };
     }
   } catch (error: any) {
-    console.error('[sendEmail] Exception caught:', error);
-    console.error('[sendEmail] Error details:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name,
-    });
+    logger.error('[sendEmail] Exception caught', error);
     
     // Check for network errors
     if (error.message?.includes('network') || error.message?.includes('fetch')) {
-      console.error('[sendEmail] Network error detected');
       return {
         success: false,
         message: 'Network error. Please check your connection and try again.',
@@ -163,7 +144,6 @@ export async function sendEmail(request: Omit<SendEmailRequest, 'deviceId'>): Pr
 
 /**
  * Generates email body text for a given supplier and items.
- * Note: This endpoint doesn't exist in the backend - email body is generated client-side.
  */
 export async function generateEmailBody(
   supplierName: string,
@@ -171,7 +151,6 @@ export async function generateEmailBody(
   senderName: string,
   storeName?: string
 ): Promise<string> {
-  // Generate email body locally (no backend endpoint for this)
   const itemsList = items
     .map(item => `- ${item.productName} (Qty: ${item.quantity})`)
     .join('\n');
@@ -187,4 +166,3 @@ Please let me know if these items are available and when they can be delivered.
 Thank you,
 ${senderName}${storeName ? `\n${storeName}` : ''}`;
 }
-

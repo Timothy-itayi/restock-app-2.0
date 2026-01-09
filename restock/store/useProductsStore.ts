@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getVersionedJSON, setVersionedJSON } from '../lib/helpers/storage/utils';
+import logger from '../lib/helpers/logger';
 
 export type ProductHistory = {
   id: string;
@@ -47,7 +47,7 @@ export const useProductsStore = create<ProductStore>((set, get) => ({
       );
 
       set({ products: newList });
-      setVersionedJSON(STORAGE_KEY, newList).catch(console.warn);
+      setVersionedJSON(STORAGE_KEY, newList).catch(err => logger.error('Failed to save products after update', err));
 
       return updated;
     }
@@ -61,8 +61,8 @@ export const useProductsStore = create<ProductStore>((set, get) => ({
 
     const merged = [...get().products, newProd];
 
-      set({ products: merged });
-      setVersionedJSON(STORAGE_KEY, merged).catch(console.warn);
+    set({ products: merged });
+    setVersionedJSON(STORAGE_KEY, merged).catch(err => logger.error('Failed to save products after add', err));
 
     return newProd;
   },
@@ -96,7 +96,7 @@ export const useProductsStore = create<ProductStore>((set, get) => ({
       const validProducts = Array.isArray(products) ? products : [];
       set({ products: validProducts, isHydrated: true });
     } catch (error) {
-      console.warn('Failed to load products:', error);
+      logger.error('Failed to load products from storage', error);
       set({ products: [], isHydrated: true });
     }
   },
@@ -105,6 +105,10 @@ export const useProductsStore = create<ProductStore>((set, get) => ({
   // SAVE
   //------------------------------------------------------------------
   saveProducts: async () => {
-    await setVersionedJSON(STORAGE_KEY, get().products);
+    try {
+      await setVersionedJSON(STORAGE_KEY, get().products);
+    } catch (err) {
+      logger.error('Failed to save products to storage', err);
+    }
   }
 }));

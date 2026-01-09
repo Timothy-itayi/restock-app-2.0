@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import * as Sentry from '@sentry/react-native';
 import {
   View,
   Text,
@@ -6,7 +7,8 @@ import {
   ScrollView,
   Dimensions,
   Image,
-  Animated
+  Animated,
+  Button
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -189,6 +191,7 @@ export default function WelcomeScreen() {
 
       {/* Continue Button */}
       <View style={welcomeStyles.authButtonsContainer}>
+       
         <TouchableOpacity
           style={welcomeStyles.signUpButton}
           onPress={handleContinue}
