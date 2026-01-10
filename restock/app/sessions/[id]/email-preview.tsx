@@ -51,12 +51,8 @@ export default function EmailPreviewScreen() {
   const { toast, showError, hideToast } = useToast();
   const { goToSessionList, goBack } = useSessionNavigation();
 
-  // Handle session deletion - navigate away if session is deleted
-  useEffect(() => {
-    if (!session && id) {
-      goToSessionList();
-    }
-  }, [session, id, goToSessionList]);
+  // Note: Session deletion navigation is handled explicitly in handleDelete.
+  // We don't use useEffect here to avoid race conditions with duplicate navigations.
 
   // Build supplier → items grouping using centralized utility
   const emailDrafts = useMemo(() => {
@@ -260,7 +256,9 @@ ${senderProfile?.name || 'Customer'}`;
         onPress: () => {
           logger.info('[EmailPreview] Deleting session', { sessionId: session.id });
           deleteSession(session.id);
-          goToSessionList();
+          // Navigate directly to home, replacing the entire stack to avoid blank screens
+          router.dismissAll();
+          router.replace('/');
         }
       },
       { text: 'Cancel', style: 'cancel' },

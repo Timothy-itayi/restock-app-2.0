@@ -164,7 +164,7 @@ export async function parseDocument(
       logger.warn('[parseDocument] No valid items extracted from document');
       return {
         success: false,
-        error: 'No items found in document',
+        error: 'No restock items found. Make sure the image shows a product list, invoice, or stock sheet with item names.',
       };
     }
 
@@ -314,7 +314,7 @@ export async function parseImages(
       logger.warn('[parseImages] No valid items extracted from batch images');
       return {
         success: false,
-        error: 'No items found in document',
+        error: 'No restock items found. Make sure the image shows a product list, invoice, or stock sheet with item names.',
       };
     }
 

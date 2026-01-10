@@ -38,10 +38,16 @@ export const welcomeStyles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingTop: 60,
-    paddingBottom: 20,
+    paddingBottom: 1,
     paddingHorizontal: 20,
     alignItems: 'center',
     zIndex: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+  },
+  titleBackground: {
+    width: screenWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   appTitle: {
     backgroundColor: 'white',
@@ -85,13 +91,18 @@ export const welcomeStyles = StyleSheet.create({
   // Text overlay (Modern, Clean, No Cards)
   textContainer: {
     position: 'absolute',
-    bottom: 160, // Give space for pagination and button
+    bottom: 0, 
     left: 0,
     right: 0,
     alignItems: 'center', // Center align
-    paddingHorizontal: 32,
     zIndex: 1,
-    backgroundColor: 'transparent', // No background card
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+
+    paddingBottom: 160, // Maintain the original spacing for the text
+  },
+  slideTextBackground: {
+    width: screenWidth,
+    alignItems: 'center',
   },
   slideTitle: {
     fontFamily: fontFamily.satoshiBlack,
@@ -135,7 +146,7 @@ export const welcomeStyles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)', // Semi-transparent white
+    backgroundColor: colors.neutral.medium,
   },
   paginationDotActive: {
     backgroundColor: colors.cypress.pale, // Use app's cypress color
@@ -210,10 +221,9 @@ export const welcomeStyles = StyleSheet.create({
   },
   title: {
     fontFamily: fontFamily.satoshiBlack,
-    fontSize: 32,
+    fontSize: 55,
     fontWeight: 'bold',
-    color: colours.textDark,
-    marginBottom: 12,
+    color: 'white',
     textAlign: 'center',
   },
   subtitle: {

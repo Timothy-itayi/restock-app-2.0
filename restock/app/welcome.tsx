@@ -40,7 +40,7 @@ const walkthroughSlides: WalkthroughSlide[] = [
     id: 3,
     title: 'Send',
     subtitle: 'Generate emails instantly',
-    image: require('../assets/images/onboarding/send.jpeg')
+    image: require('../assets/images/onboarding/b4097274-1909-4165-9f62-7aca86ab3316.jpeg')
   }
 ];
 
@@ -115,7 +115,12 @@ export default function WelcomeScreen() {
 
   return (
     <View style={welcomeStyles.container}>
-    
+      <View style={welcomeStyles.header}>
+        <View style={welcomeStyles.titleBackground}>
+
+          <Text style={welcomeStyles.title}>Restock</Text>
+        </View>
+      </View>
 
       {/* Carousel */}
       <View style={welcomeStyles.carouselContainer}>
@@ -137,23 +142,15 @@ export default function WelcomeScreen() {
                   style={welcomeStyles.slideImage}
                   resizeMode="cover"
                 />
-                {/* Gradient Scrim (Simulated with absolute view) */}
-                <View style={{
-                  position: 'absolute',
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  height: '29%',
-                  opacity: 0.8,
-                  backgroundColor: 'rgba(0,0,0,0.4)', // Semi-transparent black fade for text readability
-                }} />
               </View>
 
               <View style={welcomeStyles.textContainer}>
-                <Text style={welcomeStyles.slideTitle}>{slide.title}</Text>
-                <Text style={slide.subtitle ? welcomeStyles.slideSubtitle : null}>
-                  {slide.subtitle}
-                </Text>
+                <View style={welcomeStyles.slideTextBackground}>
+                  <Text style={welcomeStyles.slideTitle}>{slide.title}</Text>
+                  <Text style={slide.subtitle ? welcomeStyles.slideSubtitle : null}>
+                    {slide.subtitle}
+                  </Text>
+                </View>
               </View>
             </View>
           ))}
@@ -178,7 +175,7 @@ export default function WelcomeScreen() {
                   }),
                   backgroundColor: paginationAnimations[index].interpolate({
                     inputRange: [0, 1],
-                    outputRange: ['rgba(255, 255, 255, 0.35)', colors.cypress.pale]
+                    outputRange: [colors.neutral.medium, colors.cypress.deep]
                   })
                 }
               ]}

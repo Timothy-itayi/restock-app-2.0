@@ -1,5 +1,5 @@
 import * as ImageManipulator from 'expo-image-manipulator';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import logger from '../helpers/logger';
 
 export type NormalizedImage = {
@@ -22,10 +22,13 @@ async function ensureDir() {
 }
 
 /**
- * Checks if a file is in HEIC format based on its extension
+ * Checks if a file is in HEIC format based on its extension or MIME type
  */
-export function isHeicFormat(uri: string): boolean {
-  return uri.toLowerCase().endsWith('.heic') || uri.toLowerCase().endsWith('.heif');
+export function isHeicFormat(filename: string, mimeType?: string | null): boolean {
+  const lowerName = filename.toLowerCase();
+  const extensionMatch = lowerName.endsWith('.heic') || lowerName.endsWith('.heif');
+  const mimeMatch = mimeType?.toLowerCase().includes('heic') || mimeType?.toLowerCase().includes('heif');
+  return extensionMatch || !!mimeMatch;
 }
 
 /**

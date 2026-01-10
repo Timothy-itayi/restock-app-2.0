@@ -19,7 +19,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.timothy-itayi.restock",
-      "buildNumber": "8",
+      "buildNumber": "9",
       "infoPlist": {
         "NSCameraUsageDescription": "Restock needs camera access to photograph inventory catalogs for parsing.",
         "NSPhotoLibraryUsageDescription": "Restock needs photo library access to select catalog images for parsing.",
