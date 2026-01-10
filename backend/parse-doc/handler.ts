@@ -210,6 +210,18 @@ export async function handleParseDoc(
       try {
         const parsed = JSON.parse(visionResponse.content!);
         console.log(`[parse-doc:handler] Parsed items count: ${parsed.items?.length || 0}`);
+        
+        // Check if LLM indicated this is not a product list
+        if (parsed.error === 'not_product_list') {
+          console.log(`[parse-doc:handler] LLM detected non-product image`);
+          const { response } = createError(
+            "This image doesn't appear to be a product list. Please upload an image of an inventory list, order form, or stock report.",
+            400,
+            "NOT_PRODUCT_LIST"
+          );
+          return response;
+        }
+        
         const validated = validateParsedDoc(parsed);
         items = validated.items;
       } catch (parseErr) {
@@ -358,6 +370,23 @@ export async function handleParseImages(
       try {
         const parsed = JSON.parse(visionResponse.content!);
         console.log(`[parse-doc:handler] Image ${i + 1} parsed JSON:`, JSON.stringify(parsed).substring(0, 300));
+        
+        // Check if LLM indicated this is not a product list
+        if (parsed.error === 'not_product_list') {
+          console.log(`[parse-doc:handler] Image ${i + 1} is not a product list`);
+          // If this is the only image and it's not a product list, return error
+          if (images.length === 1) {
+            const { response } = createError(
+              "This image doesn't appear to be a product list. Please upload an image of an inventory list, order form, or stock report.",
+              400,
+              "NOT_PRODUCT_LIST"
+            );
+            return response;
+          }
+          // If multiple images, skip this one and continue
+          continue;
+        }
+        
         const validated = validateParsedDoc(parsed);
         console.log(`[parse-doc:handler] Image ${i + 1} validated items: ${validated.items.length}`);
         allItems.push(...validated.items);
@@ -371,7 +400,11 @@ export async function handleParseImages(
     console.log(`[parse-doc:handler] Total items extracted: ${allItems.length}`);
 
     if (allItems.length === 0) {
-      const { response } = createError("Could not extract any items from images", 400);
+      const { response } = createError(
+        "This image doesn't appear to be a product list. Please upload an image of an inventory list, order form, or stock report.",
+        400,
+        "NOT_PRODUCT_LIST"
+      );
       return response;
     }
 
@@ -393,8 +426,9 @@ export async function handleParseImages(
     // Check if we have any valid items after normalization
     if (normalizedItems.length === 0) {
       const { response } = createError(
-        "Could not extract any valid items from images. The images may not contain product information, or the format is not recognized.",
-        400
+        "This image doesn't appear to be a product list. Please upload an image of an inventory list, order form, or stock report.",
+        400,
+        "NOT_PRODUCT_LIST"
       );
       return response;
     }

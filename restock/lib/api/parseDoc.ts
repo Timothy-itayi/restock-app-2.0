@@ -94,10 +94,12 @@ export async function parseDocument(
     // Handle non-OK responses
     if (!response.ok) {
       let errorMessage = `Server error (${response.status})`;
+      let errorCode = '';
       
       try {
         const errorData = await response.json();
         errorMessage = errorData.message || errorData.error || errorMessage;
+        errorCode = errorData.code || '';
       } catch {
         try {
           const errorText = await response.text();
@@ -109,7 +111,15 @@ export async function parseDocument(
         }
       }
 
-      logger.error('[parseDocument] Server error during parsing', { status: response.status, errorMessage });
+      // User-friendly messages for expected errors (400s)
+      if (response.status === 400) {
+        if (errorMessage.includes('Could not extract') || errorMessage.includes('No items found') || errorCode === 'NOT_PRODUCT_LIST') {
+          errorMessage = 'This image doesn\'t appear to be a product list. Please upload an image of an inventory list, order form, or stock report.';
+        }
+        logger.userError('[parseDocument] Could not parse image', { status: response.status, errorMessage });
+      } else {
+        logger.error('[parseDocument] Server error during parsing', undefined, { status: response.status, errorMessage });
+      }
 
       return {
         success: false,
@@ -126,6 +136,15 @@ export async function parseDocument(
       return {
         success: false,
         error: 'Invalid server response format',
+      };
+    }
+
+    // Check if LLM returned an error (e.g., not a product list)
+    if (data.error === 'not_product_list') {
+      logger.userError('[parseDocument] Image is not a product list');
+      return {
+        success: false,
+        error: 'This image doesn\'t appear to be a product list. Please upload an image of an inventory list, order form, or stock report.',
       };
     }
 
@@ -161,10 +180,10 @@ export async function parseDocument(
 
     // Check if we got any valid items
     if (items.length === 0) {
-      logger.warn('[parseDocument] No valid items extracted from document');
+      logger.userError('[parseDocument] No valid items extracted from document');
       return {
         success: false,
-        error: 'No restock items found. Make sure the image shows a product list, invoice, or stock sheet with item names.',
+        error: 'This image doesn\'t appear to be a product list. Please upload an image of an inventory list, order form, or stock report.',
       };
     }
 
@@ -244,10 +263,12 @@ export async function parseImages(
     // Handle non-OK responses
     if (!response.ok) {
       let errorMessage = `Server error (${response.status})`;
+      let errorCode = '';
       
       try {
         const errorData = await response.json();
         errorMessage = errorData.message || errorData.error || errorMessage;
+        errorCode = errorData.code || '';
       } catch {
         try {
           const errorText = await response.text();
@@ -259,7 +280,17 @@ export async function parseImages(
         }
       }
 
-      logger.error('[parseImages] Server error during batch parsing', { status: response.status, errorMessage });
+      // User-friendly messages for expected errors (400s)
+      if (response.status === 400) {
+        // Make error messages more user-friendly
+        if (errorMessage.includes('Could not extract') || errorCode === 'NOT_PRODUCT_LIST') {
+          errorMessage = 'This image doesn\'t appear to be a product list. Please upload an image of an inventory list, order form, or stock report.';
+        }
+        logger.userError('[parseImages] Could not parse image', { status: response.status, errorMessage });
+      } else {
+        // Actual server errors (500s) - report to Sentry
+        logger.error('[parseImages] Server error during batch parsing', undefined, { status: response.status, errorMessage });
+      }
 
       return {
         success: false,
@@ -276,6 +307,15 @@ export async function parseImages(
       return {
         success: false,
         error: 'Invalid server response format',
+      };
+    }
+
+    // Check if LLM returned an error (e.g., not a product list)
+    if (data.error === 'not_product_list') {
+      logger.userError('[parseImages] Image is not a product list');
+      return {
+        success: false,
+        error: 'This image doesn\'t appear to be a product list. Please upload an image of an inventory list, order form, or stock report.',
       };
     }
 
@@ -311,10 +351,10 @@ export async function parseImages(
 
     // Check if we got any valid items
     if (items.length === 0) {
-      logger.warn('[parseImages] No valid items extracted from batch images');
+      logger.userError('[parseImages] No valid items extracted from batch images');
       return {
         success: false,
-        error: 'No restock items found. Make sure the image shows a product list, invoice, or stock sheet with item names.',
+        error: 'This image doesn\'t appear to be a product list. Please upload an image of an inventory list, order form, or stock report.',
       };
     }
 
