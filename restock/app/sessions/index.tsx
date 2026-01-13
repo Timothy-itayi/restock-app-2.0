@@ -17,6 +17,7 @@ import {
   useSessionStore,
   useActiveSessions
 } from '../../store/useSessionStore';
+import { useSupplierStore } from '../../store/useSupplierStore';
 import type { Session } from '../../lib/helpers/storage/sessions';
 import colors from '@styles/theme/colors';
 import { AlertModal } from '../../components/AlertModal';
@@ -27,9 +28,11 @@ export default function SessionsScreen() {
   const sessions = useSessions();
   const isHydrated = useSessionHydrated();
   const activeSessions = useActiveSessions();
+  const suppliers = useSupplierStore((state) => state.suppliers);
   const loadSessionsFromStorage = useSessionStore((state) => state.loadSessionsFromStorage);
   const createSession = useSessionStore((state) => state.createSession);
   const deleteSession = useSessionStore((state) => state.deleteSession);
+  const deleteSessionsByStatus = useSessionStore((state) => state.deleteSessionsByStatus);
   const { alert, hideAlert, showAlert } = useAlert();
 
   const [loading, setLoading] = useState(true);
@@ -133,6 +136,17 @@ export default function SessionsScreen() {
     setExpandedSessionId(expandedSessionId === sessionId ? null : sessionId);
   };
 
+  const handleClearStatus = (status: Session['status'], label: string) => {
+    showAlert('delete', `Clear all ${label}?`, `This will permanently delete all ${label} sessions.`, [
+      { 
+        text: 'Clear All', 
+        style: 'destructive',
+        onPress: () => deleteSessionsByStatus(status)
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
   const handleSessionPress = (item: Session) => {
     // Close expanded state when navigating
     setExpandedSessionId(null);
@@ -153,8 +167,14 @@ export default function SessionsScreen() {
   const renderSessionItem = ({ item, index, totalCount }: { item: Session; index: number; totalCount: number }) => {
     const statusConfig = getStatusConfig(item.status);
     const itemCount = item.items.length;
-    const canDelete = item.status === 'active' || item.status === 'pendingEmails';
+    const isCompleted = item.status === 'completed';
+    const canDelete = true; // Allow delete for all types now
     const isExpanded = expandedSessionId === item.id;
+
+    // For completed sessions, get supplier names and emails
+    const supplierInfo = isCompleted ? Array.from(new Set(item.items.map(i => i.supplierId).filter(Boolean)))
+      .map(id => suppliers.find(s => s.id === id))
+      .filter(Boolean) : [];
 
     return (
       <View>
@@ -204,21 +224,43 @@ export default function SessionsScreen() {
                 Session #{item.id.slice(-6).toUpperCase()}
               </Text>
 
-              {/* Items Count */}
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons 
-                  name="cube-outline" 
-                  size={14} 
-                  color={colors.cypress.muted} 
-                  style={{ marginRight: 4 }} 
-                />
-                <Text style={{
-                  fontSize: 13,
-                  color: colors.neutral.dark,
-                  fontWeight: '500',
-                }}>
-                  {itemCount} {itemCount === 1 ? 'item' : 'items'}
-                </Text>
+              {/* Items Count and Supplier info */}
+              <View style={{ gap: 4 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons 
+                    name="cube-outline" 
+                    size={14} 
+                    color={colors.cypress.muted} 
+                    style={{ marginRight: 4 }} 
+                  />
+                  <Text style={{
+                    fontSize: 13,
+                    color: colors.neutral.dark,
+                    fontWeight: '500',
+                  }}>
+                    {itemCount} {itemCount === 1 ? 'item' : 'items'}
+                  </Text>
+                </View>
+
+                {isCompleted && supplierInfo.length > 0 && (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2 }}>
+                    {supplierInfo.map((s, idx) => (
+                      <View key={s?.id || idx} style={{ 
+                        flexDirection: 'row', 
+                        alignItems: 'center',
+                        backgroundColor: colors.neutral.lighter,
+                        paddingHorizontal: 6,
+                        paddingVertical: 2,
+                        borderRadius: 4,
+                      }}>
+                        <Ionicons name="mail-outline" size={10} color={colors.neutral.medium} style={{ marginRight: 4 }} />
+                        <Text style={{ fontSize: 10, color: colors.neutral.medium }} numberOfLines={1}>
+                          {s?.email || s?.name}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
             </View>
 
@@ -249,7 +291,7 @@ export default function SessionsScreen() {
                   {statusConfig.label}
                 </Text>
               </View>
-              {canDelete && isExpanded && (
+              {isExpanded && (
                 <TouchableOpacity
                   onPress={(e) => handleDeleteSession(item, e)}
                   style={{
@@ -263,20 +305,16 @@ export default function SessionsScreen() {
                   <Ionicons name="trash-outline" size={18} color={colors.status.error} />
                 </TouchableOpacity>
               )}
-              {canDelete ? (
-                <TouchableOpacity
-                  onPress={(e) => handleChevronPress(item.id, e)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons 
-                    name={isExpanded ? "chevron-back" : "chevron-forward"} 
-                    size={18} 
-                    color={colors.neutral.medium} 
-                  />
-                </TouchableOpacity>
-              ) : (
-                <Ionicons name="chevron-forward" size={18} color={colors.neutral.medium} />
-              )}
+              <TouchableOpacity
+                onPress={(e) => handleChevronPress(item.id, e)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons 
+                  name={isExpanded ? "chevron-back" : "chevron-forward"} 
+                  size={18} 
+                  color={colors.neutral.medium} 
+                />
+              </TouchableOpacity>
             </View>
           </View>
         </TouchableOpacity>
@@ -297,7 +335,8 @@ export default function SessionsScreen() {
     title: string, 
     sessionsList: Session[], 
     accentColor: string,
-    icon: string
+    icon: string,
+    statusToClear?: Session['status']
   ) => {
     if (sessionsList.length === 0) return null;
 
@@ -328,19 +367,41 @@ export default function SessionsScreen() {
                 {title}
               </Text>
             </View>
-            <View style={{
-              backgroundColor: accentColor + '20',
-              paddingHorizontal: 10,
-              paddingVertical: 4,
-              borderRadius: 12,
-            }}>
-              <Text style={{
-                fontSize: 12,
-                fontWeight: '700',
-                color: accentColor,
+            
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {statusToClear && sessionsList.length > 0 && (
+                <TouchableOpacity 
+                  onPress={() => handleClearStatus(statusToClear, title)}
+                  style={{
+                    backgroundColor: colors.status.error + '15',
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderRadius: 6,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  <Ionicons name="trash-outline" size={12} color={colors.status.error} />
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: colors.status.error }}>
+                    CLEAR ALL
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <View style={{
+                backgroundColor: accentColor + '20',
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: 12,
               }}>
-                {sessionsList.length}
-              </Text>
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '700',
+                  color: accentColor,
+                }}>
+                  {sessionsList.length}
+                </Text>
+              </View>
             </View>
           </View>
         </View>
@@ -501,13 +562,15 @@ export default function SessionsScreen() {
               'Completed', 
               groupedSessions.completed, 
               colors.brand.primary,
-              'checkmark-circle-outline'
+              'checkmark-circle-outline',
+              'completed'
             )}
             {renderSessionGroup(
               'Cancelled', 
               groupedSessions.cancelled, 
               colors.neutral.medium,
-              'close-circle-outline'
+              'close-circle-outline',
+              'cancelled'
             )}
           </View>
         )}

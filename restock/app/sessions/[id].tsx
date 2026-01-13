@@ -157,41 +157,53 @@ export default function SessionDetailScreen() {
     </TouchableOpacity>
   );
 
-  const renderSupplierGroup = ({ item: group }: any) => (
-    <View style={{ marginBottom: 24 }}>
-      <View style={{ 
-        flexDirection: 'row',
-        alignItems: 'baseline',
-        paddingHorizontal: 0, 
-        paddingVertical: 12, 
-        marginBottom: 8,
-        borderBottomWidth: 2,
-        borderBottomColor: '#6B7F6B',
-        backgroundColor: '#f9f9f9',
-        paddingLeft: 8,
-        borderRadius: 4,
-      }}>
-        <Text style={{ 
-          fontSize: 16, 
-          fontWeight: '800', 
-          color: '#6B7F6B',
-          flex: 1,
-          textTransform: 'uppercase',
-          letterSpacing: 0.8,
-        }}>
-          {group.supplierName}
-        </Text>
-      </View>
+  const renderSupplierGroup = ({ item: group }: any) => {
+    const isCompleted = session?.status === 'completed';
+    const supplierEmail = suppliers.find(s => s.id === group.supplierId)?.email;
 
-      <FlatList
-        data={group.items}
-        keyExtractor={(i) => i.id}
-        renderItem={renderItem}
-        scrollEnabled={false}
-        contentContainerStyle={{ paddingHorizontal: 8 }}
-      />
-    </View>
-  );
+    return (
+      <View style={{ marginBottom: 24 }}>
+        <View style={{ 
+          flexDirection: 'row',
+          alignItems: 'baseline',
+          paddingHorizontal: 0, 
+          paddingVertical: 12, 
+          marginBottom: 8,
+          borderBottomWidth: 2,
+          borderBottomColor: '#6B7F6B',
+          backgroundColor: '#f9f9f9',
+          paddingLeft: 8,
+          borderRadius: 4,
+        }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ 
+              fontSize: 16, 
+              fontWeight: '800', 
+              color: '#6B7F6B',
+              textTransform: 'uppercase',
+              letterSpacing: 0.8,
+            }}>
+              {group.supplierName}
+            </Text>
+            {isCompleted && supplierEmail && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                <Ionicons name="mail-outline" size={12} color="#999" style={{ marginRight: 4 }} />
+                <Text style={{ fontSize: 12, color: '#999' }}>{supplierEmail}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        <FlatList
+          data={group.items}
+          keyExtractor={(i) => i.id}
+          renderItem={renderItem}
+          scrollEnabled={false}
+          contentContainerStyle={{ paddingHorizontal: 8 }}
+        />
+      </View>
+    );
+  };
 
   const itemCount = session.items.length;
   const supplierCount = supplierGroups.length;

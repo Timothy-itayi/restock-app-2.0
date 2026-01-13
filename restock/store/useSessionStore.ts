@@ -17,6 +17,7 @@ type SessionStore = {
   getSession: (id: string) => Session | undefined;
   updateSession: (id: string, updates: Partial<Session>) => void;
   deleteSession: (id: string) => void;
+  deleteSessionsByStatus: (status: Session['status']) => void;
 
   // Items
   addItemToSession: (sessionId: string, item: SessionItem) => void;
@@ -80,6 +81,12 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     const updated = get().sessions.filter((s) => s.id !== id);
     set({ sessions: updated });
     setSessions(updated).catch(err => logger.error('Failed to save sessions after delete', err));
+  },
+
+  deleteSessionsByStatus: (status) => {
+    const updated = get().sessions.filter((s) => s.status !== status);
+    set({ sessions: updated });
+    setSessions(updated).catch(err => logger.error(`Failed to save sessions after clearing ${status}`, err));
   },
 
   //----------------------------------------------------------------------
