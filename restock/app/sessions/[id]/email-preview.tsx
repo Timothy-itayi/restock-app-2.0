@@ -103,6 +103,14 @@ export default function EmailPreviewScreen() {
       return false;
     }
 
+    if (!draft.supplierEmail || !draft.supplierEmail.trim()) {
+      showAlert('warning', 'Missing Email', `Supplier "${draft.supplierName}" does not have an email address. Please add it in the Suppliers section before sending.`, [
+        { text: 'Go to Suppliers', onPress: () => router.push('/suppliers') },
+        { text: 'Cancel', style: 'cancel' }
+      ]);
+      return false;
+    }
+
     try {
       const emailRequest = {
         to: draft.supplierEmail,
@@ -156,6 +164,22 @@ export default function EmailPreviewScreen() {
   const handleSendAll = async () => {
     logger.info('[EmailPreview] handleSendAll called', { sessionId: id, draftCount: emailDrafts.length });
     setShowConfirm(false);
+
+    // Filter drafts that haven't been sent yet
+    const pendingDrafts = emailDrafts.filter(d => !sentDrafts.has(d.supplierId));
+    
+    // Check for missing supplier emails
+    const missingEmails = pendingDrafts.filter(d => !d.supplierEmail || !d.supplierEmail.trim());
+    
+    if (missingEmails.length > 0) {
+      const names = missingEmails.map(d => d.supplierName).join(', ');
+      showAlert('warning', 'Missing Emails', `The following suppliers are missing email addresses: ${names}. Please add them in the Suppliers section before sending all.`, [
+        { text: 'Go to Suppliers', onPress: () => router.push('/suppliers') },
+        { text: 'Cancel', style: 'cancel' }
+      ]);
+      return;
+    }
+
     setSending(true);
 
     try {
@@ -163,21 +187,16 @@ export default function EmailPreviewScreen() {
       let failureCount = 0;
       const errors: string[] = [];
 
-      for (const draft of emailDrafts) {
-        // Skip already sent
-        if (sentDrafts.has(draft.supplierId)) {
-          successCount++;
-          continue;
-        }
-
+      for (const draft of pendingDrafts) {
         try {
           const success = await sendIndividualEmail(draft);
           if (success) {
             successCount++;
             setSentDrafts(prev => new Set([...prev, draft.supplierId]));
           } else {
+            // Note: sendIndividualEmail already handles showAlert for missing email or sender profile
+            // If it returns false for other reasons, we track it
             failureCount++;
-            errors.push(`${draft.supplierName}: Failed to send`);
           }
         } catch (err: any) {
           failureCount++;
