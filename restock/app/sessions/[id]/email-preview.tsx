@@ -22,7 +22,6 @@ import { EmailsSummary } from '../../../components/emails/EmailsSummary';
 import { EmailCard } from '../../../components/emails/EmailCard';
 import  {EmailEditModal } from '../../../components/emails/EmailEditModal';
 import { SendConfirmationModal } from '../../../components/emails/SendConfirmationModal';
-import { SuccessModal } from '../../../components/emails/SuccessModal';
 import { EmailDetailModal } from '../../../components/emails/EmailEditModal';
 import { Toast } from '../../../components/Toast';
 import { useToast } from '../../../lib/hooks/useToast';
@@ -47,12 +46,10 @@ export default function EmailPreviewScreen() {
   const [editedDrafts, setEditedDrafts] = useState<Record<string, { subject: string; body: string }>>({});
   const [showConfirm, setShowConfirm] = useState(false);
   const [sending, setSending] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [individualSending, setIndividualSending] = useState<Record<string, boolean>>({});
+  const [sentDrafts, setSentDrafts] = useState<Set<string>>(new Set());
   const { toast, showError, hideToast } = useToast();
   const { goToSessionList, goBack } = useSessionNavigation();
-
-  // Note: Session deletion navigation is handled explicitly in handleDelete.
-  // We don't use useEffect here to avoid race conditions with duplicate navigations.
 
   // Build supplier → items grouping using centralized utility
   const emailDrafts = useMemo(() => {
@@ -73,18 +70,10 @@ export default function EmailPreviewScreen() {
     // Helper function to generate default email body
     const generateEmailBody = (supplierName: string, items: typeof session.items) => {
       const productList = formatProductList(items);
-      const storeName = senderProfile?.storeName || 'our store';
+      const userName = senderProfile?.name || 'Customer';
+      const storeNameDisplay = senderProfile?.storeName ? ` from ${senderProfile.storeName}` : '';
       
-      return `Hi ${supplierName || 'there'},
-
-I'd like to place an order for the following items:
-
-${productList}
-
-Please let me know if you have any questions or if any items are unavailable.
-
-Thank you,
-${senderProfile?.name || 'Customer'}`;
+      return `Hi ${supplierName || 'there'},\n\nI'd like to place an order for the following items:\n\n${productList}\n\nPlease let me know if you have any questions or if any items are unavailable.\n\nThank you,\n${userName}${storeNameDisplay}`;
     };
 
     // Use centralized grouping utility
@@ -106,23 +95,63 @@ ${senderProfile?.name || 'Customer'}`;
     });
   }, [session, suppliers, editedDrafts, senderProfile]);
 
-  // Early return after all hooks are called - but handle gracefully
-  if (!session) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={sessionStyles.stickyHeader}>
-          <TouchableOpacity onPress={goBack} style={sessionStyles.stickyBackButton}>
-            <Ionicons name="chevron-back" size={24} color="#333" />
-          </TouchableOpacity>
-          <Text style={sessionStyles.stickyHeaderTitle}>Email Preview</Text>
-        </View>
-        <View style={{ padding: 16 }}>
-          <Text style={sessionStyles.emptyStateText}>Session not found.</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  // Reusable individual send logic
+  const sendIndividualEmail = async (draft: any) => {
+    const replyToEmail = senderProfile?.email;
+    if (!replyToEmail) {
+      showError('Sender email required', 'Please set your email in settings before sending.');
+      return false;
+    }
 
+    try {
+      const emailRequest = {
+        to: draft.supplierEmail,
+        replyTo: replyToEmail,
+        subject: draft.subject,
+        text: draft.body,
+        items: draft.items.map((item: any) => ({
+          productName: item.productName,
+          quantity: item.quantity || 1,
+        })),
+        storeName: senderProfile?.storeName || senderProfile?.name || 'Restock App',
+      };
+
+      const result = await sendEmail(emailRequest);
+      if (!result.success) {
+        throw new Error(result.message || result.error || 'Failed to send');
+      }
+      return true;
+    } catch (err: any) {
+      logger.error(`[EmailPreview] Individual send failed for ${draft.supplierName}`, err);
+      throw err;
+    }
+  };
+
+  const handleSendSingle = async (draft: any) => {
+    setIndividualSending(prev => ({ ...prev, [draft.supplierId]: true }));
+    try {
+      const success = await sendIndividualEmail(draft);
+      if (success) {
+        setSentDrafts(prev => new Set([...prev, draft.supplierId]));
+        
+        // If all drafts are now sent, complete the session
+        const allSent = emailDrafts.every(d => 
+          d.supplierId === draft.supplierId || sentDrafts.has(d.supplierId)
+        );
+        
+        if (allSent) {
+          updateSession(id, { status: 'completed' });
+          showAlert('success', 'Emails Sent!', 'Successfully sent all orders to your suppliers.', [
+            { text: 'Done', onPress: handleSuccessClose }
+          ]);
+        }
+      }
+    } catch (err: any) {
+      showAlert('error', 'Send Failed', `Failed to send to ${draft.supplierName}: ${err.message}`);
+    } finally {
+      setIndividualSending(prev => ({ ...prev, [draft.supplierId]: false }));
+    }
+  };
 
   const handleSendAll = async () => {
     logger.info('[EmailPreview] handleSendAll called', { sessionId: id, draftCount: emailDrafts.length });
@@ -134,103 +163,49 @@ ${senderProfile?.name || 'Customer'}`;
       let failureCount = 0;
       const errors: string[] = [];
 
-      // Get sender email for replyTo
-      const replyToEmail = senderProfile?.email;
-      
-      if (!replyToEmail) {
-        logger.error('[EmailPreview] No sender email found in profile');
-        setSending(false);
-        showError(
-          'Sender email required',
-          'Please set your email in settings before sending emails.'
-        );
-        return;
-      }
-
-      logger.info(`[EmailPreview] Starting to send ${emailDrafts.length} emails`);
-      
       for (const draft of emailDrafts) {
-        logger.debug(`[EmailPreview] Sending email to ${draft.supplierName}`, {
-          supplierEmail: draft.supplierEmail,
-          subject: draft.subject,
-          itemsCount: draft.items.length,
-        });
-        
+        // Skip already sent
+        if (sentDrafts.has(draft.supplierId)) {
+          successCount++;
+          continue;
+        }
+
         try {
-          // Use the sendEmail API client
-          // Send items so backend can format HTML version
-          const emailRequest = {
-            to: draft.supplierEmail,
-            replyTo: replyToEmail,
-            subject: draft.subject,
-            text: draft.body,
-            items: draft.items.map(item => ({
-              productName: item.productName,
-              quantity: item.quantity || 1,
-            })),
-            storeName: senderProfile?.storeName || senderProfile?.name || 'Restock App',
-          };
-          
-          const result = await sendEmail(emailRequest);
-          
-          if (!result.success) {
-            failureCount++;
-            const errorMsg = `${draft.supplierName}: ${result.message || result.error || 'Failed to send'}`;
-            logger.error(`[EmailPreview] Failed to send to ${draft.supplierName}`, { errorMsg });
-            errors.push(errorMsg);
-          } else {
+          const success = await sendIndividualEmail(draft);
+          if (success) {
             successCount++;
-            logger.info(`[EmailPreview] Successfully sent to ${draft.supplierName}`);
+            setSentDrafts(prev => new Set([...prev, draft.supplierId]));
+          } else {
+            failureCount++;
+            errors.push(`${draft.supplierName}: Failed to send`);
           }
-        } catch (draftError: any) {
+        } catch (err: any) {
           failureCount++;
-          const errorMsg = `${draft.supplierName}: ${draftError.message || 'Network error'}`;
-          logger.error(`[EmailPreview] Exception sending to ${draft.supplierName}`, draftError);
-          errors.push(errorMsg);
+          errors.push(`${draft.supplierName}: ${err.message}`);
         }
       }
       
-      logger.info(`[EmailPreview] Send complete`, { successCount, failureCount });
-
       setSending(false);
 
-      // If all failed, show error toast
-      if (successCount === 0) {
-        showError(
-          'Failed to send emails',
-          errors.length > 0 ? errors.slice(0, 2).join(', ') : 'Please try again'
-        );
-        return;
-      }
-
-      // If some failed, show warning toast
-      if (failureCount > 0) {
-        showError(
-          `${failureCount} ${failureCount === 1 ? 'email' : 'emails'} failed to send`,
-          errors.slice(0, 2).join(', ')
-        );
-      }
-
-      // Show success modal if at least one succeeded
       if (successCount > 0) {
-        // Update session status to completed
         updateSession(id, { status: 'completed' });
-        logger.info(`[EmailPreview] Updated session status to completed`, { sessionId: id });
-        setShowSuccess(true);
+        const message = failureCount > 0 
+          ? `Successfully sent ${successCount} orders, but ${failureCount} failed.`
+          : `Successfully sent ${successCount} ${successCount === 1 ? 'order' : 'orders'} to your suppliers.`;
+        
+        showAlert(failureCount > 0 ? 'warning' : 'success', 'Emails Sent', message, [
+          { text: 'Done', onPress: handleSuccessClose }
+        ]);
+      } else if (failureCount > 0) {
+        showAlert('error', 'Send Failed', `All ${failureCount} emails failed to send. Please check your connection and try again.`);
       }
-
     } catch (err: any) {
-      logger.error('[EmailPreview] Fatal error in handleSendAll', err);
       setSending(false);
-      showError(
-        'Error sending emails',
-        err.message || 'An unexpected error occurred. Please try again.'
-      );
+      showAlert('error', 'System Error', err.message || 'An unexpected error occurred.');
     }
   };
 
   const handleSuccessClose = () => {
-    setShowSuccess(false);
     goToSessionList();
   };
 
@@ -272,7 +247,14 @@ ${senderProfile?.name || 'Customer'}`;
         <TouchableOpacity onPress={handleBackPress} style={sessionStyles.stickyBackButton}>
           <Ionicons name="chevron-back" size={24} color={colors.neutral.darkest} />
         </TouchableOpacity>
-        <Text style={sessionStyles.stickyHeaderTitle}>Email Preview</Text>
+        <Text style={[sessionStyles.stickyHeaderTitle, { flex: 1 }]}>Email Preview</Text>
+        <TouchableOpacity 
+          onPress={handleDelete}
+          style={{ padding: 8 }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="trash-outline" size={22} color={colors.status.error} />
+        </TouchableOpacity>
       </View>
 
       <EmailsSummary 
@@ -282,21 +264,14 @@ ${senderProfile?.name || 'Customer'}`;
         storeName={senderProfile?.storeName || undefined}
       />
 
-      {/* Edit Products and Delete Buttons */}
+      {/* Edit Products Button */}
       <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 }}>
         <TouchableOpacity
-          style={[sessionStyles.secondaryButton, { marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
+          style={[sessionStyles.secondaryButton, { marginBottom: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
           onPress={() => router.push(`/sessions/${id}/edit-product`)}
         >
           <Ionicons name="create-outline" size={18} color="#666" style={{ marginRight: 8 }} />
           <Text style={sessionStyles.secondaryButtonText}>Edit Products</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[sessionStyles.secondaryButton, { borderColor: '#CC0000', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
-          onPress={handleDelete}
-        >
-          <Ionicons name="trash-outline" size={18} color="#CC0000" style={{ marginRight: 8 }} />
-          <Text style={[sessionStyles.secondaryButtonText, { color: '#CC0000' }]}>Delete Session</Text>
         </TouchableOpacity>
       </View>
 
@@ -306,13 +281,16 @@ ${senderProfile?.name || 'Customer'}`;
             key={draft.supplierId}
             email={draft}
             onEdit={() => setEditDraft(draft)}
+            onSend={() => handleSendSingle(draft)}
             onTap={() => setSelectedDraft(draft)}
+            isSending={individualSending[draft.supplierId]}
+            isSent={sentDrafts.has(draft.supplierId)}
           />
         ))}
       </ScrollView>
 
       {/* Send All */}
-      {!sending && !showSuccess && (
+      {!sending && (
         <View style={styles.actionButtonContainer}>
           <TouchableOpacity
             style={styles.doneButton}
@@ -338,12 +316,6 @@ ${senderProfile?.name || 'Customer'}`;
         emailCount={emailDrafts.length}
         onConfirm={handleSendAll}
         onCancel={() => setShowConfirm(false)}
-      />
-
-      <SuccessModal
-        visible={showSuccess}
-        emailCount={emailDrafts.length}
-        onClose={handleSuccessClose}
       />
 
       {/* Toast */}

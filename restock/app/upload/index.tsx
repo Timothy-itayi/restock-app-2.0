@@ -335,7 +335,7 @@ export default function UploadScreen() {
       return;
     }
     const newItem: ParsedItem = {
-      id: `manual-${Date.now()}`,
+      id: `manual-${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
       product: manualProduct.trim(),
       supplier: manualSupplier.trim(),
       quantity: manualQuantity ? parseInt(manualQuantity) || undefined : undefined,

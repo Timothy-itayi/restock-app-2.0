@@ -208,26 +208,18 @@ export default function SuppliersScreen() {
                 />
               </View>
 
-              <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
                 <TouchableOpacity
                   onPress={saveSupplier}
-                  style={[styles.saveButton, { flex: 1, paddingVertical: 12 }]}
+                  style={[styles.saveButton, { flex: 1 }]}
                 >
                   <Text style={styles.saveButtonText}>Save Changes</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={cancel}
-                  style={{
-                    flex: 1,
-                    paddingVertical: 12,
-                    backgroundColor: colors.neutral.lightest,
-                    borderRadius: 8,
-                    alignItems: 'center',
-                    borderWidth: 1,
-                    borderColor: colors.neutral.light,
-                  }}
+                  style={[styles.cancelButton, { flex: 1 }]}
                 >
-                  <Text style={{ color: colors.neutral.dark, fontWeight: '600', fontSize: 14 }}>Cancel</Text>
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -404,7 +396,7 @@ export default function SuppliersScreen() {
 
                 <TouchableOpacity
                   onPress={saveSupplier}
-                  style={styles.saveButton}
+                  style={[styles.saveButton, { marginTop: 16 }]}
                 >
                   <Text style={styles.saveButtonText}>Add Supplier</Text>
                 </TouchableOpacity>

@@ -3,7 +3,8 @@ import {
   View,
   Text,
   TouchableOpacity,
-  SafeAreaView
+  SafeAreaView,
+  ScrollView
 } from 'react-native';
 import { router, Redirect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -124,7 +125,12 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.contentContainer}>
+      <ScrollView 
+        style={styles.container} 
+        contentContainerStyle={styles.contentContainer}
+        scrollEnabled={showTips}
+        showsVerticalScrollIndicator={false}
+      >
         
       <View style={styles.welcomeSection}>
         {/* TOP ROW: Welcome + Name + Help Icon */}
@@ -345,7 +351,7 @@ export default function DashboardScreen() {
           </View>
         )}
 
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

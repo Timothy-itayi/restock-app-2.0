@@ -42,7 +42,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     const state = get();
 
     const newSession: Session = {
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
       createdAt: Date.now(),
       status: 'active',
       items: []

@@ -94,9 +94,30 @@ export async function getSessions(): Promise<Session[]> {
     }
     
     const validSessions: Session[] = [];
+    const seenSessionIds = new Set<string>();
+
     for (const session of sessions) {
       if (isValidSession(session)) {
-        const validItems = session.items.filter(isValidSessionItem);
+        if (seenSessionIds.has(session.id)) {
+          logger.warn('[Sessions] Duplicate session ID found during load, skipping', { id: session.id });
+          continue;
+        }
+        seenSessionIds.add(session.id);
+
+        const validItems: SessionItem[] = [];
+        const seenItemIds = new Set<string>();
+
+        for (const item of session.items) {
+          if (isValidSessionItem(item)) {
+            if (seenItemIds.has(item.id)) {
+              logger.warn('[Sessions] Duplicate item ID found in session during load, skipping', { sessionId: session.id, itemId: item.id });
+              continue;
+            }
+            seenItemIds.add(item.id);
+            validItems.push(item);
+          }
+        }
+
         validSessions.push({
           ...session,
           items: validItems

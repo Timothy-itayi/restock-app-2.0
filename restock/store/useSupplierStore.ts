@@ -32,7 +32,7 @@ export const useSupplierStore = create<SupplierStore>((set, get) => ({
   //------------------------------------------------------------------
   addSupplier: (name, email) => {
     const newSupplier: Supplier = {
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
       name,
       email,
     };
@@ -86,7 +86,14 @@ export const useSupplierStore = create<SupplierStore>((set, get) => ({
     try {
       const saved = await getVersionedJSON<Supplier[]>(STORAGE_KEY);
       if (saved) {
-        set({ suppliers: saved, isHydrated: true });
+        // Deduplicate by ID to fix any existing corrupt state from previous sloppy ID generation
+        const seen = new Set();
+        const deduplicated = saved.filter(s => {
+          if (seen.has(s.id)) return false;
+          seen.add(s.id);
+          return true;
+        });
+        set({ suppliers: deduplicated, isHydrated: true });
       } else {
         set({ isHydrated: true });
       }

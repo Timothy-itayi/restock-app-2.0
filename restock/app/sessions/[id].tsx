@@ -203,7 +203,14 @@ export default function SessionDetailScreen() {
         <TouchableOpacity onPress={sessionNavigation.goBack} style={styles.stickyBackButton}>
           <Ionicons name="chevron-back" size={24} color={colors.neutral.darkest} />
         </TouchableOpacity>
-        <Text style={styles.stickyHeaderTitle}>Session Details</Text>
+        <Text style={[styles.stickyHeaderTitle, { flex: 1 }]}>Session Details</Text>
+        <TouchableOpacity 
+          onPress={handleDelete}
+          style={{ padding: 8 }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="trash-outline" size={22} color={colors.status.error} />
+        </TouchableOpacity>
       </View>
 
       {/* Sticky Action Bar */}
@@ -320,24 +327,16 @@ export default function SessionDetailScreen() {
                 <Text style={styles.primaryButtonText}>Add First Product</Text>
               </TouchableOpacity>
             )}
-            {/* Delete button for empty sessions */}
+            {/* Cancel button for empty active sessions */}
             <View style={{ marginTop: 24, width: '100%', maxWidth: 300 }}>
               {session.status === 'active' && (
                 <TouchableOpacity 
-                  style={[styles.secondaryButton, { borderColor: '#999', marginBottom: 12 }]} 
+                  style={[styles.secondaryButton, { borderColor: '#999' }]} 
                   onPress={handleCancel}
                 >
                   <Text style={[styles.secondaryButtonText, { color: '#666' }]}>Cancel Session</Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity
-                style={[styles.secondaryButton, { borderColor: '#CC0000' }]}
-                onPress={handleDelete}
-              >
-                <Text style={[styles.secondaryButtonText, { color: '#CC0000' }]}>
-                  Delete Session
-                </Text>
-              </TouchableOpacity>
             </View>
           </View>
         ) : supplierGroups.length === 0 ? (
@@ -364,15 +363,6 @@ export default function SessionDetailScreen() {
                     <Text style={[styles.secondaryButtonText, { color: '#666' }]}>Cancel Session</Text>
                   </TouchableOpacity>
                 )}
-                
-                <TouchableOpacity
-                  style={[styles.secondaryButton, { borderColor: '#CC0000', marginTop: 12 }]}
-                  onPress={handleDelete}
-                >
-                  <Text style={[styles.secondaryButtonText, { color: '#CC0000' }]}>
-                    Delete Session
-                  </Text>
-                </TouchableOpacity>
               </View>
             )}
           />
