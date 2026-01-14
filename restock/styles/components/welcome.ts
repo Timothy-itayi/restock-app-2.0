@@ -37,7 +37,7 @@ export const welcomeStyles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    paddingTop: 60,
+    paddingTop: 40,
     paddingBottom: 1,
     paddingHorizontal: 20,
     alignItems: 'center',

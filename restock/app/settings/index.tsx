@@ -24,6 +24,9 @@ import {
   useSenderProfileStore,
   useSenderProfileHydrated
 } from '../../store/useSenderProfileStore';
+import { useSupplierStore } from '../../store/useSupplierStore';
+import { useSessionStore } from '../../store/useSessionStore';
+import { useCompanyStore } from '../../store/useCompanyStore';
 
 export default function SettingsScreen() {
   const styles = useThemedStyles(getSettingsStyles);
@@ -116,8 +119,15 @@ export default function SettingsScreen() {
   const handleResetConfirm = async () => {
     setShowResetModal(false);
     try {
+      // Clear all persisted storage
       await AsyncStorage.clear();
+      
+      // Clear all in-memory Zustand state
       useSenderProfileStore.getState().clearProfile();
+      useSupplierStore.getState().deleteAllSuppliers();
+      useSessionStore.setState({ sessions: [], isHydrated: false });
+      await useCompanyStore.getState().leaveCompany();
+      
       router.replace('/welcome');
     } catch (error) {
       showError('Reset Failed', 'An error occurred while resetting data. Please try again.');

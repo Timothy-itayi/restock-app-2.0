@@ -27,20 +27,26 @@ const walkthroughSlides: WalkthroughSlide[] = [
   {
     id: 1,
     title: 'Walk',
-    subtitle: 'Move through your store easily',
+    subtitle: 'Check your shelves like you always do',
     image: require('../assets/images/onboarding/walk.jpeg')
   },
   {
     id: 2,
-    title: 'Log',
-    subtitle: 'Capture products as you go',
-    image: require('../assets/images/onboarding/4bf2de6a-1231-47ee-b646-3f98dbdc052a.jpeg')
+    title: 'Snap',
+    subtitle: 'Take a photo of your list or clipboard.',
+    image: require('../assets/images/onboarding/snap.jpeg')
   },
   {
     id: 3,
+    title: 'Review',
+    subtitle: 'See what Restock pulled out. Edit anything that\'s off.',
+    image: require('../assets/images/onboarding/review.jpeg')
+  },
+  {
+    id: 4,
     title: 'Send',
-    subtitle: 'Generate emails instantly',
-    image: require('../assets/images/onboarding/b4097274-1909-4165-9f62-7aca86ab3316.jpeg')
+    subtitle: 'One tap per supplier. Done.',
+    image: require('../assets/images/onboarding/send.jpeg')
   }
 ];
 
